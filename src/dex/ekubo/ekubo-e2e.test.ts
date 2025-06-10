@@ -15,10 +15,6 @@ import { ContractMethod, Network, SwapSide } from '../../constants';
 function testForNetwork(
   network: Network,
   dexKey: string,
-  tokenASymbol: string,
-  tokenBSymbol: string,
-  tokenAAmount: string,
-  tokenBAmount: string,
   nativeTokenAmount: string,
 ) {
   const provider = new StaticJsonRpcProvider(
@@ -34,62 +30,106 @@ function testForNetwork(
     [SwapSide.BUY, [ContractMethod.swapExactAmountOut]],
   ]);
 
+  const tokensToTest = [
+    [
+      {
+        symbol: 'WBTC',
+        amount: '100000000',
+        withNative: true,
+      },
+      {
+        symbol: 'cbBTC',
+        amount: '100000000',
+        withNative: false,
+      },
+    ],
+    [
+      {
+        symbol: 'USDC',
+        amount: '10000000',
+        withNative: false,
+      },
+      {
+        symbol: 'USDT',
+        amount: '10000000',
+        withNative: true,
+      },
+    ],
+  ];
+
   describe(`${network}`, () => {
     sideToContractMethods.forEach((contractMethods, side) =>
       describe(`${side}`, () => {
         contractMethods.forEach((contractMethod: ContractMethod) => {
           describe(`${contractMethod}`, () => {
-            it(`${nativeTokenSymbol} -> ${tokenASymbol}`, async () => {
-              await testE2E(
-                tokens[nativeTokenSymbol],
-                tokens[tokenASymbol],
-                holders[nativeTokenSymbol],
-                side === SwapSide.SELL ? nativeTokenAmount : tokenAAmount,
+            function test(
+              srcTokenSymbol: string,
+              destTokenSymbol: string,
+              amount: string,
+              side: SwapSide,
+            ) {
+              return testE2E(
+                tokens[srcTokenSymbol],
+                tokens[destTokenSymbol],
+                holders[srcTokenSymbol],
+                amount,
                 side,
                 dexKey,
                 contractMethod,
                 network,
                 provider,
               );
-            });
-            it(`${tokenASymbol} -> ${nativeTokenSymbol}`, async () => {
-              await testE2E(
-                tokens[tokenASymbol],
-                tokens[nativeTokenSymbol],
-                holders[tokenASymbol],
-                side === SwapSide.SELL ? tokenAAmount : nativeTokenAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
-            });
-            it(`${tokenASymbol} -> ${tokenBSymbol}`, async () => {
-              await testE2E(
-                tokens[tokenASymbol],
-                tokens[tokenBSymbol],
-                holders[tokenASymbol],
-                side === SwapSide.SELL ? tokenAAmount : tokenBAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
-            });
-            it(`${tokenBSymbol} -> ${tokenASymbol}`, async () => {
-              await testE2E(
-                tokens[tokenBSymbol],
-                tokens[tokenASymbol],
-                holders[tokenBSymbol],
-                side === SwapSide.SELL ? tokenBAmount : tokenAAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
+            }
+
+            tokensToTest.forEach(([tokenA, tokenB]) => {
+              it(`${tokenA.symbol} -> ${tokenB.symbol}`, () =>
+                test(
+                  tokenA.symbol,
+                  tokenB.symbol,
+                  side === SwapSide.SELL ? tokenA.amount : tokenB.amount,
+                  side,
+                ));
+              it(`${tokenB.symbol} -> ${tokenA.symbol}`, () =>
+                test(
+                  tokenB.symbol,
+                  tokenA.symbol,
+                  side === SwapSide.SELL ? tokenB.amount : tokenA.amount,
+                  side,
+                ));
+
+              if (tokenA.withNative) {
+                it(`${tokenA.symbol} -> ${nativeTokenSymbol}`, () =>
+                  test(
+                    tokenA.symbol,
+                    nativeTokenSymbol,
+                    side === SwapSide.SELL ? tokenA.amount : nativeTokenAmount,
+                    side,
+                  ));
+                it(`${nativeTokenSymbol} -> ${tokenA.symbol}`, () =>
+                  test(
+                    nativeTokenSymbol,
+                    tokenA.symbol,
+                    side === SwapSide.SELL ? nativeTokenAmount : tokenA.amount,
+                    side,
+                  ));
+              }
+
+              if (tokenB.withNative) {
+                it(`${tokenB.symbol} -> ${nativeTokenSymbol}`, () =>
+                  test(
+                    tokenB.symbol,
+                    nativeTokenSymbol,
+                    side === SwapSide.SELL ? tokenB.amount : nativeTokenAmount,
+                    side,
+                  ));
+                it(`${nativeTokenSymbol} -> ${tokenB.symbol}`, () =>
+                  test(
+                    nativeTokenSymbol,
+                    tokenB.symbol,
+                    side === SwapSide.SELL ? nativeTokenAmount : tokenB.amount,
+                    side,
+                  ));
+              }
             });
           });
         });
@@ -103,22 +143,8 @@ describe('Ekubo E2E', () => {
 
   describe('Mainnet', () => {
     const network = Network.MAINNET;
-
-    const tokenASymbol: string = 'USDC';
-    const tokenBSymbol: string = 'USDT';
-
-    const tokenAAmount: string = '10000000';
-    const tokenBAmount: string = '10000000';
     const nativeTokenAmount = '1000000000000000';
 
-    testForNetwork(
-      network,
-      dexKey,
-      tokenASymbol,
-      tokenBSymbol,
-      tokenAAmount,
-      tokenBAmount,
-      nativeTokenAmount,
-    );
+    testForNetwork(network, dexKey, nativeTokenAmount);
   });
 });
