@@ -15,7 +15,7 @@ import { EkuboPool } from './pools/iface';
 import { OraclePool } from './pools/oracle';
 import { TwammPool } from './pools/twamm';
 import { PoolConfig, PoolKey } from './pools/utils';
-import { contractsFromDexParams } from './types';
+import { contractsFromDexParams } from './utils';
 
 jest.setTimeout(50 * 1000);
 
@@ -122,7 +122,7 @@ describe('Ekubo Mainnet', function () {
   const network = Network.MAINNET;
   const dexHelper = new DummyDexHelper(network);
   const config = EkuboConfig[dexKey][network];
-  const contracts = contractsFromDexParams(config, dexHelper);
+  const contracts = contractsFromDexParams(config, dexHelper.provider);
   const logger = dexHelper.getLogger(dexKey);
 
   const baseEthUsdcPoolKey = new PoolKey(

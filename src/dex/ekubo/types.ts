@@ -1,12 +1,6 @@
 import { Interface } from '@ethersproject/abi';
 import { BigNumber, Contract } from 'ethers';
-import { IDexHelper } from '../../dex-helper';
 import { PoolKey } from '../synthetix/types';
-
-import CoreABI from '../../abi/ekubo/core.json';
-import DataFetcherABI from '../../abi/ekubo/data-fetcher.json';
-import TwammDataFetcherABI from '../../abi/ekubo/twamm-data-fetcher.json';
-import TwammABI from '../../abi/ekubo/twamm.json';
 
 export type Pool = {
   key: PoolKey;
@@ -64,32 +58,6 @@ export type EkuboContract = {
 };
 
 export type EkuboContracts = Record<'core' | 'twamm', EkuboContract>;
-
-export function contractsFromDexParams(
-  params: DexParams,
-  dexHelper: IDexHelper,
-): EkuboContracts {
-  return {
-    core: {
-      contract: new Contract(params.core, CoreABI, dexHelper.provider),
-      interface: new Interface(CoreABI),
-      dataFetcher: new Contract(
-        params.dataFetcher,
-        DataFetcherABI,
-        dexHelper.provider,
-      ),
-    },
-    twamm: {
-      contract: new Contract(params.twamm, TwammABI, dexHelper.provider),
-      interface: new Interface(TwammABI),
-      dataFetcher: new Contract(
-        params.twammDataFetcher,
-        TwammDataFetcherABI,
-        dexHelper.provider,
-      ),
-    },
-  };
-}
 
 export type AbiPoolKey = {
   token0: string;

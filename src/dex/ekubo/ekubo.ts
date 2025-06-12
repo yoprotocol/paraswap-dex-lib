@@ -20,7 +20,6 @@ import { EkuboConfig } from './config';
 import { BasePool, BasePoolState } from './pools/base';
 import {
   BasicQuoteData,
-  contractsFromDexParams,
   EkuboData,
   TwammQuoteData,
   VanillaPoolParameters,
@@ -30,6 +29,7 @@ import {
   hexStringTokenPair,
   NATIVE_TOKEN_ADDRESS,
   convertAndSortTokens,
+  contractsFromDexParams,
 } from './utils';
 
 import { BigNumber } from 'ethers';
@@ -155,7 +155,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
     this.logger = dexHelper.getLogger(dexKey);
     this.config = EkuboConfig[dexKey][network];
 
-    this.contracts = contractsFromDexParams(this.config, dexHelper);
+    this.contracts = contractsFromDexParams(this.config, dexHelper.provider);
     this.routerIface = new Interface(RouterABI);
 
     // 0 are vanilla pools
