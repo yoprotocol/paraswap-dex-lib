@@ -11,6 +11,7 @@ import {
 import { testE2E } from '../../../tests/utils-e2e';
 import { generateConfig } from '../../config';
 import { ContractMethod, Network, SwapSide } from '../../constants';
+import { PoolConfig, PoolKey } from './pools/utils';
 
 function testForNetwork(
   network: Network,
@@ -31,30 +32,54 @@ function testForNetwork(
   ]);
 
   const tokensToTest = [
-    [
-      {
-        symbol: 'WBTC',
-        amount: '100000000',
-        withNative: true,
-      },
-      {
-        symbol: 'cbBTC',
-        amount: '100000000',
-        withNative: false,
-      },
-    ],
-    [
-      {
-        symbol: 'USDC',
-        amount: '10000000',
-        withNative: false,
-      },
-      {
-        symbol: 'USDT',
-        amount: '10000000',
-        withNative: true,
-      },
-    ],
+    {
+      pair: [
+        {
+          symbol: 'WBTC',
+          amount: '100000000',
+        },
+        {
+          symbol: 'cbBTC',
+          amount: '100000000',
+        },
+      ],
+    },
+    {
+      pair: [
+        {
+          symbol: nativeTokenSymbol,
+          amount: nativeTokenAmount,
+        },
+        {
+          symbol: 'USDC',
+          amount: '10000000',
+        },
+      ],
+      // ETH/USDC 0.05% fee TWAMM pool
+      limitPools: [
+        new PoolKey(
+          0n,
+          0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
+          new PoolConfig(
+            0,
+            9223372036854775n,
+            0xd4279c050da1f5c5b2830558c7a08e57e12b54ecn,
+          ),
+        ).string_id,
+      ],
+    },
+    {
+      pair: [
+        {
+          symbol: 'USDC',
+          amount: '10000000',
+        },
+        {
+          symbol: 'USDT',
+          amount: '10000000',
+        },
+      ],
+    },
   ];
 
   describe(`${network}`, () => {
@@ -67,6 +92,7 @@ function testForNetwork(
               destTokenSymbol: string,
               amount: string,
               side: SwapSide,
+              poolIdentifiers?: string[],
             ) {
               return testE2E(
                 tokens[srcTokenSymbol],
@@ -78,16 +104,18 @@ function testForNetwork(
                 contractMethod,
                 network,
                 provider,
+                poolIdentifiers && { [dexKey]: poolIdentifiers },
               );
             }
 
-            tokensToTest.forEach(([tokenA, tokenB]) => {
+            tokensToTest.forEach(({ pair: [tokenA, tokenB], limitPools }) => {
               it(`${tokenA.symbol} -> ${tokenB.symbol}`, () =>
                 test(
                   tokenA.symbol,
                   tokenB.symbol,
                   side === SwapSide.SELL ? tokenA.amount : tokenB.amount,
                   side,
+                  limitPools,
                 ));
               it(`${tokenB.symbol} -> ${tokenA.symbol}`, () =>
                 test(
@@ -95,41 +123,8 @@ function testForNetwork(
                   tokenA.symbol,
                   side === SwapSide.SELL ? tokenB.amount : tokenA.amount,
                   side,
+                  limitPools,
                 ));
-
-              if (tokenA.withNative) {
-                it(`${tokenA.symbol} -> ${nativeTokenSymbol}`, () =>
-                  test(
-                    tokenA.symbol,
-                    nativeTokenSymbol,
-                    side === SwapSide.SELL ? tokenA.amount : nativeTokenAmount,
-                    side,
-                  ));
-                it(`${nativeTokenSymbol} -> ${tokenA.symbol}`, () =>
-                  test(
-                    nativeTokenSymbol,
-                    tokenA.symbol,
-                    side === SwapSide.SELL ? nativeTokenAmount : tokenA.amount,
-                    side,
-                  ));
-              }
-
-              if (tokenB.withNative) {
-                it(`${tokenB.symbol} -> ${nativeTokenSymbol}`, () =>
-                  test(
-                    tokenB.symbol,
-                    nativeTokenSymbol,
-                    side === SwapSide.SELL ? tokenB.amount : nativeTokenAmount,
-                    side,
-                  ));
-                it(`${nativeTokenSymbol} -> ${tokenB.symbol}`, () =>
-                  test(
-                    nativeTokenSymbol,
-                    tokenB.symbol,
-                    side === SwapSide.SELL ? nativeTokenAmount : tokenB.amount,
-                    side,
-                  ));
-              }
             });
           });
         });
