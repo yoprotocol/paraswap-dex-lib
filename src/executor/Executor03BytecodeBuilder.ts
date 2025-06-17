@@ -22,6 +22,7 @@ const {
 
 export type Executor03SingleSwapCallDataParams = {
   swap: OptimalSwap;
+  swapExchangeIndex: number;
 };
 
 export type Executor03DexCallDataParams = {
@@ -151,6 +152,7 @@ export class Executor03BytecodeBuilder extends ExecutorBytecodeBuilder<
       index,
       flags,
       maybeWethCallData,
+      swapExchangeIndex,
       swap,
     } = params;
     if (!swap) throw new Error('Swap is not provided for single swap calldata');
@@ -163,7 +165,7 @@ export class Executor03BytecodeBuilder extends ExecutorBytecodeBuilder<
       priceRoute,
       routeIndex: 0,
       swapIndex: 0,
-      swapExchangeIndex: index,
+      swapExchangeIndex,
       exchangeParams,
       exchangeParamIndex: index,
       isLastSwap: true,
@@ -173,11 +175,26 @@ export class Executor03BytecodeBuilder extends ExecutorBytecodeBuilder<
 
     swapCallData = hexConcat([dexCallData]);
 
+    if (curExchangeParam.transferSrcTokenBeforeSwap) {
+      const transferCallData = this.buildTransferCallData(
+        this.erc20Interface.encodeFunctionData('transfer', [
+          curExchangeParam.transferSrcTokenBeforeSwap,
+          swap.swapExchanges[0].srcAmount,
+        ]),
+        isETHAddress(swap.srcToken)
+          ? this.getWETHAddress(curExchangeParam)
+          : swap.srcToken.toLowerCase(),
+      );
+
+      swapCallData = hexConcat([transferCallData, swapCallData]);
+    }
+
     if (
       flags.dexes[index] % 4 !== 1 && // not sendEth
       !isETHAddress(swap.srcToken) &&
       !curExchangeParam.skipApproval &&
-      curExchangeParam.approveData
+      curExchangeParam.approveData &&
+      !curExchangeParam.transferSrcTokenBeforeSwap
     ) {
       // TODO: as we give approve for MAX_UINT and approve for current targetExchange was given
       // in previous paths, then for current path we can skip it
@@ -194,13 +211,16 @@ export class Executor03BytecodeBuilder extends ExecutorBytecodeBuilder<
     if (
       maybeWethCallData?.deposit &&
       isETHAddress(swap.srcToken) &&
-      !curExchangeParam.skipApproval &&
       curExchangeParam.needWrapNative
       // do deposit only for the first path with wrapping
       // exchangeParams.findIndex(p => p.needWrapNative) === index
     ) {
       let approveWethCalldata = '0x';
-      if (curExchangeParam.approveData) {
+      if (
+        curExchangeParam.approveData &&
+        !curExchangeParam.skipApproval &&
+        !curExchangeParam.transferSrcTokenBeforeSwap
+      ) {
         approveWethCalldata = this.buildApproveCallData(
           curExchangeParam.approveData.target,
           curExchangeParam.approveData.token,
@@ -354,7 +374,7 @@ export class Executor03BytecodeBuilder extends ExecutorBytecodeBuilder<
 
       const toAmountIndex = exchangeData
         .replace('0x', '')
-        .indexOf(toAmount.replace('0x', ''));
+        .lastIndexOf(toAmount.replace('0x', ''));
 
       toAmountPos =
         (toAmountIndex !== -1 ? toAmountIndex : exchangeData.length) / 2;
@@ -389,13 +409,18 @@ export class Executor03BytecodeBuilder extends ExecutorBytecodeBuilder<
       .map((e, index) => ({
         exchangeParam: e,
         // to keep swapExchange in the same order as exchangeParams
-        swapExchange: swap.swapExchanges[index],
+        swapExchange: {
+          swapExchange: swap.swapExchanges[index],
+          swapExchangeIndex: index,
+        },
       }))
       .sort(e => (e.exchangeParam.needWrapNative ? 1 : -1));
 
     const swapWithOrderedExchanges: OptimalSwap = {
       ...swap,
-      swapExchanges: orderedExchangeParams.map(e => e.swapExchange),
+      swapExchanges: orderedExchangeParams.map(
+        e => e.swapExchange.swapExchange,
+      ),
     };
 
     const flags = this.buildFlags(
@@ -411,6 +436,7 @@ export class Executor03BytecodeBuilder extends ExecutorBytecodeBuilder<
           this.buildSingleSwapCallData({
             priceRoute,
             exchangeParams: orderedExchangeParams.map(e => e.exchangeParam),
+            swapExchangeIndex: ep.swapExchange.swapExchangeIndex,
             index,
             flags,
             sender,
