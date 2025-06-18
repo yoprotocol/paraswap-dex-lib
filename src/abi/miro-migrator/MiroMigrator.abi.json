@@ -3,7 +3,7 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "address", "name": "xyz", "type": "address" },
+          { "internalType": "address", "name": "vlr", "type": "address" },
           { "internalType": "address", "name": "weth", "type": "address" },
           {
             "internalType": "address",
@@ -22,7 +22,7 @@
       },
       { "internalType": "address", "name": "sePSP1", "type": "address" },
       { "internalType": "address", "name": "sePSP2", "type": "address" },
-      { "internalType": "address", "name": "seXYZ", "type": "address" },
+      { "internalType": "address", "name": "seVLR", "type": "address" },
       {
         "internalType": "contract IAcrossSpokePool",
         "name": "spokePool",
@@ -113,7 +113,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "xyzAmount",
+        "name": "vlrAmount",
         "type": "uint256"
       },
       {
@@ -153,13 +153,6 @@
   },
   {
     "inputs": [],
-    "name": "BURN_ADDR",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "PSP",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
@@ -181,7 +174,7 @@
   },
   {
     "inputs": [],
-    "name": "SE_XYZ",
+    "name": "SE_VLR",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
@@ -201,14 +194,14 @@
   },
   {
     "inputs": [],
-    "name": "WETH",
+    "name": "VLR",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "XYZ",
+    "name": "WETH",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
@@ -219,7 +212,7 @@
     ],
     "name": "bridgeConfigs",
     "outputs": [
-      { "internalType": "address", "name": "xyz", "type": "address" },
+      { "internalType": "address", "name": "vlr", "type": "address" },
       { "internalType": "address", "name": "weth", "type": "address" },
       { "internalType": "address", "name": "bridgeStaking", "type": "address" },
       { "internalType": "uint256", "name": "destChainId", "type": "uint256" }
@@ -229,7 +222,7 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "xyzAmount", "type": "uint256" },
+      { "internalType": "uint256", "name": "vlrAmount", "type": "uint256" },
       { "internalType": "uint256", "name": "wethAmount", "type": "uint256" },
       { "internalType": "uint256", "name": "destChainId", "type": "uint256" },
       {
@@ -267,7 +260,7 @@
           }
         ],
         "internalType": "struct IMiroMigrator.BridgeData",
-        "name": "xyzBridgeData",
+        "name": "vlrBridgeData",
         "type": "tuple"
       },
       {
@@ -304,7 +297,7 @@
       },
       { "internalType": "bytes", "name": "permitData", "type": "bytes" }
     ],
-    "name": "bridgeXYZAndStake",
+    "name": "bridgeVLRAndStake",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -316,7 +309,7 @@
       { "internalType": "uint256", "name": "minBptOut", "type": "uint256" },
       { "internalType": "bytes", "name": "permitData", "type": "bytes" }
     ],
-    "name": "migratePSPtoSeXYZ",
+    "name": "migratePSPtoSeVLR",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -326,7 +319,7 @@
       { "internalType": "uint256", "name": "pspAmount", "type": "uint256" },
       { "internalType": "bytes", "name": "permitData", "type": "bytes" }
     ],
-    "name": "migratePSPtoXYZ",
+    "name": "migratePSPtoVLR",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -338,7 +331,7 @@
       { "internalType": "uint256", "name": "minBptOut", "type": "uint256" },
       { "internalType": "bytes", "name": "permitData", "type": "bytes" }
     ],
-    "name": "migrateSePSP1toSeXYZ",
+    "name": "migrateSePSP1toSeVLR",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -348,7 +341,7 @@
       { "internalType": "uint256", "name": "sePSP1Amount", "type": "uint256" },
       { "internalType": "bytes", "name": "permitData", "type": "bytes" }
     ],
-    "name": "migrateSePSP1toXYZ",
+    "name": "migrateSePSP1toVLR",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -361,7 +354,7 @@
       { "internalType": "uint256", "name": "minBptOut", "type": "uint256" },
       { "internalType": "bytes", "name": "permitData", "type": "bytes" }
     ],
-    "name": "migrateSePSP2toSeXYZ",
+    "name": "migrateSePSP2toSeVLR",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -407,7 +400,7 @@
           }
         ],
         "internalType": "struct IMiroMigrator.BridgeData",
-        "name": "xyzBridgeData",
+        "name": "vlrBridgeData",
         "type": "tuple"
       },
       {
@@ -444,7 +437,7 @@
       },
       { "internalType": "bytes", "name": "permitData", "type": "bytes" }
     ],
-    "name": "migrateSePSP2toSeXYZAndBridge",
+    "name": "migrateSePSP2toSeVLRAndBridge",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -471,18 +464,8 @@
     "type": "function"
   },
   {
-    "inputs": [
-      { "internalType": "address", "name": "token", "type": "address" },
-      { "internalType": "address", "name": "to", "type": "address" }
-    ],
-    "name": "reClaimERC20",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [{ "internalType": "address", "name": "to", "type": "address" }],
-    "name": "reClaimETH",
+    "name": "reClaimVLR",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -498,7 +481,7 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "address", "name": "xyz", "type": "address" },
+          { "internalType": "address", "name": "vlr", "type": "address" },
           { "internalType": "address", "name": "weth", "type": "address" },
           {
             "internalType": "address",
