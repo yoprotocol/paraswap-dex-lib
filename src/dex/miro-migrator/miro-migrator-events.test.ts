@@ -8,7 +8,6 @@ import { Address } from '../../types';
 import { DummyDexHelper } from '../../dex-helper/index';
 import { testEventSubscriber } from '../../../tests/utils-events';
 import { PoolState } from './types';
-import { TRANSFER_TOPIC } from './constants';
 import { MiroMigratorConfig } from './config';
 
 jest.setTimeout(50 * 1000);
@@ -33,7 +32,7 @@ describe('MiroMigrator EventPool Optimism', function () {
   let miroMigratorPool: MiroMigratorEventPool;
 
   const eventsToTest: Record<Address, EventMappings> = {
-    [MiroMigratorConfig[dexKey][network].xyzTokenAddress]: {
+    [MiroMigratorConfig[dexKey][network].vlrTokenAddress]: {
       Transfer: [135131933, 135131948, 135134152, 135160597, 135162180],
     },
   };
@@ -45,8 +44,7 @@ describe('MiroMigrator EventPool Optimism', function () {
       dexHelper,
       logger,
       MiroMigratorConfig[dexKey][network].migratorAddress,
-      MiroMigratorConfig[dexKey][network].xyzTokenAddress,
-      TRANSFER_TOPIC,
+      MiroMigratorConfig[dexKey][network].vlrTokenAddress,
     );
   });
 

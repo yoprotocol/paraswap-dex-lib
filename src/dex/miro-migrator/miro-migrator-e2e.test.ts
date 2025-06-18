@@ -3,11 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { testE2E } from '../../../tests/utils-e2e';
-import {
-  Tokens,
-  Holders,
-  NativeTokenSymbols,
-} from '../../../tests/constants-e2e';
+import { Tokens, Holders } from '../../../tests/constants-e2e';
 import { Network, ContractMethod, SwapSide } from '../../constants';
 import { StaticJsonRpcProvider } from '@ethersproject/providers';
 import { generateConfig } from '../../config';
@@ -60,12 +56,12 @@ function testForNetwork(
 describe('MiroMigrator E2E', () => {
   const dexKey = 'MiroMigrator';
 
-  describe('Optimism', () => {
-    const network = Network.OPTIMISM;
+  describe('Mainnet', () => {
+    const network = Network.MAINNET;
 
-    describe('PSP -> XYZ', () => {
-      const tokenASymbol: string = 'testPSP';
-      const tokenBSymbol: string = 'testXYZ';
+    describe('PSP -> VLR', () => {
+      const tokenASymbol: string = 'PSP';
+      const tokenBSymbol: string = 'VLR';
 
       const tokenAAmount: string = '1000000000000000000';
       const tokenBAmount: string = '1000000000000000000';
@@ -80,6 +76,59 @@ describe('MiroMigrator E2E', () => {
       );
     });
 
-    // TODO: add test for other ERC20 tokens and ETH
+    describe('sePSP1 -> VLR', () => {
+      const tokenASymbol: string = 'sePSP1';
+      const tokenBSymbol: string = 'VLR';
+
+      const tokenAAmount: string = '1000000000000000000';
+      const tokenBAmount: string = '1000000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+  });
+
+  describe('Optimism', () => {
+    const network = Network.OPTIMISM;
+
+    describe('PSP -> VLR', () => {
+      const tokenASymbol: string = 'PSP';
+      const tokenBSymbol: string = 'VLR';
+
+      const tokenAAmount: string = '1000000000000000000';
+      const tokenBAmount: string = '1000000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+
+    describe('sePSP1 -> VLR', () => {
+      const tokenASymbol: string = 'sePSP1';
+      const tokenBSymbol: string = 'VLR';
+
+      const tokenAAmount: string = '1000000000000000000';
+      const tokenBAmount: string = '1000000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
   });
 });

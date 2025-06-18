@@ -6,21 +6,23 @@ import { testGasEstimation } from '../../../tests/utils-e2e';
 import { Tokens } from '../../../tests/constants-e2e';
 import { Network, SwapSide } from '../../constants';
 import { ContractMethodV6 } from '@paraswap/core';
+import { BI_POWS } from '../../bigint-constants';
 
 describe('MiroMigrator Gas Estimation', () => {
   const dexKey = 'MiroMigrator';
   const network = Network.OPTIMISM;
 
-  const PSP = Tokens[network]['testPSP'];
-  const XYZ = Tokens[network]['testXYZ'];
-  const amount = 10000000000000000000n;
+  const PSP = Tokens[network]['PSP'];
+  const sePSP1 = Tokens[network]['sePSP1'];
+  const VLR = Tokens[network]['VLR'];
+  const amount = BI_POWS[18];
 
-  describe('migratePSPtoXYZ', () => {
+  describe('migratePSPtoVLR', () => {
     it('swapExactAmountIn', async () => {
       await testGasEstimation(
         network,
         PSP,
-        XYZ,
+        VLR,
         amount,
         SwapSide.SELL,
         dexKey,
@@ -32,7 +34,33 @@ describe('MiroMigrator Gas Estimation', () => {
       await testGasEstimation(
         network,
         PSP,
-        XYZ,
+        VLR,
+        amount,
+        SwapSide.BUY,
+        dexKey,
+        ContractMethodV6.swapExactAmountOut,
+      );
+    });
+  });
+
+  describe('migrateSePSP1toVLR', () => {
+    it('swapExactAmountIn', async () => {
+      await testGasEstimation(
+        network,
+        sePSP1,
+        VLR,
+        amount,
+        SwapSide.SELL,
+        dexKey,
+        ContractMethodV6.swapExactAmountIn,
+      );
+    });
+
+    it('swapExactAmountOut', async () => {
+      await testGasEstimation(
+        network,
+        sePSP1,
+        VLR,
         amount,
         SwapSide.BUY,
         dexKey,
