@@ -8,10 +8,12 @@ export type MiroMigratorData = null;
 
 export type DexParams = {
   migratorAddress: Address;
+  vlrTokenAddress: Address;
   pspTokenAddress: Address;
-  xyzTokenAddress: Address;
+  sePsp1TokenAddress: Address;
 };
 
 export enum MiroMigratorFunctions {
-  migratePSPtoXYZ = 'migratePSPtoXYZ',
+  migratePSPtoVLR = 'migratePSPtoVLR',
+  migrateSePSP1toVLR = 'migrateSePSP1toVLR',
 }

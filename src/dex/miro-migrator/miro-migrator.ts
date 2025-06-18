@@ -10,7 +10,7 @@ import {
   NumberAsString,
   DexExchangeParam,
 } from '../../types';
-import { SwapSide, Network } from '../../constants';
+import { SwapSide, Network, NO_USD_LIQUIDITY } from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import { getDexKeysWithNetwork } from '../../utils';
 import { IDex } from '../../dex/idex';
@@ -21,7 +21,7 @@ import { MiroMigratorConfig } from './config';
 import { BI_POWS } from '../../bigint-constants';
 import { Interface } from '@ethersproject/abi';
 import MiroMigratorAbi from '../../abi/miro-migrator/MiroMigrator.abi.json';
-import { MIRO_MIGRATION_GAS_COST, TRANSFER_TOPIC } from './constants';
+import { MIRO_MIGRATION_GAS_COST } from './constants';
 import { MiroMigratorEventPool } from './miro-migrator-pool';
 
 export class MiroMigrator
@@ -42,12 +42,7 @@ export class MiroMigrator
     readonly network: Network,
     readonly dexKey: string,
     readonly dexHelper: IDexHelper,
-    readonly migratorAddress: string = MiroMigratorConfig[dexKey][network]
-      .migratorAddress,
-    readonly pspTokenAddress: string = MiroMigratorConfig[dexKey][network]
-      .pspTokenAddress,
-    readonly xyzTokenAddress: string = MiroMigratorConfig[dexKey][network]
-      .xyzTokenAddress,
+    readonly config = MiroMigratorConfig[dexKey][network],
     protected unitPrice = BI_POWS[18],
     protected migratorInterface = new Interface(MiroMigratorAbi),
   ) {
@@ -58,22 +53,36 @@ export class MiroMigrator
       this.network,
       this.dexHelper,
       this.logger,
-      this.migratorAddress,
-      this.xyzTokenAddress,
-      TRANSFER_TOPIC,
+      this.config.migratorAddress,
+      this.config.vlrTokenAddress,
     );
   }
 
   isPSP(tokenAddress: Address) {
-    return this.pspTokenAddress.toLowerCase() === tokenAddress.toLowerCase();
+    return (
+      this.config.pspTokenAddress.toLowerCase() === tokenAddress.toLowerCase()
+    );
   }
 
-  isXYZ(tokenAddress: Address) {
-    return this.xyzTokenAddress.toLowerCase() === tokenAddress.toLowerCase();
+  isSePSP1Token(tokenAddress: Address) {
+    return (
+      this.config.sePsp1TokenAddress.toLowerCase() ===
+      tokenAddress.toLowerCase()
+    );
+  }
+
+  isVLRToken(tokenAddress: Address) {
+    return (
+      this.config.vlrTokenAddress.toLowerCase() === tokenAddress.toLowerCase()
+    );
   }
 
   isAppropriatePair(srcToken: Token, destToken: Token) {
-    return this.isPSP(srcToken.address) && this.isXYZ(destToken.address);
+    return (
+      (this.isPSP(srcToken.address) && this.isVLRToken(destToken.address)) ||
+      (this.isSePSP1Token(srcToken.address) &&
+        this.isVLRToken(destToken.address))
+    );
   }
 
   getAdapters(side: SwapSide): { name: string; index: number }[] | null {
@@ -127,7 +136,7 @@ export class MiroMigrator
         unit: this.unitPrice,
         gasCost: MIRO_MIGRATION_GAS_COST,
         exchange: this.dexKey,
-        poolAddresses: [this.migratorAddress],
+        poolAddresses: [this.config.migratorAddress],
         data: null,
       },
     ];
@@ -153,7 +162,7 @@ export class MiroMigrator
     side: SwapSide,
   ): AdapterExchangeParam {
     return {
-      targetExchange: this.migratorAddress,
+      targetExchange: this.config.migratorAddress,
       payload: '0x',
       networkFee: '0',
     };
@@ -167,10 +176,16 @@ export class MiroMigrator
     data: MiroMigratorData,
     side: SwapSide,
   ): Promise<SimpleExchangeParam> {
-    const swapData = this.migratorInterface.encodeFunctionData(
-      MiroMigratorFunctions.migratePSPtoXYZ,
-      [srcAmount, '0x'],
-    );
+    const isPSPtoVLR = this.isPSP(srcToken) && this.isVLRToken(destToken);
+
+    const functionName = isPSPtoVLR
+      ? MiroMigratorFunctions.migratePSPtoVLR
+      : MiroMigratorFunctions.migrateSePSP1toVLR;
+
+    const swapData = this.migratorInterface.encodeFunctionData(functionName, [
+      srcAmount,
+      '0x',
+    ]);
 
     return this.buildSimpleParamWithoutWETHConversion(
       srcToken,
@@ -178,7 +193,7 @@ export class MiroMigrator
       destToken,
       destAmount,
       swapData,
-      this.migratorAddress,
+      this.config.migratorAddress,
     );
   }
 
@@ -191,16 +206,22 @@ export class MiroMigrator
     data: MiroMigratorData,
     side: SwapSide,
   ): DexExchangeParam {
-    const swapData = this.migratorInterface.encodeFunctionData(
-      MiroMigratorFunctions.migratePSPtoXYZ,
-      [srcAmount, '0x'],
-    );
+    const isPSPtoVLR = this.isPSP(srcToken) && this.isVLRToken(destToken);
+
+    const functionName = isPSPtoVLR
+      ? MiroMigratorFunctions.migratePSPtoVLR
+      : MiroMigratorFunctions.migrateSePSP1toVLR;
+
+    const swapData = this.migratorInterface.encodeFunctionData(functionName, [
+      srcAmount,
+      '0x',
+    ]);
 
     return {
       needWrapNative: this.needWrapNative,
       dexFuncHasRecipient: false,
       exchangeData: swapData,
-      targetExchange: this.migratorAddress,
+      targetExchange: this.config.migratorAddress,
     };
   }
 
@@ -208,24 +229,53 @@ export class MiroMigrator
     tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
-    if (!this.isPSP(tokenAddress) && !this.isXYZ(tokenAddress)) {
+    const isPSP = this.isPSP(tokenAddress);
+    const isSePSP1 = this.isSePSP1Token(tokenAddress);
+    const isVLR = this.isVLRToken(tokenAddress);
+
+    if (!isPSP && !isSePSP1 && !isVLR) {
       return [];
     }
 
-    return [
-      {
-        exchange: this.dexKey,
-        address: this.migratorAddress,
-        connectorTokens: [
-          {
-            address: this.isPSP(tokenAddress)
-              ? this.xyzTokenAddress
-              : this.pspTokenAddress,
-            decimals: 18,
-          },
-        ],
-        liquidityUSD: 1000000000, // Just returning a big number so this DEX will be preferred
-      },
-    ];
+    if (isPSP || isSePSP1) {
+      return [
+        {
+          exchange: this.dexKey,
+          address: this.config.migratorAddress,
+          connectorTokens: [
+            {
+              address: this.config.vlrTokenAddress,
+              decimals: 18,
+              liquidityUSD: NO_USD_LIQUIDITY,
+            },
+          ],
+          liquidityUSD: 1_000_000_000,
+        },
+      ];
+    }
+
+    if (isVLR) {
+      return [
+        {
+          exchange: this.dexKey,
+          address: this.config.migratorAddress,
+          connectorTokens: [
+            {
+              address: this.config.pspTokenAddress,
+              decimals: 18,
+              liquidityUSD: 1000000000,
+            },
+            {
+              address: this.config.sePsp1TokenAddress,
+              decimals: 18,
+              liquidityUSD: 1000000000,
+            },
+          ],
+          liquidityUSD: NO_USD_LIQUIDITY,
+        },
+      ];
+    }
+
+    return [];
   }
 }

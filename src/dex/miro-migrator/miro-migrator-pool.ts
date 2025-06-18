@@ -1,11 +1,10 @@
-import { Interface } from '@ethersproject/abi';
 import { DeepReadonly } from 'ts-essentials';
 import { Log, Logger } from '../../types';
 import { catchParseLogError } from '../../utils';
 import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import { IDexHelper } from '../../dex-helper/idex-helper';
 import { PoolState } from './types';
-import ERC20ABI from '../../abi/erc20.json';
+import { erc20Iface } from '../../lib/utils-interfaces';
 import { Contract } from 'ethers';
 
 export class MiroMigratorEventPool extends StatefulEventSubscriber<PoolState> {
@@ -25,18 +24,18 @@ export class MiroMigratorEventPool extends StatefulEventSubscriber<PoolState> {
     protected dexHelper: IDexHelper,
     logger: Logger,
     protected migratorAddress: string,
-    protected xyzAddress: string,
-    protected transferTopic: string,
-    protected xyzInterface: Interface = new Interface(ERC20ABI),
-    protected xyzContract: Contract = new Contract(
-      xyzAddress,
-      ERC20ABI,
+    protected vlrTokenAddress: string,
+    protected vlrContract: Contract = new Contract(
+      vlrTokenAddress,
+      erc20Iface,
       dexHelper.provider,
     ),
   ) {
-    super(parentName, 'xyz', dexHelper, logger);
-    this.logDecoder = (log: Log) => this.xyzInterface.parseLog(log);
-    this.addressesSubscribed = [xyzAddress];
+    super(parentName, 'vlr', dexHelper, logger);
+    this.logDecoder = (log: Log) => this.vlrContract.interface.parseLog(log);
+    this.addressesSubscribed = [vlrTokenAddress];
+
+    this.handlers['Transfer'] = this.handleTransfer.bind(this);
   }
 
   protected async processLog(
@@ -45,32 +44,20 @@ export class MiroMigratorEventPool extends StatefulEventSubscriber<PoolState> {
   ): Promise<DeepReadonly<PoolState> | null> {
     try {
       const event = this.logDecoder(log);
-
-      if (
-        log.topics[0] === this.transferTopic &&
-        event.args.dst.toLowerCase() === this.migratorAddress.toLowerCase()
-      ) {
-        return this.handleTransferTo(event, state);
+      if (event.name in this.handlers) {
+        return this.handlers[event.name](event, state, log);
       }
-
-      if (
-        log.topics[0] === this.transferTopic &&
-        event.args.src.toLowerCase() === this.migratorAddress.toLowerCase()
-      ) {
-        return this.handleTransferFrom(event, state);
-      }
-
-      return null;
     } catch (e) {
       catchParseLogError(e, this.logger);
-      return null;
     }
+
+    return null;
   }
 
   async generateState(
     blockNumber: number | 'latest' = 'latest',
   ): Promise<DeepReadonly<PoolState>> {
-    const balance = await this.xyzContract.balanceOf(this.migratorAddress, {
+    const balance = await this.vlrContract.balanceOf(this.migratorAddress, {
       blockTag: blockNumber,
     });
 
@@ -86,21 +73,21 @@ export class MiroMigratorEventPool extends StatefulEventSubscriber<PoolState> {
     return state;
   }
 
-  async handleTransferTo(
+  handleTransfer(
     event: any,
     state: DeepReadonly<PoolState>,
-  ): Promise<DeepReadonly<PoolState>> {
-    return {
-      balance: state.balance + BigInt(event.args.wad),
-    };
-  }
+    log: Readonly<Log>,
+  ): DeepReadonly<PoolState> | null {
+    const { from, to, value } = event.args;
+    let balance = state.balance;
 
-  async handleTransferFrom(
-    event: any,
-    state: DeepReadonly<PoolState>,
-  ): Promise<DeepReadonly<PoolState>> {
-    return {
-      balance: state.balance - BigInt(event.args.wad),
-    };
+    if (to.toLowerCase() === this.migratorAddress.toLowerCase()) {
+      balance += value.toBigInt();
+    }
+    if (from.toLowerCase() === this.migratorAddress.toLowerCase()) {
+      balance -= value.toBigInt();
+    }
+
+    return { balance };
   }
 }
