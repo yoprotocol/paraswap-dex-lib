@@ -243,8 +243,8 @@ export async function testE2E(
   }
   // TEMP: add VLR token override for MiroMigrator contract
   if (
-    srcToken.address.toLowerCase() ===
-    '0x4e107a0000DB66f0E9Fd2039288Bf811dD1f9c74'
+    destToken.address.toLowerCase() ===
+    '0x4e107a0000db66f0e9fd2039288bf811dd1f9c74'
   ) {
     await tenderlySimulator.addTokenBalanceOverride(
       stateOverride,
