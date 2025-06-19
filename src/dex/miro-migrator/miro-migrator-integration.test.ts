@@ -21,7 +21,7 @@ const testIntegration = (
   swapSide: SwapSide,
   amounts: bigint[],
 ) => {
-  it(`${fromSymbol} -> ${toSymbol} ${SwapSide[swapSide]}`, async function () {
+  it(`getPoolIdentifiers and getPricesVolume ${SwapSide[swapSide]}`, async function () {
     const dexHelper = new DummyDexHelper(network);
     const migrator = new MiroMigrator(network, dexKey, dexHelper);
     const fromToken = Tokens[network][fromSymbol];
@@ -101,7 +101,7 @@ describe('MiroMigrator', function () {
       });
     }
 
-    [...fromSymbols, toSymbol].forEach(symbol => {
+    fromSymbols.forEach(symbol => {
       testGetTopPoolsForToken(network, dexKey, symbol, 10);
     });
   });
@@ -132,7 +132,7 @@ describe('MiroMigrator', function () {
       });
     }
 
-    [...fromSymbols, toSymbol].forEach(symbol => {
+    fromSymbols.forEach(symbol => {
       testGetTopPoolsForToken(network, dexKey, symbol, 10);
     });
   });

@@ -10,62 +10,126 @@ import { BI_POWS } from '../../bigint-constants';
 
 describe('MiroMigrator Gas Estimation', () => {
   const dexKey = 'MiroMigrator';
-  const network = Network.OPTIMISM;
 
-  const PSP = Tokens[network]['PSP'];
-  const sePSP1 = Tokens[network]['sePSP1'];
-  const VLR = Tokens[network]['VLR'];
-  const amount = BI_POWS[18];
+  describe('Mainnet', () => {
+    const network = Network.MAINNET;
 
-  describe('migratePSPtoVLR', () => {
-    it('swapExactAmountIn', async () => {
-      await testGasEstimation(
-        network,
-        PSP,
-        VLR,
-        amount,
-        SwapSide.SELL,
-        dexKey,
-        ContractMethodV6.swapExactAmountIn,
-      );
+    const PSP = Tokens[network]['PSP'];
+    const sePSP1 = Tokens[network]['sePSP1'];
+    const VLR = Tokens[network]['VLR'];
+    const amount = BI_POWS[18];
+
+    describe('migratePSPtoVLR', () => {
+      it('swapExactAmountIn', async () => {
+        await testGasEstimation(
+          network,
+          PSP,
+          VLR,
+          amount,
+          SwapSide.SELL,
+          dexKey,
+          ContractMethodV6.swapExactAmountIn,
+        );
+      });
+
+      it('swapExactAmountOut', async () => {
+        await testGasEstimation(
+          network,
+          PSP,
+          VLR,
+          amount,
+          SwapSide.BUY,
+          dexKey,
+          ContractMethodV6.swapExactAmountOut,
+        );
+      });
     });
 
-    it('swapExactAmountOut', async () => {
-      await testGasEstimation(
-        network,
-        PSP,
-        VLR,
-        amount,
-        SwapSide.BUY,
-        dexKey,
-        ContractMethodV6.swapExactAmountOut,
-      );
+    describe('migrateSePSP1toVLR', () => {
+      it('swapExactAmountIn', async () => {
+        await testGasEstimation(
+          network,
+          sePSP1,
+          VLR,
+          amount,
+          SwapSide.SELL,
+          dexKey,
+          ContractMethodV6.swapExactAmountIn,
+        );
+      });
+
+      it('swapExactAmountOut', async () => {
+        await testGasEstimation(
+          network,
+          sePSP1,
+          VLR,
+          amount,
+          SwapSide.BUY,
+          dexKey,
+          ContractMethodV6.swapExactAmountOut,
+        );
+      });
     });
   });
 
-  describe('migrateSePSP1toVLR', () => {
-    it('swapExactAmountIn', async () => {
-      await testGasEstimation(
-        network,
-        sePSP1,
-        VLR,
-        amount,
-        SwapSide.SELL,
-        dexKey,
-        ContractMethodV6.swapExactAmountIn,
-      );
+  describe('Optimism', () => {
+    const network = Network.OPTIMISM;
+
+    const PSP = Tokens[network]['PSP'];
+    const sePSP1 = Tokens[network]['sePSP1'];
+    const VLR = Tokens[network]['VLR'];
+    const amount = BI_POWS[18];
+
+    describe('migratePSPtoVLR', () => {
+      it('swapExactAmountIn', async () => {
+        await testGasEstimation(
+          network,
+          PSP,
+          VLR,
+          amount,
+          SwapSide.SELL,
+          dexKey,
+          ContractMethodV6.swapExactAmountIn,
+        );
+      });
+
+      it('swapExactAmountOut', async () => {
+        await testGasEstimation(
+          network,
+          PSP,
+          VLR,
+          amount,
+          SwapSide.BUY,
+          dexKey,
+          ContractMethodV6.swapExactAmountOut,
+        );
+      });
     });
 
-    it('swapExactAmountOut', async () => {
-      await testGasEstimation(
-        network,
-        sePSP1,
-        VLR,
-        amount,
-        SwapSide.BUY,
-        dexKey,
-        ContractMethodV6.swapExactAmountOut,
-      );
+    describe('migrateSePSP1toVLR', () => {
+      it('swapExactAmountIn', async () => {
+        await testGasEstimation(
+          network,
+          sePSP1,
+          VLR,
+          amount,
+          SwapSide.SELL,
+          dexKey,
+          ContractMethodV6.swapExactAmountIn,
+        );
+      });
+
+      it('swapExactAmountOut', async () => {
+        await testGasEstimation(
+          network,
+          sePSP1,
+          VLR,
+          amount,
+          SwapSide.BUY,
+          dexKey,
+          ContractMethodV6.swapExactAmountOut,
+        );
+      });
     });
   });
 });

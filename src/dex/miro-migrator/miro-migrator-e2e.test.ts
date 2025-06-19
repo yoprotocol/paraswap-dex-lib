@@ -59,7 +59,7 @@ describe('MiroMigrator E2E', () => {
   describe('Mainnet', () => {
     const network = Network.MAINNET;
 
-    describe('PSP -> VLR', () => {
+    describe('PSP migration', () => {
       const tokenASymbol: string = 'PSP';
       const tokenBSymbol: string = 'VLR';
 
@@ -76,7 +76,7 @@ describe('MiroMigrator E2E', () => {
       );
     });
 
-    describe('sePSP1 -> VLR', () => {
+    describe('sePSP1 migration', () => {
       const tokenASymbol: string = 'sePSP1';
       const tokenBSymbol: string = 'VLR';
 
@@ -97,7 +97,7 @@ describe('MiroMigrator E2E', () => {
   describe('Optimism', () => {
     const network = Network.OPTIMISM;
 
-    describe('PSP -> VLR', () => {
+    describe('PSP migration', () => {
       const tokenASymbol: string = 'PSP';
       const tokenBSymbol: string = 'VLR';
 
@@ -114,7 +114,7 @@ describe('MiroMigrator E2E', () => {
       );
     });
 
-    describe('sePSP1 -> VLR', () => {
+    describe('sePSP1 migration', () => {
       const tokenASymbol: string = 'sePSP1';
       const tokenBSymbol: string = 'VLR';
 
