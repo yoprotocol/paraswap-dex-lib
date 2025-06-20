@@ -15,11 +15,11 @@ const tokens = Tokens[network];
 describe('BalancerV3 stableSurge V1 hook tests', function () {
   const blockNumber = 22086000;
   let balancerV3: BalancerV3;
-  const usdc = tokens['USDC'];
-  const weth = tokens['WETH'];
-  // https://etherscan.io/address/0x6b49054c350b47ca9aa1331ab156a1eedbe94e79
+  const tBTC = tokens['tBTCv2'];
+  const baoBTC = tokens['baoBTC'];
+  // https://balancer.fi/pools/ethereum/v3/0xb22bd670c6e57c5fb486914dc478ae668507ddc8
   const stableSurgeV1Pool =
-    '0x6b49054c350b47ca9aa1331ab156a1eedbe94e79'.toLowerCase();
+    '0xb22bd670c6e57c5fb486914dc478ae668507ddc8'.toLowerCase();
 
   beforeAll(async () => {
     balancerV3 = new BalancerV3(network, dexKey, dexHelper);
@@ -31,8 +31,8 @@ describe('BalancerV3 stableSurge V1 hook tests', function () {
   describe('pool with stableSurge hook should be returned', function () {
     it('getPoolIdentifiers', async function () {
       const pools = await balancerV3.getPoolIdentifiers(
-        usdc,
-        weth,
+        tBTC,
+        baoBTC,
         SwapSide.SELL,
         blockNumber,
       );
@@ -40,7 +40,7 @@ describe('BalancerV3 stableSurge V1 hook tests', function () {
     });
 
     it('getTopPoolsForToken', async function () {
-      const pools = await balancerV3.getTopPoolsForToken(weth.address, 100);
+      const pools = await balancerV3.getTopPoolsForToken(baoBTC.address, 100);
       expect(pools.some(pool => pool.address === stableSurgeV1Pool)).toBe(true);
     });
   });
@@ -57,22 +57,22 @@ describe('BalancerV3 stableSurge V1 hook tests', function () {
           balancerV3,
           network,
           amounts,
-          usdc,
-          weth,
+          tBTC,
+          baoBTC,
           side,
           blockNumber,
           [stableSurgeV1Pool],
         );
       });
       it('BUY', async function () {
-        const amounts = [0n, 500000n];
+        const amounts = [0n, 50000000n];
         const side = SwapSide.BUY;
         await testPricesVsOnchain(
           balancerV3,
           network,
           amounts,
-          weth,
-          usdc,
+          tBTC,
+          baoBTC,
           side,
           blockNumber,
           [stableSurgeV1Pool],
@@ -87,8 +87,8 @@ describe('BalancerV3 stableSurge V1 hook tests', function () {
           balancerV3,
           network,
           amounts,
-          weth,
-          usdc,
+          baoBTC,
+          tBTC,
           side,
           blockNumber,
           [stableSurgeV1Pool],
@@ -101,8 +101,8 @@ describe('BalancerV3 stableSurge V1 hook tests', function () {
           balancerV3,
           network,
           amounts,
-          weth,
-          usdc,
+          baoBTC,
+          tBTC,
           side,
           blockNumber,
           [stableSurgeV1Pool],

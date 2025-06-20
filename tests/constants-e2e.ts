@@ -590,6 +590,10 @@ export const Tokens: {
       address: '0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD',
       decimals: 18,
     },
+    baoBTC: {
+      address: '0x22d76e6e1d9ab4072522c1bc60c85a0d5626ca2d',
+      decimals: 18,
+    },
   },
   [Network.POLYGON]: {
     jGBP: {
