@@ -8,6 +8,7 @@ export enum SUPPORTED_POOLS {
   STABLE = 'STABLE',
   GYROE = 'GYROE',
   QUANT_AMM_WEIGHTED = 'QUANT_AMM_WEIGHTED',
+  RECLAMM = 'RECLAMM',
 }
 
 export const disabledPoolIds: Record<string, Record<number, string[]>> = {

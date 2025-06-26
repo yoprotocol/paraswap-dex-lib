@@ -50,9 +50,6 @@ describe('BalancerV3 stableSurge V1 hook tests', function () {
       it('SELL', async function () {
         const amounts = [0n, 100000000n];
         const side = SwapSide.SELL;
-        // await testPricesVsOnchain(amounts, usdc, weth, side, blockNumber, [
-        //   stableSurgePool,
-        // ]);
         await testPricesVsOnchain(
           balancerV3,
           network,
