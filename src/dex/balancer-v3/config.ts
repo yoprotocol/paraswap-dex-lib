@@ -155,14 +155,7 @@ export const BalancerV3Config: DexConfigMap<DexParams> = {
       balancerBatchRouterAddress: '0xc9b36096f5201ea332Db35d6D195774ea0D5988f',
       hooks: [
         {
-          type: 'StableSurge',
-          apiName: 'STABLE_SURGE',
-          factoryAddress: '0x18CC3C68A5e64b40c846Aa6E45312cbcBb94f71b', // Pools with StableSurge hook will always be deployed from this factory
-          factoryDeploymentBlock: 59966276,
-          hookAddress: '0x86705ee19c0509ff68f1118c55ee2ebde383d122', // Address of the hook that will be used by pools
-        },
-        {
-          type: 'StableSurge', // StableSurgeV2 - Is same as V1 with changes: up to 50k amp factor (vs 5k on v1) and ability to set a swap fee manager
+          type: 'StableSurge', // StableSurgeV2 (No V1 release on Avalanche) - Is same as V1 with changes: up to 50k amp factor (vs 5k on v1) and ability to set a swap fee manager
           apiName: 'STABLE_SURGE',
           factoryAddress: '0x18CC3C68A5e64b40c846Aa6E45312cbcBb94f71b', // Pools with StableSurge hook will always be deployed from this factory
           factoryDeploymentBlock: 59966276,
@@ -177,7 +170,7 @@ export const BalancerV3Config: DexConfigMap<DexParams> = {
       balancerBatchRouterAddress: '0xaD89051bEd8d96f045E8912aE1672c6C0bF8a85E',
       hooks: [
         {
-          type: 'StableSurge',
+          type: 'StableSurge', // StableSurgeV2 (No V1 release on Optimism) - Is same as V1 with changes: up to 50k amp factor (vs 5k on v1) and ability to set a swap fee manager
           apiName: 'STABLE_SURGE',
           factoryAddress: '0x3BEb058DE1A25dd24223fd9e1796df8589429AcE', // Pools with StableSurge hook will always be deployed from this factory
           factoryDeploymentBlock: 134097700,
