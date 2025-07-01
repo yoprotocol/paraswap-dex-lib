@@ -1236,6 +1236,10 @@ export const Tokens: {
       address: '0x4ce13a79f45c1be00bdabd38b764ac28c082704e',
       decimals: 18,
     },
+    waArbUSDCn: {
+      address: '0x7F6501d3B98eE91f9b9535E4b0ac710Fb0f9e0bc',
+      decimals: 6,
+    },
     ETH: { address: ETHER_ADDRESS, decimals: 18 },
     USDCe: {
       address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
@@ -1265,6 +1269,10 @@ export const Tokens: {
     USDT: {
       address: '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',
       decimals: 6,
+    },
+    USDai: {
+      address: '0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef',
+      decimals: 18,
     },
     waArbUSDT: {
       address: '0xa6D12574eFB239FC1D2099732bd8b5dC6306897F',
@@ -1653,6 +1661,10 @@ export const Tokens: {
     },
     cbBTC: {
       address: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf',
+      decimals: 8,
+    },
+    yoBTC: {
+      address: '0xbCbc8cb4D1e8ED048a6276a5E94A3e952660BcbC',
       decimals: 8,
     },
     WETH: {
