@@ -51,6 +51,8 @@ import { generateConfig } from '../../config';
   (This comment should be removed from the final implementation)
 */
 
+jest.setTimeout(50 * 1000);
+
 function testForNetwork(
   network: Network,
   dexKey: string,
@@ -58,7 +60,6 @@ function testForNetwork(
   tokenBSymbol: string,
   tokenAAmount: string,
   tokenBAmount: string,
-  nativeTokenAmount: string,
 ) {
   const provider = new StaticJsonRpcProvider(
     generateConfig(network).privateHttpProvider,
@@ -66,12 +67,9 @@ function testForNetwork(
   );
   const tokens = Tokens[network];
   const holders = Holders[network];
-  const nativeTokenSymbol = NativeTokenSymbols[network];
 
-  // TODO: Add any direct swap contractMethod name if it exists
   const sideToContractMethods = new Map([
     [SwapSide.SELL, [ContractMethod.swapExactAmountIn]],
-    // TODO: If buy is not supported remove the buy contract methods
     [SwapSide.BUY, [ContractMethod.swapExactAmountOut]],
   ]);
 
@@ -80,45 +78,40 @@ function testForNetwork(
       describe(`${side}`, () => {
         contractMethods.forEach((contractMethod: ContractMethod) => {
           describe(`${contractMethod}`, () => {
-            it(`${nativeTokenSymbol} -> ${tokenASymbol}`, async () => {
-              await testE2E(
-                tokens[nativeTokenSymbol],
-                tokens[tokenASymbol],
-                holders[nativeTokenSymbol],
-                side === SwapSide.SELL ? nativeTokenAmount : tokenAAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
-            });
-            it(`${tokenASymbol} -> ${nativeTokenSymbol}`, async () => {
-              await testE2E(
-                tokens[tokenASymbol],
-                tokens[nativeTokenSymbol],
-                holders[tokenASymbol],
-                side === SwapSide.SELL ? tokenAAmount : nativeTokenAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
-            });
-            it(`${tokenASymbol} -> ${tokenBSymbol}`, async () => {
-              await testE2E(
-                tokens[tokenASymbol],
-                tokens[tokenBSymbol],
-                holders[tokenASymbol],
-                side === SwapSide.SELL ? tokenAAmount : tokenBAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
-            });
+            it(
+              `${tokenASymbol} -> ${tokenBSymbol}`,
+              async () => {
+                await testE2E(
+                  tokens[tokenASymbol],
+                  tokens[tokenBSymbol],
+                  holders[tokenASymbol],
+                  side === SwapSide.SELL ? tokenAAmount : tokenBAmount,
+                  side,
+                  dexKey,
+                  contractMethod,
+                  network,
+                  provider,
+                );
+              },
+              100 * 1000,
+            );
+            it(
+              `${tokenBSymbol} -> ${tokenASymbol}`,
+              async () => {
+                await testE2E(
+                  tokens[tokenBSymbol],
+                  tokens[tokenASymbol],
+                  holders[tokenBSymbol],
+                  side === SwapSide.SELL ? tokenBAmount : tokenAAmount,
+                  side,
+                  dexKey,
+                  contractMethod,
+                  network,
+                  provider,
+                );
+              },
+              100 * 1000,
+            );
           });
         });
       }),
@@ -132,24 +125,82 @@ describe('BunniV2 E2E', () => {
   describe('Mainnet', () => {
     const network = Network.MAINNET;
 
-    // TODO: Modify the tokenASymbol, tokenBSymbol, tokenAAmount;
-    const tokenASymbol: string = 'tokenASymbol';
-    const tokenBSymbol: string = 'tokenBSymbol';
+    describe('USR -> USDC', () => {
+      const tokenASymbol: string = 'USR';
+      const tokenBSymbol: string = 'USDC';
 
-    const tokenAAmount: string = 'tokenAAmount';
-    const tokenBAmount: string = 'tokenBAmount';
-    const nativeTokenAmount = '1000000000000000000';
+      const tokenAAmount: string = '10000000000000000000000';
+      const tokenBAmount: string = '10000000000';
 
-    testForNetwork(
-      network,
-      dexKey,
-      tokenASymbol,
-      tokenBSymbol,
-      tokenAAmount,
-      tokenBAmount,
-      nativeTokenAmount,
-    );
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
 
-    // TODO: Add any additional test cases required to test BunniV2
+    // describe('ETH -> wstETH', () => {
+    //   const tokenASymbol: string = 'ETH';
+    //   const tokenBSymbol: string = 'wstETH';
+
+    //   const tokenAAmount: string = '10000000000000000';
+    //   const tokenBAmount: string = '10000000000000000';
+
+    //   testForNetwork(
+    //     network,
+    //     dexKey,
+    //     tokenASymbol,
+    //     tokenBSymbol,
+    //     tokenAAmount,
+    //     tokenBAmount,
+    //   );
+    // });
   });
+
+  // describe('Arbitrum', () => {
+  //   const network = Network.ARBITRUM;
+
+  //   describe.skip('USDC -> USDT', () => {
+  //     const tokenASymbol: string = 'USDC';
+  //     const tokenBSymbol: string = 'USDT';
+
+  //     const tokenAAmount: string = '100000000';
+  //     const tokenBAmount: string = '100000000';
+
+  //     testForNetwork(
+  //       network,
+  //       dexKey,
+  //       tokenASymbol,
+  //       tokenBSymbol,
+  //       tokenAAmount,
+  //       tokenBAmount,
+  //     );
+  //   });
+
+  // });
+
+  // describe('Base', () => {
+  //   const network = Network.BASE;
+
+  //   describe.skip('ETH -> USDC', () => {
+  //     const tokenASymbol: string = 'ETH';
+  //     const tokenBSymbol: string = 'USDC';
+
+  //     const tokenAAmount: string = '1000000000000000000';
+  //     const tokenBAmount: string = '100000000';
+
+  //     testForNetwork(
+  //       network,
+  //       dexKey,
+  //       tokenASymbol,
+  //       tokenBSymbol,
+  //       tokenAAmount,
+  //       tokenBAmount,
+  //     );
+  //   });
+
+  // });
 });

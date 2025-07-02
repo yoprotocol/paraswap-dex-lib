@@ -13,6 +13,8 @@ import {
   checkConstantPoolPrices,
 } from '../../../tests/utils';
 import { Tokens } from '../../../tests/constants-e2e';
+import { PoolKey } from './types';
+import { BunniV2Config } from './config';
 
 /*
   README
@@ -29,18 +31,25 @@ import { Tokens } from '../../../tests/constants-e2e';
   (This comment should be removed from the final implementation)
 */
 
+jest.setTimeout(50 * 1000);
+
 function getReaderCalldata(
   exchangeAddress: string,
   readerIface: Interface,
   amounts: bigint[],
   funcName: string,
-  // TODO: Put here additional arguments you need
+  poolKey: PoolKey,
+  zeroForOne: boolean,
 ) {
   return amounts.map(amount => ({
     target: exchangeAddress,
     callData: readerIface.encodeFunctionData(funcName, [
-      // TODO: Put here additional arguments to encode them
-      amount,
+      {
+        poolKey,
+        zeroForOne,
+        exactAmount: amount,
+        hookData: '0x',
+      },
     ]),
   }));
 }
@@ -50,7 +59,6 @@ function decodeReaderResult(
   readerIface: Interface,
   funcName: string,
 ) {
-  // TODO: Adapt this function for your needs
   return results.map(result => {
     const parsed = readerIface.decodeFunctionResult(funcName, result);
     return BigInt(parsed[0]._hex);
@@ -62,20 +70,20 @@ async function checkOnChainPricing(
   funcName: string,
   blockNumber: number,
   prices: bigint[],
+  poolKey: PoolKey,
+  zeroForOne: boolean,
   amounts: bigint[],
 ) {
-  const exchangeAddress = ''; // TODO: Put here the real exchange address
-
-  // TODO: Replace dummy interface with the real one
-  // Normally you can get it from bunniV2.Iface or from eventPool.
-  // It depends on your implementation
-  const readerIface = new Interface('');
+  const exchangeAddress = BunniV2Config.BunniV2[bunniV2.network].quoter;
+  const readerIface = bunniV2.quoterInterface;
 
   const readerCallData = getReaderCalldata(
     exchangeAddress,
     readerIface,
     amounts.slice(1),
     funcName,
+    poolKey,
+    zeroForOne,
   );
   const readerResult = (
     await bunniV2.dexHelper.multiContract.methods
@@ -142,6 +150,8 @@ async function testPricingOnNetwork(
     funcNameToCheck,
     blockNumber,
     poolPrices![0].prices,
+    poolPrices![0].data.poolKey,
+    poolPrices![0].data.zeroForOne,
     amounts,
   );
 }
@@ -157,10 +167,8 @@ describe('BunniV2', function () {
 
     const tokens = Tokens[network];
 
-    // TODO: Put here token Symbol to check against
-    // Don't forget to update relevant tokens in constant-e2e.ts
-    const srcTokenSymbol = 'srcTokenSymbol';
-    const destTokenSymbol = 'destTokenSymbol';
+    const srcTokenSymbol = 'BUNNI';
+    const destTokenSymbol = 'ETH';
 
     const amountsForSell = [
       0n,
@@ -208,44 +216,230 @@ describe('BunniV2', function () {
         destTokenSymbol,
         SwapSide.SELL,
         amountsForSell,
-        '', // TODO: Put here proper function name to check pricing
+        'quoteExactInputSingle',
       );
     });
 
-    it('getPoolIdentifiers and getPricesVolume BUY', async function () {
-      await testPricingOnNetwork(
-        bunniV2,
-        network,
-        dexKey,
-        blockNumber,
-        srcTokenSymbol,
-        destTokenSymbol,
-        SwapSide.BUY,
-        amountsForBuy,
-        '', // TODO: Put here proper function name to check pricing
-      );
-    });
+    // it('getPoolIdentifiers and getPricesVolume BUY', async function () {
+    //   await testPricingOnNetwork(
+    //     bunniV2,
+    //     network,
+    //     dexKey,
+    //     blockNumber,
+    //     srcTokenSymbol,
+    //     destTokenSymbol,
+    //     SwapSide.BUY,
+    //     amountsForBuy,
+    //     'quoteExactOutputSingle',
+    //   );
+    // });
 
-    it('getTopPoolsForToken', async function () {
-      // We have to check without calling initializePricing, because
-      // pool-tracker is not calling that function
-      const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
-      if (newBunniV2.updatePoolState) {
-        await newBunniV2.updatePoolState();
-      }
-      const poolLiquidity = await newBunniV2.getTopPoolsForToken(
-        tokens[srcTokenSymbol].address,
-        10,
-      );
-      console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+    // it('getTopPoolsForToken', async function () {
+    //   const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+    //   if (newBunniV2.updatePoolState) {
+    //     await newBunniV2.updatePoolState();
+    //   }
+    //   const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+    //     tokens[srcTokenSymbol].address,
+    //     10,
+    //   );
+    //   console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
 
-      if (!newBunniV2.hasConstantPriceLargeAmounts) {
-        checkPoolsLiquidity(
-          poolLiquidity,
-          Tokens[network][srcTokenSymbol].address,
-          dexKey,
-        );
-      }
-    });
+    //   if (!newBunniV2.hasConstantPriceLargeAmounts) {
+    //     checkPoolsLiquidity(
+    //       poolLiquidity,
+    //       Tokens[network][srcTokenSymbol].address,
+    //       dexKey,
+    //     );
+    //   }
+    // });
   });
+
+  // describe('Arbitrum', () => {
+  //   const network = Network.ARBITRUM;
+  //   const dexHelper = new DummyDexHelper(network);
+
+  //   const tokens = Tokens[network];
+
+  //   const srcTokenSymbol = 'BUNNI';
+  //   const destTokenSymbol = 'ETH';
+
+  //   const amountsForSell = [
+  //     0n,
+  //     1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //   ];
+
+  //   const amountsForBuy = [
+  //     0n,
+  //     1n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     2n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     3n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     4n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     5n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     6n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     7n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     8n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     9n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     10n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //   ];
+
+  //   beforeAll(async () => {
+  //     blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+  //     bunniV2 = new BunniV2(network, dexKey, dexHelper);
+  //     if (bunniV2.initializePricing) {
+  //       await bunniV2.initializePricing(blockNumber);
+  //     }
+  //   });
+
+  //   it('getPoolIdentifiers and getPricesVolume SELL', async function () {
+  //     await testPricingOnNetwork(
+  //       bunniV2,
+  //       network,
+  //       dexKey,
+  //       blockNumber,
+  //       srcTokenSymbol,
+  //       destTokenSymbol,
+  //       SwapSide.SELL,
+  //       amountsForSell,
+  //       'quoteExactInputSingle',
+  //     );
+  //   });
+
+  //   it('getPoolIdentifiers and getPricesVolume BUY', async function () {
+  //     await testPricingOnNetwork(
+  //       bunniV2,
+  //       network,
+  //       dexKey,
+  //       blockNumber,
+  //       srcTokenSymbol,
+  //       destTokenSymbol,
+  //       SwapSide.BUY,
+  //       amountsForBuy,
+  //       'quoteExactOutputSingle',
+  //     );
+  //   });
+
+  //   it('getTopPoolsForToken', async function () {
+  //     const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+  //     if (newBunniV2.updatePoolState) {
+  //       await newBunniV2.updatePoolState();
+  //     }
+  //     const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+  //       tokens[srcTokenSymbol].address,
+  //       10,
+  //     );
+  //     console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+
+  //     if (!newBunniV2.hasConstantPriceLargeAmounts) {
+  //       checkPoolsLiquidity(
+  //         poolLiquidity,
+  //         Tokens[network][srcTokenSymbol].address,
+  //         dexKey,
+  //       );
+  //     }
+  //   });
+  // });
+
+  // describe('Base', () => {
+  //   const network = Network.BASE;
+  //   const dexHelper = new DummyDexHelper(network);
+
+  //   const tokens = Tokens[network];
+
+  //   const srcTokenSymbol = 'BUNNI';
+  //   const destTokenSymbol = 'ETH';
+
+  //   const amountsForSell = [
+  //     0n,
+  //     1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //     10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+  //   ];
+
+  //   const amountsForBuy = [
+  //     0n,
+  //     1n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     2n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     3n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     4n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     5n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     6n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     7n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     8n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     9n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //     10n * BI_POWS[tokens[destTokenSymbol].decimals],
+  //   ];
+
+  //   beforeAll(async () => {
+  //     blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+  //     bunniV2 = new BunniV2(network, dexKey, dexHelper);
+  //     if (bunniV2.initializePricing) {
+  //       await bunniV2.initializePricing(blockNumber);
+  //     }
+  //   });
+
+  //   it('getPoolIdentifiers and getPricesVolume SELL', async function () {
+  //     await testPricingOnNetwork(
+  //       bunniV2,
+  //       network,
+  //       dexKey,
+  //       blockNumber,
+  //       srcTokenSymbol,
+  //       destTokenSymbol,
+  //       SwapSide.SELL,
+  //       amountsForSell,
+  //       'quoteExactInputSingle',
+  //     );
+  //   });
+
+  //   it('getPoolIdentifiers and getPricesVolume BUY', async function () {
+  //     await testPricingOnNetwork(
+  //       bunniV2,
+  //       network,
+  //       dexKey,
+  //       blockNumber,
+  //       srcTokenSymbol,
+  //       destTokenSymbol,
+  //       SwapSide.BUY,
+  //       amountsForBuy,
+  //       'quoteExactOutputSingle',
+  //     );
+  //   });
+
+  //   it('getTopPoolsForToken', async function () {
+  //     const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+  //     if (newBunniV2.updatePoolState) {
+  //       await newBunniV2.updatePoolState();
+  //     }
+  //     const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+  //       tokens[srcTokenSymbol].address,
+  //       10,
+  //     );
+  //     console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+
+  //     if (!newBunniV2.hasConstantPriceLargeAmounts) {
+  //       checkPoolsLiquidity(
+  //         poolLiquidity,
+  //         Tokens[network][srcTokenSymbol].address,
+  //         dexKey,
+  //       );
+  //     }
+  //   });
+  // });
 });

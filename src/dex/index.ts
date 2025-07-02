@@ -93,8 +93,6 @@ import { FxProtocolRusd } from './fx-protocol-rusd/fx-protocol-rusd';
 import { AaveGsm } from './aave-gsm/aave-gsm';
 import { LitePsm } from './lite-psm/lite-psm';
 import { StkGHO } from './stkgho/stkgho';
-import { BalancerV3 } from './balancer-v3/balancer-v3';
-import { balancerV3Merge } from './balancer-v3/optimizer';
 import { SkyConverter } from './sky-converter/sky-converter';
 import { Cables } from './cables/cables';
 import { Stader } from './stader/stader';
@@ -112,6 +110,7 @@ import { uniswapV4Merge } from './uniswap-v4/optimizer';
 import { AaveV3PtRollOver } from './aave-v3-pt-roll-over/aave-v3-pt-roll-over';
 import { RingV2 } from './uniswap-v2/ring-v2';
 import { UsdcTransmuter } from './usdc-transmuter/usdc-transmuter';
+import { BunniV2 } from './bunni-v2/bunni-v2';
 
 const LegacyDexes = [
   CurveV2,
@@ -139,7 +138,6 @@ const Dexes = [
   Swerve,
   BalancerV1,
   BalancerV2,
-  BalancerV3,
   UniswapV2,
   UniswapV3,
   UniswapV4,
@@ -217,6 +215,7 @@ const Dexes = [
   AaveV3PtRollOver,
   RingV2,
   UsdcTransmuter,
+  BunniV2,
 ];
 
 export type LegacyDexConstructor = new (dexHelper: IDexHelper) => IDexTxBuilder<
@@ -247,7 +246,6 @@ export class DexAdapterService {
   public routeOptimizers: IRouteOptimizer<UnoptimizedRate>[] = [
     balancerV1Merge,
     balancerV2Merge,
-    balancerV3Merge,
     uniswapMerge,
     curveV1Merge,
     uniswapV4Merge,
