@@ -5,7 +5,6 @@ import {
   ExchangePrices,
   PoolPrices,
   AdapterExchangeParam,
-  SimpleExchangeParam,
   PoolLiquidity,
   Logger,
   DexExchangeParam,
@@ -13,34 +12,32 @@ import {
 import {
   SwapSide,
   Network,
-  ETHER_ADDRESS,
   NULL_ADDRESS,
-  MAX_UINT,
-  MAX_INT,
+  ETHER_ADDRESS,
 } from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
-import { bigIntify, getDexKeysWithNetwork, isETHAddress } from '../../utils';
+import { getDexKeysWithNetwork, isETHAddress } from '../../utils';
 import { IDex } from '../../dex/idex';
 import { IDexHelper } from '../../dex-helper/idex-helper';
-import { BunniV2Data, PoolState, PoolStateMap } from './types';
+import { BunniV2Data, DexParams, PoolState, PoolStateMap } from './types';
 import { SimpleExchange } from '../simple-exchange';
 import { BunniV2Config } from './config';
 import { BunniV2EventPool } from './bunni-v2-pool';
-// import { ZERO_ADDRESS } from './lib/Constants';
 import V4QuoterABI from '../../abi/bunni-v2/V4Quoter.abi.json';
 import { Interface } from '@ethersproject/abi';
 import { MultiResult } from '../../lib/multi-wrapper';
 import { BytesLike } from 'ethers';
 import { generalDecoder } from '../../lib/decoders';
 import { BI_POWS } from '../../bigint-constants';
-import { quoteSwap } from './logic/BunniQuoter';
 import { queryAvailablePoolsForToken } from './subgraph';
 import _ from 'lodash';
-import { TickMath } from './lib/TickMath';
 import {
+  swapExactInputCalldata,
   swapExactInputSingleCalldata,
+  swapExactOutputCalldata,
   swapExactOutputSingleCalldata,
 } from './encoder';
+import { isWETHAddress } from './utils';
 
 export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   protected eventPools: BunniV2EventPool;
@@ -54,6 +51,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(BunniV2Config);
 
+  config: DexParams;
   logger: Logger;
   quoterInterface: Interface;
 
@@ -63,6 +61,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     readonly dexHelper: IDexHelper,
   ) {
     super(dexHelper, dexKey);
+    this.config = BunniV2Config.BunniV2[network];
     this.logger = dexHelper.getLogger(dexKey);
     this.quoterInterface = new Interface(V4QuoterABI);
 
@@ -100,11 +99,8 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     side: SwapSide,
     blockNumber: number,
   ): Promise<string[]> {
-    let srcTokenAddress = srcToken.address.toLowerCase();
-    let destTokenAddress = destToken.address.toLowerCase();
-    if (isETHAddress(srcTokenAddress)) srcTokenAddress = NULL_ADDRESS;
-    if (isETHAddress(destTokenAddress)) destTokenAddress = NULL_ADDRESS;
-
+    const srcTokenAddress = srcToken.address.toLowerCase();
+    const destTokenAddress = destToken.address.toLowerCase();
     const poolState = this.eventPools.getState(blockNumber);
 
     if (poolState === null) return [];
@@ -117,26 +113,63 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
 
   findPoolIdentifiersWithTokens(
     pools: DeepReadonly<PoolStateMap>,
-    tokenA: string,
-    tokenB: string,
+    srcToken: string,
+    destToken: string,
   ): string[] {
-    return Object.entries(pools)
-      .filter(([, poolState]) => {
-        return this.hasTokens(poolState, [tokenA, tokenB]);
-      })
-      .map(([, poolState]) => `BunniV2_${poolState.id}`);
-  }
-
-  hasTokens(pool: DeepReadonly<PoolState>, tokens: string[]): boolean {
-    return tokens.every(
-      token => pool.key.currency0 === token || pool.key.currency1 === token,
+    return this.getAvailablePoolsForPair(pools, srcToken, destToken).map(
+      (poolState: PoolState) => `BunniV2_${poolState.id}`,
     );
   }
 
-  // Returns pool prices for amounts.
-  // If limitPools is defined only pools in limitPools
-  // should be used. If limitPools is undefined then
-  // any pools can be used.
+  getAvailablePoolsForPair(
+    pools: DeepReadonly<PoolStateMap>,
+    srcToken: string,
+    destToken: string,
+  ): PoolState[] {
+    const isEthSrc = isETHAddress(srcToken);
+    const isEthDest = isETHAddress(destToken);
+
+    const isWethSrc = isWETHAddress(srcToken, this.config);
+    const isWethDest = isWETHAddress(destToken, this.config);
+
+    const needCheckWeth = isEthSrc || isEthDest;
+    const needCheckETH = isWethSrc || isWethDest;
+
+    const _srcToken = isEthSrc ? NULL_ADDRESS : srcToken.toLowerCase();
+    const _destToken = isEthDest ? NULL_ADDRESS : destToken.toLowerCase();
+
+    return Object.values(pools).filter((poolState: PoolState) => {
+      const checkToken0Src = poolState.key.currency0 === _srcToken;
+      const checkToken1Dest = poolState.key.currency1 === _destToken;
+      const checkToken1Src = poolState.key.currency1 === _srcToken;
+      const checkToken0Dest = poolState.key.currency0 === _destToken;
+
+      const checkToken0Weth =
+        needCheckWeth && isWETHAddress(poolState.key.currency0, this.config); // check token0 to discover WETH pools when ETH is src or dest
+      const checkToken0ETH =
+        needCheckETH && poolState.key.currency0 === NULL_ADDRESS; // check token0 to discover ETH pools when WETH is src or dest
+      const checkToken1Weth =
+        needCheckWeth && isWETHAddress(poolState.key.currency1, this.config); // check token1 to discover WETH pools when ETH is src or dest
+      const checkToken1ETH =
+        needCheckETH && poolState.key.currency1 === NULL_ADDRESS; // check token1 to discover ETH pools when WETH is src or dest
+
+      return (
+        ((checkToken0Src ||
+          (isEthSrc && checkToken0Weth) ||
+          (isWethSrc && checkToken0ETH)) &&
+          (checkToken1Dest ||
+            (isEthDest && checkToken1Weth) ||
+            (isWethDest && checkToken1ETH))) ||
+        ((checkToken0Dest ||
+          (isEthDest && checkToken0Weth) ||
+          (isWethDest && checkToken0ETH)) &&
+          (checkToken1Src ||
+            (isEthSrc && checkToken1Weth) ||
+            (isWethSrc && checkToken1ETH)))
+      );
+    });
+  }
+
   async getPricesVolume(
     srcToken: Token,
     destToken: Token,
@@ -145,22 +178,14 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     blockNumber: number,
     limitPools?: string[],
   ): Promise<null | ExchangePrices<BunniV2Data>> {
-    console.log('check');
-    const _src = isETHAddress(srcToken.address)
-      ? NULL_ADDRESS
-      : srcToken.address.toLowerCase();
-    const _dest = isETHAddress(destToken.address)
-      ? NULL_ADDRESS
-      : destToken.address.toLowerCase();
-
     const poolStates = this.eventPools.getState(blockNumber);
-    console.log(poolStates);
-    if (poolStates === null) return []; // TODO i think so...??
+    if (poolStates === null) return null;
 
-    const pools = Object.values(poolStates).filter(poolState => {
-      return this.hasTokens(poolState, [_src, _dest]);
-      // && poolState.totalSupply > 0n;
-    }) as PoolState[];
+    const pools = this.getAvailablePoolsForPair(
+      poolStates,
+      srcToken.address,
+      destToken.address,
+    );
 
     const poolIdSet = new Set((limitPools ?? []).map(id => id));
     const availablePools =
@@ -170,8 +195,15 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
 
     const pricesPromises = availablePools.map(async pool => {
       let prices: bigint[] | null;
-      const zeroForOne: boolean =
-        pool.key.currency0.toLowerCase() === _src.toLowerCase() ? true : false;
+
+      const zeroForOne =
+        srcToken.address.toLowerCase() === pool.key.currency0.toLowerCase() ||
+        (isETHAddress(srcToken.address) &&
+          pool.key.currency0 === NULL_ADDRESS) || // ETH is src and native ETH pool
+        (isETHAddress(srcToken.address) &&
+          pool.key.currency0 === this.config.WETH.toLowerCase()) || // ETH is src and WETH pool
+        (srcToken.address.toLowerCase() === this.config.WETH.toLowerCase() &&
+          pool.key.currency0 === NULL_ADDRESS); // WETH is src and native ETH pool
 
       try {
         prices = await this.getOnChainPrices(
@@ -182,30 +214,9 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
           blockNumber,
         );
       } catch (error) {
-        console.warn(error);
+        this.logger.warn(error);
         prices = null;
       }
-
-      // try {
-      //   // attempt to quote the swap locally
-      //   prices = this.getOffChainPrices(
-      //     zeroForOne,
-      //     amounts,
-      //     pool,
-      //     side,
-      //     bigIntify(blockNumber)
-      //   );
-      // } catch (error) {
-      //   console.warn(error);
-      //   // revert to fetching prices via RPC
-      //   prices = await this.getOnChainPrices(
-      //     zeroForOne,
-      //     amounts,
-      //     pool,
-      //     side,
-      //     blockNumber
-      //   );
-      // }
 
       if (prices === null) {
         return null;
@@ -223,12 +234,17 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         unit: BI_POWS[destToken.decimals],
         prices,
         data: {
-          exchange: this.dexKey,
-          poolKey: pool.key,
-          zeroForOne: zeroForOne,
+          path: [
+            {
+              pool,
+              tokenIn: zeroForOne ? pool.key.currency0 : pool.key.currency1,
+              tokenOut: zeroForOne ? pool.key.currency1 : pool.key.currency0,
+              zeroForOne,
+            },
+          ],
         },
         exchange: this.dexKey,
-        gasCost: 100_000, // TODO
+        gasCost: 100_000,
         poolIdentifier: pool.id,
       };
     });
@@ -236,35 +252,6 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     const prices = await Promise.all(pricesPromises);
     return prices.filter(res => res !== null);
   }
-
-  // getOffChainPrices(
-  //   zeroForOne: boolean,
-  //   amounts: bigint[],
-  //   pool: PoolState,
-  //   side: SwapSide,
-  //   blockNumber: bigint
-  // ): bigint[] {
-  //   const quotes = amounts.map((amount) => {
-  //     return quoteSwap(
-  //       pool,
-  //       {
-  //         zeroForOne,
-  //         amountSpecified: side === SwapSide.SELL
-  //           ? -amount
-  //           : amount,
-  //         sqrtPriceLimitX96: zeroForOne
-  //           ? TickMath.MIN_SQRT_PRICE + 1n
-  //           : TickMath.MAX_SQRT_PRICE - 1n,
-  //       },
-  //       blockNumber,
-  //       BunniV2Config.BunniV2[this.network]
-  //     )
-  //   });
-
-  //   return quotes.map((quote) => (
-  //     side === SwapSide.SELL ? quote.outputAmount : quote.inputAmount
-  //   ));
-  // }
 
   async getOnChainPrices(
     zeroForOne: boolean,
@@ -306,7 +293,6 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
 
   // Returns estimated gas cost of calldata for this DEX in multiSwap
   getCalldataGasCost(poolPrices: PoolPrices<BunniV2Data>): number | number[] {
-    // TODO: update if there is any payload in getAdapterParam
     return CALLDATA_GAS_COST.DEX_NO_PAYLOAD;
   }
 
@@ -319,30 +305,43 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     data: BunniV2Data,
     side: SwapSide,
   ): DexExchangeParam {
-    let exchangeData: string;
-    if (side === SwapSide.SELL) {
-      exchangeData = swapExactInputSingleCalldata(
-        srcToken,
-        destToken,
-        data.poolKey,
-        data.zeroForOne,
-        BigInt(srcAmount),
-        // destMinAmount (can be 0 on dex level)
-        0n,
-        recipient,
-      );
+    let encodingMethod: (
+      srcToken: Address,
+      destToken: Address,
+      data: BunniV2Data,
+      amount1: bigint,
+      amount2: bigint,
+      recipient: Address,
+      dexHelper: IDexHelper,
+    ) => string;
+
+    if (data.path.length === 1 && side === SwapSide.SELL) {
+      // Single-hop encoding for SELL side
+      encodingMethod = swapExactInputSingleCalldata;
+    } else if (data.path.length === 1 && side === SwapSide.BUY) {
+      // Single-hop encoding for BUY side
+      encodingMethod = swapExactOutputSingleCalldata;
+    } else if (data.path.length > 1 && side === SwapSide.SELL) {
+      // Multi-hop encoding for SELL side
+      encodingMethod = swapExactInputCalldata;
+    } else if (data.path.length > 1 && side === SwapSide.BUY) {
+      // Multi-hop encoding for BUY side
+      encodingMethod = swapExactOutputCalldata;
     } else {
-      exchangeData = swapExactOutputSingleCalldata(
-        srcToken,
-        destToken,
-        data.poolKey,
-        data.zeroForOne,
-        BigInt(destAmount),
-        recipient,
+      throw new Error(
+        `${this.dexKey}-${this.network}: Logic error for side: ${side}, data.path.length: ${data.path.length}`,
       );
     }
 
-    // return null as any;
+    const exchangeData = encodingMethod(
+      srcToken,
+      destToken,
+      data,
+      BigInt(srcAmount),
+      side === SwapSide.SELL ? 0n : BigInt(destAmount),
+      recipient,
+      this.dexHelper,
+    );
 
     return {
       needWrapNative: this.needWrapNative,
@@ -363,25 +362,16 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     data: BunniV2Data,
     side: SwapSide,
   ): AdapterExchangeParam {
-    const { exchange } = data;
-
     const payload = '';
 
     return {
-      targetExchange: exchange,
+      targetExchange: BunniV2Config.BunniV2[this.network].router,
       payload,
       networkFee: '0',
     };
   }
 
-  // This is called once before getTopPoolsForToken is
-  // called for multiple tokens. This can be helpful to
-  // update common state required for calculating
-  // getTopPoolsForToken. It is optional for a DEX
-  // to implement this
-  async updatePoolState(): Promise<void> {
-    // TODO: complete me!
-  }
+  async updatePoolState(): Promise<void> {}
 
   async getTopPoolsForToken(
     tokenAddress: Address,
@@ -397,8 +387,8 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     );
 
     // TODO
-    // instead of relying on the vault pricePerVaultShare values
-    // from the subgraph which can be stale, we can query them
+    // Instead of relying on the vault pricePerVaultShare values
+    // from the subgraph, which can be stale, we can query them
     // via RPC to get the most accurate liquidityUSD values.
 
     if (!availablePoolsForToken) {
@@ -462,7 +452,13 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         exchange: this.dexKey,
         address: BunniV2Config.BunniV2[this.network].poolManager,
         connectorTokens: [
-          { address: connectorAddress, decimals: connectorDecimals },
+          {
+            address:
+              connectorAddress.toLowerCase() === NULL_ADDRESS
+                ? ETHER_ADDRESS
+                : connectorAddress.toLowerCase(),
+            decimals: connectorDecimals,
+          },
         ],
         liquidityUSD: liquidity0 + liquidity1,
       };

@@ -16,23 +16,6 @@ import { Tokens } from '../../../tests/constants-e2e';
 import { PoolKey } from './types';
 import { BunniV2Config } from './config';
 
-/*
-  README
-  ======
-
-  This test script adds tests for BunniV2 general integration
-  with the DEX interface. The test cases below are example tests.
-  It is recommended to add tests which cover BunniV2 specific
-  logic.
-
-  You can run this individual test script by running:
-  `npx jest src/dex/<dex-name>/<dex-name>-integration.test.ts`
-
-  (This comment should be removed from the final implementation)
-*/
-
-jest.setTimeout(50 * 1000);
-
 function getReaderCalldata(
   exchangeAddress: string,
   readerIface: Interface,
@@ -150,8 +133,8 @@ async function testPricingOnNetwork(
     funcNameToCheck,
     blockNumber,
     poolPrices![0].prices,
-    poolPrices![0].data.poolKey,
-    poolPrices![0].data.zeroForOne,
+    poolPrices![0].data.path[0].pool.key,
+    poolPrices![0].data.path[0].zeroForOne,
     amounts,
   );
 }
@@ -164,282 +147,723 @@ describe('BunniV2', function () {
   describe('Mainnet', () => {
     const network = Network.MAINNET;
     const dexHelper = new DummyDexHelper(network);
-
     const tokens = Tokens[network];
 
-    const srcTokenSymbol = 'BUNNI';
-    const destTokenSymbol = 'ETH';
+    describe('ETH-BUNNI', () => {
+      const srcTokenSymbol = 'BUNNI';
+      const destTokenSymbol = 'ETH';
 
-    const amountsForSell = [
-      0n,
-      1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      10n * BI_POWS[tokens[srcTokenSymbol].decimals],
-    ];
+      const amountsForSell = (srcTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+        ];
+      };
 
-    const amountsForBuy = [
-      0n,
-      1n * BI_POWS[tokens[destTokenSymbol].decimals],
-      2n * BI_POWS[tokens[destTokenSymbol].decimals],
-      3n * BI_POWS[tokens[destTokenSymbol].decimals],
-      4n * BI_POWS[tokens[destTokenSymbol].decimals],
-      5n * BI_POWS[tokens[destTokenSymbol].decimals],
-      6n * BI_POWS[tokens[destTokenSymbol].decimals],
-      7n * BI_POWS[tokens[destTokenSymbol].decimals],
-      8n * BI_POWS[tokens[destTokenSymbol].decimals],
-      9n * BI_POWS[tokens[destTokenSymbol].decimals],
-      10n * BI_POWS[tokens[destTokenSymbol].decimals],
-    ];
+      const amountsForBuy = (destTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[destTokenSymbol].decimals],
+          2n * BI_POWS[tokens[destTokenSymbol].decimals],
+          3n * BI_POWS[tokens[destTokenSymbol].decimals],
+          4n * BI_POWS[tokens[destTokenSymbol].decimals],
+          5n * BI_POWS[tokens[destTokenSymbol].decimals],
+          6n * BI_POWS[tokens[destTokenSymbol].decimals],
+          7n * BI_POWS[tokens[destTokenSymbol].decimals],
+          8n * BI_POWS[tokens[destTokenSymbol].decimals],
+          9n * BI_POWS[tokens[destTokenSymbol].decimals],
+          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+        ];
+      };
 
-    beforeAll(async () => {
-      blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-      bunniV2 = new BunniV2(network, dexKey, dexHelper);
-      if (bunniV2.initializePricing) {
-        await bunniV2.initializePricing(blockNumber);
-      }
+      beforeAll(async () => {
+        blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+        bunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (bunniV2.initializePricing) {
+          await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(srcTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(destTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(destTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(srcTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[srcTokenSymbol].address,
+          10,
+        );
+        console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][srcTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+
+      it(`${destTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[destTokenSymbol].address,
+          10,
+        );
+        console.log(`${destTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][destTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
     });
 
-    it('getPoolIdentifiers and getPricesVolume SELL', async function () {
-      await testPricingOnNetwork(
-        bunniV2,
-        network,
-        dexKey,
-        blockNumber,
-        srcTokenSymbol,
-        destTokenSymbol,
-        SwapSide.SELL,
-        amountsForSell,
-        'quoteExactInputSingle',
-      );
+    describe('USR-USDC', () => {
+      const srcTokenSymbol = 'USR';
+      const destTokenSymbol = 'USDC';
+
+      const amountsForSell = (srcTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+        ];
+      };
+
+      const amountsForBuy = (destTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[destTokenSymbol].decimals],
+          2n * BI_POWS[tokens[destTokenSymbol].decimals],
+          3n * BI_POWS[tokens[destTokenSymbol].decimals],
+          4n * BI_POWS[tokens[destTokenSymbol].decimals],
+          5n * BI_POWS[tokens[destTokenSymbol].decimals],
+          6n * BI_POWS[tokens[destTokenSymbol].decimals],
+          7n * BI_POWS[tokens[destTokenSymbol].decimals],
+          8n * BI_POWS[tokens[destTokenSymbol].decimals],
+          9n * BI_POWS[tokens[destTokenSymbol].decimals],
+          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+        ];
+      };
+
+      beforeAll(async () => {
+        blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+        bunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (bunniV2.initializePricing) {
+          await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(srcTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(destTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(destTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(srcTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[srcTokenSymbol].address,
+          10,
+        );
+        console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][srcTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+
+      it(`${destTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[destTokenSymbol].address,
+          10,
+        );
+        console.log(`${destTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][destTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
     });
 
-    // it('getPoolIdentifiers and getPricesVolume BUY', async function () {
-    //   await testPricingOnNetwork(
-    //     bunniV2,
-    //     network,
-    //     dexKey,
-    //     blockNumber,
-    //     srcTokenSymbol,
-    //     destTokenSymbol,
-    //     SwapSide.BUY,
-    //     amountsForBuy,
-    //     'quoteExactOutputSingle',
-    //   );
-    // });
+    describe('USD0-USD0++', () => {
+      const srcTokenSymbol = 'USD0';
+      const destTokenSymbol = 'USD0++';
 
-    // it('getTopPoolsForToken', async function () {
-    //   const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
-    //   if (newBunniV2.updatePoolState) {
-    //     await newBunniV2.updatePoolState();
-    //   }
-    //   const poolLiquidity = await newBunniV2.getTopPoolsForToken(
-    //     tokens[srcTokenSymbol].address,
-    //     10,
-    //   );
-    //   console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+      const amountsForSell = (srcTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+        ];
+      };
 
-    //   if (!newBunniV2.hasConstantPriceLargeAmounts) {
-    //     checkPoolsLiquidity(
-    //       poolLiquidity,
-    //       Tokens[network][srcTokenSymbol].address,
-    //       dexKey,
-    //     );
-    //   }
-    // });
+      const amountsForBuy = (destTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[destTokenSymbol].decimals],
+          2n * BI_POWS[tokens[destTokenSymbol].decimals],
+          3n * BI_POWS[tokens[destTokenSymbol].decimals],
+          4n * BI_POWS[tokens[destTokenSymbol].decimals],
+          5n * BI_POWS[tokens[destTokenSymbol].decimals],
+          6n * BI_POWS[tokens[destTokenSymbol].decimals],
+          7n * BI_POWS[tokens[destTokenSymbol].decimals],
+          8n * BI_POWS[tokens[destTokenSymbol].decimals],
+          9n * BI_POWS[tokens[destTokenSymbol].decimals],
+          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+        ];
+      };
+
+      beforeAll(async () => {
+        blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+        bunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (bunniV2.initializePricing) {
+          await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(srcTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(destTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(destTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(srcTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[srcTokenSymbol].address,
+          10,
+        );
+        console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][srcTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+
+      it(`${destTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[destTokenSymbol].address,
+          10,
+        );
+        console.log(`${destTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][destTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+    });
   });
 
-  // describe('Arbitrum', () => {
-  //   const network = Network.ARBITRUM;
-  //   const dexHelper = new DummyDexHelper(network);
+  describe('Arbitrum', () => {
+    const network = Network.ARBITRUM;
+    const dexHelper = new DummyDexHelper(network);
+    const tokens = Tokens[network];
 
-  //   const tokens = Tokens[network];
+    describe('ETH-BUNNI', () => {
+      const srcTokenSymbol = 'BUNNI';
+      const destTokenSymbol = 'ETH';
 
-  //   const srcTokenSymbol = 'BUNNI';
-  //   const destTokenSymbol = 'ETH';
+      const amountsForSell = (srcTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+        ];
+      };
 
-  //   const amountsForSell = [
-  //     0n,
-  //     1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     10n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //   ];
+      const amountsForBuy = (destTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[destTokenSymbol].decimals],
+          2n * BI_POWS[tokens[destTokenSymbol].decimals],
+          3n * BI_POWS[tokens[destTokenSymbol].decimals],
+          4n * BI_POWS[tokens[destTokenSymbol].decimals],
+          5n * BI_POWS[tokens[destTokenSymbol].decimals],
+          6n * BI_POWS[tokens[destTokenSymbol].decimals],
+          7n * BI_POWS[tokens[destTokenSymbol].decimals],
+          8n * BI_POWS[tokens[destTokenSymbol].decimals],
+          9n * BI_POWS[tokens[destTokenSymbol].decimals],
+          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+        ];
+      };
 
-  //   const amountsForBuy = [
-  //     0n,
-  //     1n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     2n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     3n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     4n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     5n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     6n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     7n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     8n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     9n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     10n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //   ];
+      beforeAll(async () => {
+        blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+        bunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (bunniV2.initializePricing) {
+          await bunniV2.initializePricing(blockNumber);
+        }
+      });
 
-  //   beforeAll(async () => {
-  //     blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-  //     bunniV2 = new BunniV2(network, dexKey, dexHelper);
-  //     if (bunniV2.initializePricing) {
-  //       await bunniV2.initializePricing(blockNumber);
-  //     }
-  //   });
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(srcTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
 
-  //   it('getPoolIdentifiers and getPricesVolume SELL', async function () {
-  //     await testPricingOnNetwork(
-  //       bunniV2,
-  //       network,
-  //       dexKey,
-  //       blockNumber,
-  //       srcTokenSymbol,
-  //       destTokenSymbol,
-  //       SwapSide.SELL,
-  //       amountsForSell,
-  //       'quoteExactInputSingle',
-  //     );
-  //   });
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(destTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
 
-  //   it('getPoolIdentifiers and getPricesVolume BUY', async function () {
-  //     await testPricingOnNetwork(
-  //       bunniV2,
-  //       network,
-  //       dexKey,
-  //       blockNumber,
-  //       srcTokenSymbol,
-  //       destTokenSymbol,
-  //       SwapSide.BUY,
-  //       amountsForBuy,
-  //       'quoteExactOutputSingle',
-  //     );
-  //   });
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(destTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
 
-  //   it('getTopPoolsForToken', async function () {
-  //     const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
-  //     if (newBunniV2.updatePoolState) {
-  //       await newBunniV2.updatePoolState();
-  //     }
-  //     const poolLiquidity = await newBunniV2.getTopPoolsForToken(
-  //       tokens[srcTokenSymbol].address,
-  //       10,
-  //     );
-  //     console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(srcTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
 
-  //     if (!newBunniV2.hasConstantPriceLargeAmounts) {
-  //       checkPoolsLiquidity(
-  //         poolLiquidity,
-  //         Tokens[network][srcTokenSymbol].address,
-  //         dexKey,
-  //       );
-  //     }
-  //   });
-  // });
+      it(`${srcTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[srcTokenSymbol].address,
+          10,
+        );
+        console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
 
-  // describe('Base', () => {
-  //   const network = Network.BASE;
-  //   const dexHelper = new DummyDexHelper(network);
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][srcTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
 
-  //   const tokens = Tokens[network];
+      it(`${destTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[destTokenSymbol].address,
+          10,
+        );
+        console.log(`${destTokenSymbol} Top Pools:`, poolLiquidity);
 
-  //   const srcTokenSymbol = 'BUNNI';
-  //   const destTokenSymbol = 'ETH';
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][destTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+    });
+  });
 
-  //   const amountsForSell = [
-  //     0n,
-  //     1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //     10n * BI_POWS[tokens[srcTokenSymbol].decimals],
-  //   ];
+  describe('Base', () => {
+    const network = Network.BASE;
+    const dexHelper = new DummyDexHelper(network);
+    const tokens = Tokens[network];
 
-  //   const amountsForBuy = [
-  //     0n,
-  //     1n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     2n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     3n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     4n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     5n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     6n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     7n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     8n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     9n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //     10n * BI_POWS[tokens[destTokenSymbol].decimals],
-  //   ];
+    describe('ETH-BUNNI', () => {
+      const srcTokenSymbol = 'BUNNI';
+      const destTokenSymbol = 'ETH';
 
-  //   beforeAll(async () => {
-  //     blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-  //     bunniV2 = new BunniV2(network, dexKey, dexHelper);
-  //     if (bunniV2.initializePricing) {
-  //       await bunniV2.initializePricing(blockNumber);
-  //     }
-  //   });
+      const amountsForSell = (srcTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+        ];
+      };
 
-  //   it('getPoolIdentifiers and getPricesVolume SELL', async function () {
-  //     await testPricingOnNetwork(
-  //       bunniV2,
-  //       network,
-  //       dexKey,
-  //       blockNumber,
-  //       srcTokenSymbol,
-  //       destTokenSymbol,
-  //       SwapSide.SELL,
-  //       amountsForSell,
-  //       'quoteExactInputSingle',
-  //     );
-  //   });
+      const amountsForBuy = (destTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[destTokenSymbol].decimals],
+          2n * BI_POWS[tokens[destTokenSymbol].decimals],
+          3n * BI_POWS[tokens[destTokenSymbol].decimals],
+          4n * BI_POWS[tokens[destTokenSymbol].decimals],
+          5n * BI_POWS[tokens[destTokenSymbol].decimals],
+          6n * BI_POWS[tokens[destTokenSymbol].decimals],
+          7n * BI_POWS[tokens[destTokenSymbol].decimals],
+          8n * BI_POWS[tokens[destTokenSymbol].decimals],
+          9n * BI_POWS[tokens[destTokenSymbol].decimals],
+          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+        ];
+      };
 
-  //   it('getPoolIdentifiers and getPricesVolume BUY', async function () {
-  //     await testPricingOnNetwork(
-  //       bunniV2,
-  //       network,
-  //       dexKey,
-  //       blockNumber,
-  //       srcTokenSymbol,
-  //       destTokenSymbol,
-  //       SwapSide.BUY,
-  //       amountsForBuy,
-  //       'quoteExactOutputSingle',
-  //     );
-  //   });
+      beforeAll(async () => {
+        blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+        bunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (bunniV2.initializePricing) {
+          await bunniV2.initializePricing(blockNumber);
+        }
+      });
 
-  //   it('getTopPoolsForToken', async function () {
-  //     const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
-  //     if (newBunniV2.updatePoolState) {
-  //       await newBunniV2.updatePoolState();
-  //     }
-  //     const poolLiquidity = await newBunniV2.getTopPoolsForToken(
-  //       tokens[srcTokenSymbol].address,
-  //       10,
-  //     );
-  //     console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(srcTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
 
-  //     if (!newBunniV2.hasConstantPriceLargeAmounts) {
-  //       checkPoolsLiquidity(
-  //         poolLiquidity,
-  //         Tokens[network][srcTokenSymbol].address,
-  //         dexKey,
-  //       );
-  //     }
-  //   });
-  // });
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(destTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(destTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(srcTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[srcTokenSymbol].address,
+          10,
+        );
+        console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][srcTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+
+      it(`${destTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[destTokenSymbol].address,
+          10,
+        );
+        console.log(`${destTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][destTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+    });
+  });
 });

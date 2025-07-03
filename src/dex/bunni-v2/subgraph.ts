@@ -157,8 +157,6 @@ export async function queryAvailablePoolsForToken(
     }
   `;
 
-  console.log('check');
-
   const result = await dexHelper.httpRequest.querySubgraph<{
     data: { pools: SubgraphTopPool[] };
     errors?: { message: string }[];
@@ -170,8 +168,6 @@ export async function queryAvailablePoolsForToken(
     },
     { timeout: SUBGRAPH_TIMEOUT },
   );
-
-  console.log(result);
 
   if (result.errors && result.errors.length) {
     throw new Error(result.errors[0].message);

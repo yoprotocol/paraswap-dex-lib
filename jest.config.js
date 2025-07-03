@@ -7,5 +7,4 @@ module.exports = {
   ],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   testTimeout: 30 * 1000,
-  silent: false,
 };
