@@ -222,7 +222,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         return null;
       }
 
-      if (SwapSide.BUY && prices[prices.length - 1] === 0n) {
+      if (side === SwapSide.BUY && prices[prices.length - 1] === 0n) {
         return null;
       }
 
