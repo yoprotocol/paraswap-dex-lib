@@ -43,7 +43,6 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   protected eventPools: BunniV2EventPool;
 
   readonly hasConstantPriceLargeAmounts = false;
-  // TODO: set true here if protocols works only with wrapped asset
   readonly needWrapNative = false;
 
   readonly isFeeOnTransferSupported = false;
@@ -73,26 +72,14 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     );
   }
 
-  // Initialize pricing is called once in the start of
-  // pricing service. It is intended to setup the integration
-  // for pricing requests. It is optional for a DEX to
-  // implement this function
   async initializePricing(blockNumber: number) {
-    // TODO: complete me!
     await this.eventPools.initialize(blockNumber);
   }
 
-  // Legacy: was only used for V5
-  // Returns the list of contract adapters (name and index)
-  // for a buy/sell. Return null if there are no adapters.
   getAdapters(side: SwapSide): { name: string; index: number }[] | null {
     return null;
   }
 
-  // Returns list of pool identifiers that can be used
-  // for a given swap. poolIdentifiers must be unique
-  // across DEXes. It is recommended to use
-  // ${dexKey}_${poolAddress} as a poolIdentifier
   async getPoolIdentifiers(
     srcToken: Token,
     destToken: Token,
@@ -471,9 +458,5 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     return pools;
   }
 
-  // This is optional function in case if your implementation has acquired any resources
-  // you need to release for graceful shutdown. For example, it may be any interval timer
-  releaseResources(): AsyncOrSync<void> {
-    // TODO: complete me!
-  }
+  releaseResources(): AsyncOrSync<void> {}
 }
