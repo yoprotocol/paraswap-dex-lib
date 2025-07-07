@@ -93,6 +93,8 @@ import { FxProtocolRusd } from './fx-protocol-rusd/fx-protocol-rusd';
 import { AaveGsm } from './aave-gsm/aave-gsm';
 import { LitePsm } from './lite-psm/lite-psm';
 import { StkGHO } from './stkgho/stkgho';
+import { BalancerV3 } from './balancer-v3/balancer-v3';
+import { balancerV3Merge } from './balancer-v3/optimizer';
 import { SkyConverter } from './sky-converter/sky-converter';
 import { Cables } from './cables/cables';
 import { Stader } from './stader/stader';
@@ -138,6 +140,7 @@ const Dexes = [
   Swerve,
   BalancerV1,
   BalancerV2,
+  BalancerV3,
   UniswapV2,
   UniswapV3,
   UniswapV4,
@@ -246,6 +249,7 @@ export class DexAdapterService {
   public routeOptimizers: IRouteOptimizer<UnoptimizedRate>[] = [
     balancerV1Merge,
     balancerV2Merge,
+    balancerV3Merge,
     uniswapMerge,
     curveV1Merge,
     uniswapV4Merge,
