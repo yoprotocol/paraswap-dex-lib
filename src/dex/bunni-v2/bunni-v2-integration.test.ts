@@ -866,4 +866,151 @@ describe('BunniV2', function () {
       });
     });
   });
+
+  describe('UNICHAIN', () => {
+    const network = Network.UNICHAIN;
+    const dexHelper = new DummyDexHelper(network);
+    const tokens = Tokens[network];
+
+    describe('USDC-USD₮0', () => {
+      const srcTokenSymbol = 'USDC';
+      const destTokenSymbol = 'USD₮0';
+
+      const amountsForSell = (srcTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+        ];
+      };
+
+      const amountsForBuy = (destTokenSymbol: string) => {
+        return [
+          0n,
+          1n * BI_POWS[tokens[destTokenSymbol].decimals],
+          2n * BI_POWS[tokens[destTokenSymbol].decimals],
+          3n * BI_POWS[tokens[destTokenSymbol].decimals],
+          4n * BI_POWS[tokens[destTokenSymbol].decimals],
+          5n * BI_POWS[tokens[destTokenSymbol].decimals],
+          6n * BI_POWS[tokens[destTokenSymbol].decimals],
+          7n * BI_POWS[tokens[destTokenSymbol].decimals],
+          8n * BI_POWS[tokens[destTokenSymbol].decimals],
+          9n * BI_POWS[tokens[destTokenSymbol].decimals],
+          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+        ];
+      };
+
+      beforeAll(async () => {
+        blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
+        bunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (bunniV2.initializePricing) {
+          await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(srcTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          srcTokenSymbol,
+          destTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(destTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.SELL,
+          amountsForSell(destTokenSymbol),
+          'quoteExactInputSingle',
+        );
+      });
+
+      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
+        await testPricingOnNetwork(
+          bunniV2,
+          network,
+          dexKey,
+          blockNumber,
+          destTokenSymbol,
+          srcTokenSymbol,
+          SwapSide.BUY,
+          amountsForBuy(srcTokenSymbol),
+          'quoteExactOutputSingle',
+        );
+      });
+
+      it(`${srcTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[srcTokenSymbol].address,
+          10,
+        );
+        console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][srcTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+
+      it(`${destTokenSymbol} getTopPoolsForToken`, async function () {
+        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
+        if (newBunniV2.updatePoolState) {
+          await newBunniV2.updatePoolState();
+        }
+        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
+          tokens[destTokenSymbol].address,
+          10,
+        );
+        console.log(`${destTokenSymbol} Top Pools:`, poolLiquidity);
+
+        if (!newBunniV2.hasConstantPriceLargeAmounts) {
+          checkPoolsLiquidity(
+            poolLiquidity,
+            Tokens[network][destTokenSymbol].address,
+            dexKey,
+          );
+        }
+      });
+    });
+  });
 });

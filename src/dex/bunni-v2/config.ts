@@ -67,5 +67,22 @@ export const BunniV2Config: DexConfigMap<DexParams> = {
       ],
       subgraphURL: 'FfnRstqDWGGevsbf9rRg1vNctrb38Hd791zzaaKc7AGz',
     },
+    [Network.UNICHAIN]: {
+      WETH: '0x4200000000000000000000000000000000000006',
+      poolManager: '0x1F98400000000000000000000000000000000004',
+      quoter: '0x333E3C607B141b18fF6de9f258db6e77fE7491E0',
+      router: '0xEf740bf23aCaE26f6492B10de645D6B98dC8Eaf3',
+      bunniHubs: [
+        '0x000000DCeb71f3107909b1b748424349bfde5493', // v1.0
+        '0x00000091Cb2d7914C9cd196161Da0943aB7b92E1', // v1.2.0
+        '0x000000000049C7bcBCa294E63567b4D21EB765f1', // v1.2.1
+      ],
+      bunniHooks: [
+        '0x0000fE59823933AC763611a69c88F91d45F81888', // v1.1.1
+        '0x005aF73a245d8171A0550ffAe2631f12cc211888', // v1.2.0
+        '0x000052423c1dB6B7ff8641b85A7eEfc7B2791888', // v1.2.1
+      ],
+      subgraphURL: 'J22JEPtqL847G44v7E5gTsxmNosoLtKQUDAvnhRhzj25',
+    },
   },
 };

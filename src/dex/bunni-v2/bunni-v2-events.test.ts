@@ -329,4 +329,52 @@ describe('BunniV2 EventPool', function () {
       });
     });
   });
+
+  describe('UNICHAIN', function () {
+    const network = Network.UNICHAIN;
+    const dexHelper = new DummyDexHelper(network);
+    const logger = dexHelper.getLogger(dexKey);
+    let bunniV2Pool: BunniV2EventPool;
+
+    beforeEach(async () => {
+      bunniV2Pool = new BunniV2EventPool(dexKey, network, dexHelper, logger);
+    });
+
+    describe('USDC-USD₮0: 0xeec51c6b1a9e7c4bb4fc4fa9a02fc4fff3fe94efd044f895d98b5bfbd2ff9433', function () {
+      const poolId =
+        '0xeec51c6b1a9e7c4bb4fc4fa9a02fc4fff3fe94efd044f895d98b5bfbd2ff9433';
+
+      const eventsToTest: { [eventName: string]: number[] } = {
+        ['Initialize']: [18417146],
+      };
+
+      const stateCompare = (
+        state: PoolStateMap,
+        expectedState: PoolStateMap,
+      ) => {
+        const poolState = state[poolId];
+        const expectedPoolState = expectedState[poolId];
+        poolState
+          ? compareState(poolState, expectedPoolState)
+          : expect(poolState).toEqual(expectedPoolState);
+      };
+
+      Object.keys(eventsToTest).forEach((event: string) => {
+        eventsToTest[event].forEach(blockNumber => {
+          it(`${event}:${blockNumber} - should return correct state`, async function () {
+            await testEventSubscriber(
+              bunniV2Pool,
+              bunniV2Pool.addressesSubscribed,
+              (_blockNumber: number) =>
+                fetchPoolState(bunniV2Pool, _blockNumber),
+              blockNumber,
+              `${dexKey}_${poolId}`,
+              dexHelper.provider,
+              stateCompare,
+            );
+          });
+        });
+      });
+    });
+  });
 });

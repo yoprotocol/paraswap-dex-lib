@@ -182,4 +182,25 @@ describe('BunniV2 E2E', () => {
       );
     });
   });
+
+  describe('Unichain', () => {
+    const network = Network.UNICHAIN;
+
+    describe('USDC -> USD₮0', () => {
+      const tokenASymbol: string = 'USDC';
+      const tokenBSymbol: string = 'USD₮0';
+
+      const tokenAAmount: string = '1000000000000';
+      const tokenBAmount: string = '1000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+  });
 });
