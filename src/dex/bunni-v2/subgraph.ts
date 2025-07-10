@@ -1,39 +1,7 @@
 import { Logger } from 'log4js';
 import { SUBGRAPH_TIMEOUT } from '../../constants';
 import { IDexHelper } from '../../dex-helper';
-import { SubgraphPool } from './types';
-
-interface SubgraphTopPool {
-  id: string;
-  bunniToken: {
-    rawBalance0: string;
-    rawBalance1: string;
-    reserve0: string;
-    reserve1: string;
-    vault0: {
-      id: string;
-      decimals: string;
-      pricePerVaultShare: string;
-    } | null;
-    vault1: {
-      id: string;
-      decimals: string;
-      pricePerVaultShare: string;
-    } | null;
-  };
-  currency0: {
-    id: string;
-    decimals: string;
-    price: string;
-  };
-  currency1: {
-    id: string;
-    decimals: string;
-    price: string;
-  };
-  priceCurrency0: string;
-  priceCurrency1: string;
-}
+import { SubgraphPool, SubgraphTopPool } from './types';
 
 export async function queryPools(
   dexHelper: IDexHelper,
@@ -99,8 +67,11 @@ export async function queryPools(
 
 export async function queryAvailablePoolsForToken(
   dexHelper: IDexHelper,
+  logger: Logger,
   subgraphURL: string,
   tokenAddress: string,
+  skip: number,
+  first: number,
 ): Promise<SubgraphTopPool[]> {
   const query = `
     query (
@@ -163,7 +134,7 @@ export async function queryAvailablePoolsForToken(
     subgraphURL,
     {
       query,
-      variables: { skip: 0, first: 1000 },
+      variables: { skip: skip, first: first },
     },
     { timeout: SUBGRAPH_TIMEOUT },
   );
@@ -172,6 +143,5 @@ export async function queryAvailablePoolsForToken(
     throw new Error(result.errors[0].message);
   }
 
-  const subgraphTopPools: SubgraphTopPool[] = result.data.pools;
-  return subgraphTopPools;
+  return result.data.pools || [];
 }

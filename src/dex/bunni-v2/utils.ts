@@ -1,7 +1,7 @@
 import { IDexHelper } from '../../dex-helper';
 import { Address, Logger } from '../../types';
-import { queryPools } from './subgraph';
-import { DexParams, PoolState, SubgraphPool } from './types';
+import { queryAvailablePoolsForToken, queryPools } from './subgraph';
+import { DexParams, PoolState, SubgraphPool, SubgraphTopPool } from './types';
 
 export function isWETHAddress(address: string, config: DexParams): boolean {
   return address.toLowerCase() === config.WETH.toLowerCase();
@@ -35,6 +35,44 @@ export async function getPools(
       logger,
       subgraphURL,
       blockNumber,
+      skip * first,
+      first,
+    );
+
+    pools = pools.concat(currentPools);
+  }
+
+  return pools;
+}
+
+export async function getAvailablePoolsForToken(
+  dexHelper: IDexHelper,
+  logger: Logger,
+  subgraphURL: string,
+  tokenAddress: string,
+): Promise<SubgraphTopPool[]> {
+  let skip = 0;
+  let first = 1000;
+  let pools: SubgraphTopPool[] = [];
+
+  let currentPools = await queryAvailablePoolsForToken(
+    dexHelper,
+    logger,
+    subgraphURL,
+    tokenAddress,
+    skip * first,
+    first,
+  );
+
+  pools = pools.concat(currentPools);
+
+  while (currentPools.length === first) {
+    skip++;
+    currentPools = await queryAvailablePoolsForToken(
+      dexHelper,
+      logger,
+      subgraphURL,
+      tokenAddress,
       skip * first,
       first,
     );

@@ -29,7 +29,6 @@ import { MultiResult } from '../../lib/multi-wrapper';
 import { BytesLike } from 'ethers';
 import { generalDecoder } from '../../lib/decoders';
 import { BI_POWS } from '../../bigint-constants';
-import { queryAvailablePoolsForToken } from './subgraph';
 import _ from 'lodash';
 import {
   swapExactInputCalldata,
@@ -37,7 +36,7 @@ import {
   swapExactOutputCalldata,
   swapExactOutputSingleCalldata,
 } from './encoder';
-import { isWETHAddress } from './utils';
+import { getAvailablePoolsForToken, isWETHAddress } from './utils';
 
 export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   protected eventPools: BunniV2EventPool;
@@ -367,8 +366,9 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     let _tokenAddress = tokenAddress.toLowerCase();
     if (isETHAddress(_tokenAddress)) _tokenAddress = NULL_ADDRESS;
 
-    const availablePoolsForToken = await queryAvailablePoolsForToken(
+    const availablePoolsForToken = await getAvailablePoolsForToken(
       this.dexHelper,
+      this.logger,
       BunniV2Config.BunniV2[this.network].subgraphURL,
       _tokenAddress,
     );
