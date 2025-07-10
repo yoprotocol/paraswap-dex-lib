@@ -190,8 +190,8 @@ describe('BunniV2 E2E', () => {
       const tokenASymbol: string = 'USDC';
       const tokenBSymbol: string = 'USD₮0';
 
-      const tokenAAmount: string = '1000000000000';
-      const tokenBAmount: string = '1000000000000';
+      const tokenAAmount: string = '10000000000';
+      const tokenBAmount: string = '10000000000';
 
       testForNetwork(
         network,
