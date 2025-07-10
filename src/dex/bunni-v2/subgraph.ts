@@ -58,7 +58,6 @@ export async function queryPools(
       fee
       tickSpacing
       hooks
-      bunniHub { id }
     }
   }`;
 

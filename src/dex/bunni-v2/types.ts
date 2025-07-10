@@ -42,9 +42,6 @@ export type SwapParams = {
 
 export type SubgraphPool = {
   id: string;
-  bunniToken: {
-    totalSupply: string;
-  };
   currency0: {
     id: string;
   };
