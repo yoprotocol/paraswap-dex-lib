@@ -196,10 +196,6 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
       poolKey => poolKey.token0 === token0 && poolKey.token1 === token1,
     );
     if (poolKeys.length === 0) {
-      this.logger.error(
-        `Pool keys for token pair ${pair} not found, falling back to default pool parameters`,
-      );
-
       poolKeys = FALLBACK_POOL_PARAMETERS.flatMap(params => [
         new PoolKey(
           token0,
