@@ -1,5 +1,7 @@
+import { formatUnits } from 'ethers/lib/utils';
 import { IDexHelper } from '../../dex-helper';
 import { Address, Logger } from '../../types';
+import { bigIntify } from '../../utils';
 import { queryAvailablePoolsForToken, queryPools } from './subgraph';
 import { DexParams, PoolState, SubgraphPool, SubgraphTopPool } from './types';
 
@@ -101,4 +103,51 @@ export function initializePoolState(
       hooks: hooks.toLowerCase(),
     },
   };
+}
+
+export async function updatePricePerVaultShares(
+  dexHelper: IDexHelper,
+  erc4626Interface: any,
+  pricePerVaultShares: Map<
+    string,
+    {
+      address: string;
+      vaultDecimals: number;
+      underlyingDecimals: number;
+      pricePerVaultShare: number;
+    }
+  >,
+): Promise<void> {
+  const vaults = [...pricePerVaultShares.values()];
+
+  const multiCallData = vaults.map(vault => {
+    return {
+      target: vault.address,
+      callData: erc4626Interface.encodeFunctionData('convertToAssets', [
+        10n ** BigInt(vault.vaultDecimals),
+      ]),
+    };
+  });
+
+  const results = await dexHelper.multiContract.methods
+    .tryAggregate(true, multiCallData)
+    .call({});
+
+  results.forEach((result: any, i: number) => {
+    const data = erc4626Interface.decodeFunctionResult(
+      'convertToAssets',
+      result.returnData,
+    );
+
+    const vault = vaults[i];
+    const updatedPricePerVaultShare = parseFloat(
+      formatUnits(bigIntify(data), vault.underlyingDecimals),
+    );
+    const existing = pricePerVaultShares.get(vault.address.toLowerCase());
+
+    if (existing) {
+      existing.pricePerVaultShare = updatedPricePerVaultShare;
+      pricePerVaultShares.set(vault.address.toLowerCase(), existing);
+    }
+  });
 }

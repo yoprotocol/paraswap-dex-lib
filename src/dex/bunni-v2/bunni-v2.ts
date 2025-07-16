@@ -36,7 +36,12 @@ import {
   swapExactOutputCalldata,
   swapExactOutputSingleCalldata,
 } from './encoder';
-import { getAvailablePoolsForToken, isWETHAddress } from './utils';
+import {
+  getAvailablePoolsForToken,
+  isWETHAddress,
+  updatePricePerVaultShares,
+} from './utils';
+import ERC4626ABI from '../../abi//ERC4626.json';
 
 export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   protected eventPools: BunniV2EventPool;
@@ -52,6 +57,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   config: DexParams;
   logger: Logger;
   quoterInterface: Interface;
+  erc4626Interface: Interface;
 
   constructor(
     readonly network: Network,
@@ -62,6 +68,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     this.config = BunniV2Config.BunniV2[network];
     this.logger = dexHelper.getLogger(dexKey);
     this.quoterInterface = new Interface(V4QuoterABI);
+    this.erc4626Interface = new Interface(ERC4626ABI);
 
     this.eventPools = new BunniV2EventPool(
       dexKey,
@@ -379,17 +386,59 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       _tokenAddress,
     );
 
-    // TODO
-    // Instead of relying on the vault pricePerVaultShare values
-    // from the subgraph, which can be stale, we can query them
-    // via RPC to get the most accurate liquidityUSD values.
-
     if (!availablePoolsForToken) {
       this.logger.error(
         `Error_${this.dexKey}_Subgraph: couldn't fetch the pools from the subgraph`,
       );
       return [];
     }
+
+    // update pricePerVaultShare vaults for vaults via RPC calls
+    let pricePerVaultShares = new Map<
+      string,
+      {
+        address: string;
+        vaultDecimals: number;
+        underlyingDecimals: number;
+        pricePerVaultShare: number;
+      }
+    >();
+
+    availablePoolsForToken.forEach(pool => {
+      if (
+        pool.bunniToken.vault0 &&
+        !pricePerVaultShares.has(pool.bunniToken.vault0.id.toLowerCase())
+      ) {
+        pricePerVaultShares.set(pool.bunniToken.vault0.id.toLowerCase(), {
+          address: pool.bunniToken.vault0.id.toLowerCase(),
+          vaultDecimals: parseInt(pool.bunniToken.vault0.decimals),
+          underlyingDecimals: parseInt(pool.currency0.decimals),
+          pricePerVaultShare: parseFloat(
+            pool.bunniToken.vault0.pricePerVaultShare,
+          ),
+        });
+      }
+
+      if (
+        pool.bunniToken.vault1 &&
+        !pricePerVaultShares.has(pool.bunniToken.vault1.id.toLowerCase())
+      ) {
+        pricePerVaultShares.set(pool.bunniToken.vault1.id.toLowerCase(), {
+          address: pool.bunniToken.vault1.id.toLowerCase(),
+          vaultDecimals: parseInt(pool.bunniToken.vault1.decimals),
+          underlyingDecimals: parseInt(pool.currency1.decimals),
+          pricePerVaultShare: parseFloat(
+            pool.bunniToken.vault1.pricePerVaultShare,
+          ),
+        });
+      }
+    });
+
+    await updatePricePerVaultShares(
+      this.dexHelper,
+      this.erc4626Interface,
+      pricePerVaultShares,
+    );
 
     const connectors: PoolLiquidity[] = availablePoolsForToken.map(pool => {
       const connectorAddress =
@@ -407,11 +456,13 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
 
       const reserveBalance0 = pool.bunniToken.vault0
         ? parseFloat(pool.bunniToken.reserve0) *
-          parseFloat(pool.bunniToken.vault0.pricePerVaultShare)
+          (pricePerVaultShares.get(pool.bunniToken.vault0.id.toLowerCase())
+            ?.pricePerVaultShare || 0)
         : 0;
       const reserveBalance1 = pool.bunniToken.vault1
         ? parseFloat(pool.bunniToken.reserve1) *
-          parseFloat(pool.bunniToken.vault1.pricePerVaultShare)
+          (pricePerVaultShares.get(pool.bunniToken.vault1.id.toLowerCase())
+            ?.pricePerVaultShare || 0)
         : 0;
 
       const totalBalance0 = rawBalance0 + reserveBalance0;
