@@ -167,6 +167,12 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     const poolStates = this.eventPools.getState(blockNumber);
     if (poolStates === null) return null;
 
+    const _from = this.dexHelper.config.wrapETH(srcToken);
+    const _to = this.dexHelper.config.wrapETH(destToken);
+    if (_from.address === _to.address) {
+      return null;
+    }
+
     const pools = this.getAvailablePoolsForPair(
       poolStates,
       srcToken.address,
