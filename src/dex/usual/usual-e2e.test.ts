@@ -76,6 +76,29 @@ describe('UsualBond E2E', () => {
   });
 });
 
+describe('UsdcUusdc E2E', () => {
+  const dexKey = 'UsdcUusdc';
+
+  describe('Mainnet', () => {
+    const network = Network.MAINNET;
+
+    const tokenASymbol: string = 'USDC';
+    const tokenBSymbol: string = 'UsualUSDC';
+
+    const tokenAAmount: string = '1000000000';
+    const tokenBAmount: string = '1000000000';
+
+    testForNetwork(
+      network,
+      dexKey,
+      tokenASymbol,
+      tokenBSymbol,
+      tokenAAmount,
+      tokenBAmount,
+    );
+  });
+});
+
 describe('WrappedMM E2E', () => {
   const dexKey = 'WrappedMM';
 

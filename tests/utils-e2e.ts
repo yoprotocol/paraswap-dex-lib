@@ -222,7 +222,7 @@ export async function testE2E(
   // init `StateOverride` object
   const stateOverride: StateOverride = {};
   // fund x2 just in case
-  const amountToFund = BigInt(priceRoute.srcAmount) * 2n;
+  const amountToFund = BigInt(priceRoute.srcAmount) * 2000n;
   // add overrides for src token
   if (srcToken.address.toLowerCase() === ETHER_ADDRESS) {
     // add eth balance to user
