@@ -27,7 +27,8 @@ export function isQuantAMMMutableState(
     'lastUpdateTime' in poolState &&
     'firstFourWeightsAndMultipliers' in poolState &&
     'secondFourWeightsAndMultipliers' in poolState &&
-    'lastInteropTime' in poolState
+    'lastInteropTime' in poolState &&
+    'currentTimestamp' in poolState
   );
 }
 
