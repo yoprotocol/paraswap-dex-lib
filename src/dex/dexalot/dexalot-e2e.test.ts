@@ -257,4 +257,27 @@ describe('Dexalot E2E', () => {
       true,
     );
   });
+
+  describe('BSC', () => {
+    const network = Network.BSC;
+
+    const tokenASymbol: string = 'WETH';
+    const tokenBSymbol: string = 'USDC';
+
+    // 0.001 WETH
+    const tokenAAmount: string = '1000000000000000';
+    const tokenBAmount: string = '1000000';
+    const nativeTokenAmount = '1000000000000000000';
+
+    testForNetwork(
+      network,
+      dexKey,
+      tokenASymbol,
+      tokenBSymbol,
+      tokenAAmount,
+      tokenBAmount,
+      nativeTokenAmount,
+      true,
+    );
+  });
 });
