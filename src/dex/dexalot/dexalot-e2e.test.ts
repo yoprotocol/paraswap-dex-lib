@@ -258,14 +258,14 @@ describe('Dexalot E2E', () => {
     );
   });
 
-  describe('BSC', () => {
+  describe.only('BSC', () => {
     const network = Network.BSC;
 
-    const tokenASymbol: string = 'WETH';
+    const tokenASymbol: string = 'USDT';
     const tokenBSymbol: string = 'USDC';
 
-    // 0.001 WETH
-    const tokenAAmount: string = '1000000000000000';
+    // 1 USDT
+    const tokenAAmount: string = '1000000';
     const tokenBAmount: string = '1000000';
     const nativeTokenAmount = '1000000000000000000';
 

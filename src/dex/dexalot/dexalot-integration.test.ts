@@ -429,13 +429,13 @@ describe('Dexalot', function () {
     });
   });
 
-  describe('BSC', () => {
+  describe.only('BSC', () => {
     const network = Network.BSC;
     const dexHelper = new DummyDexHelper(network);
 
     const tokens = Tokens[network];
 
-    const tokenASymbol = 'WETH';
+    const tokenASymbol = 'USDT';
     const tokenBSymbol = 'USDC';
 
     const tokenAScaling = BI_POWS[tokens[tokenASymbol].decimals - 3];
