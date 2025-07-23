@@ -17,7 +17,7 @@ export const disabledPoolIds: Record<string, Record<number, string[]>> = {
 };
 
 // Balancer API - aggregatorSpecific query serves all useful static pool data
-export const apiUrl = 'https://test-api-v3.balancer.fi/';
+export const apiUrl = 'https://api-v3.balancer.fi/';
 
 // TODO Full config added after V3 release
 export const BalancerV3Config: DexConfigMap<DexParams> = {
