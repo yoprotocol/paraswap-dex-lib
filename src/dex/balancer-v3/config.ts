@@ -125,5 +125,19 @@ export const BalancerV3Config: DexConfigMap<DexParams> = {
         },
       ],
     },
+    [Network.SONIC]: {
+      vaultAddress: '0xbA1333333333a1BA1108E8412f11850A5C319bA9',
+      apiNetworkName: 'SONIC',
+      balancerRouterAddress: '0x93db4682A40721e7c698ea0a842389D10FA8Dae5', // Router V2
+      balancerBatchRouterAddress: '0x7761659F9e9834ad367e4d25E0306ba7A4968DAf', // Batch Router
+      hooks: [
+        {
+          type: 'StableSurge',
+          apiName: 'STABLE_SURGE',
+          factory: '0x3D9319BB29DAF6081D01DC56b6203EfcC90f0bAD', // StableSurge Pool Factory V2
+          address: '0x049919Ae32E50aEe5ea1A0998a841d175ec6f1b3', // StableSurge Hook V2
+        },
+      ],
+    },
   },
 };

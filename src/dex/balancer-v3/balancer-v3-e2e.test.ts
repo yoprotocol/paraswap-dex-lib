@@ -659,4 +659,71 @@ describe('BalancerV3 E2E', () => {
       );
     });
   });
+
+  describe('Sonic', () => {
+    const network = Network.SONIC;
+
+    describe('StableSurge Hook', () => {
+      // https://beets.fi/pools/sonic/v3/0x5cd1ab566d0f03c6aab84b96f6076a276390c0bd
+      const tokenASymbol: string = 'stS';
+      const tokenBSymbol: string = 'beS';
+
+      const tokenAAmount: string = '10000000000000000';
+      const tokenBAmount: string = '10000000000000000';
+      const nativeTokenAmount = '0';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+        nativeTokenAmount,
+        false,
+      );
+    });
+
+    describe('Boosted Path', () => {
+      // https://beets.fi/pools/sonic/v3/0x870c0af8a1af0b58b4b0bd31ce4fe72864ae45be
+      const tokenASymbol: string = 'anS';
+      const tokenBSymbol: string = 'SiloWS';
+
+      const tokenAAmount: string = '10000000000000000';
+      const tokenBAmount: string = '10000000000000000';
+      const nativeTokenAmount = '0';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+        nativeTokenAmount,
+        false,
+      );
+    });
+
+    describe('Weighted Path', () => {
+      // https://beets.fi/pools/sonic/v3/0xf0f59a4aaba7772fb7361793c3ffbe1111bb5a8b
+      const tokenASymbol: string = 'SHADOW';
+      const tokenBSymbol: string = 'BEETS';
+
+      const tokenAAmount: string = '10000000000000000';
+      const tokenBAmount: string = '10000000000000000';
+      const nativeTokenAmount = '0';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+        nativeTokenAmount,
+        false,
+      );
+    });
+  });
 });
