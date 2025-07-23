@@ -25,8 +25,7 @@ function testForNetwork(
 
   const sideToContractMethods = new Map([
     [SwapSide.SELL, [ContractMethod.swapExactAmountIn]],
-    // BUY side is not supported for PT roll over (one-way only)
-    // [SwapSide.BUY, [ContractMethod.swapExactAmountOut]],
+    [SwapSide.BUY, [ContractMethod.swapExactAmountOut]],
   ]);
 
   describe(`${network}`, () => {

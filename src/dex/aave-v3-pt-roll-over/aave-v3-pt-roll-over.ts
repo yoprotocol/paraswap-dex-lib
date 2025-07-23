@@ -31,7 +31,6 @@ import {
 import { BI_POWS } from '../../bigint-constants';
 import { MultiCallParams } from '../../lib/multi-wrapper';
 import { oracleStateDecoder, ptToAssetRateDecoder } from './utils';
-import { extractReturnAmountPosition } from '../../executor/utils';
 
 export class AaveV3PtRollOver
   extends SimpleExchange
@@ -238,10 +237,6 @@ export class AaveV3PtRollOver
     side: SwapSide,
     blockNumber: number,
   ): Promise<string[]> {
-    if (side === SwapSide.BUY) {
-      return [];
-    }
-
     if (!this.isAppropriatePair(srcToken, destToken)) {
       return [];
     }
