@@ -258,7 +258,7 @@ describe('Dexalot E2E', () => {
     );
   });
 
-  describe.only('BSC', () => {
+  describe('BSC', () => {
     const network = Network.BSC;
 
     const tokenASymbol: string = 'USDT';

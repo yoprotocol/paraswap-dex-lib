@@ -429,7 +429,7 @@ describe('Dexalot', function () {
     });
   });
 
-  describe.only('BSC', () => {
+  describe('BSC', () => {
     const network = Network.BSC;
     const dexHelper = new DummyDexHelper(network);
 
