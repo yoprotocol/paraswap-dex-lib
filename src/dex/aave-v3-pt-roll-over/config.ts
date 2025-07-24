@@ -25,7 +25,7 @@ export const AaveV3PtRollOverConfig: DexConfigMap<DexParams> = {
         address: OLD_PT_ADDRESS,
         decimals: 18,
         name: 'PT-sUSDe-31JUL2025',
-        expiry: 1753574400, // July 31, 2025
+        expiry: 1753920000, // July 31, 2025
       },
       newPendleToken: {
         address: NEW_PT_ADDRESS,
