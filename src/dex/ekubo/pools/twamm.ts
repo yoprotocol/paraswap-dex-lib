@@ -135,10 +135,10 @@ function parseVirtualOrdersExecutedEvent(
 ): VirtualOrdersExecutedEvent {
   let n = BigInt(data);
 
-  const token0SaleRate = BigInt.asUintN(112, n);
+  const token1SaleRate = BigInt.asUintN(112, n);
   n >>= 112n;
 
-  const token1SaleRate = BigInt.asUintN(112, n);
+  const token0SaleRate = BigInt.asUintN(112, n);
   n >>= 112n;
 
   const poolId = n;
@@ -286,7 +286,7 @@ export namespace TwammPoolState {
     startIndex = 0,
   ): number {
     let l = startIndex,
-      r = virtualOrderDeltas.length;
+      r = virtualOrderDeltas.length - 1;
 
     while (l <= r) {
       const mid = Math.floor((l + r) / 2);

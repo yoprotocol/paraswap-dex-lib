@@ -28,7 +28,7 @@ function isBasePoolState(value: unknown): value is BasePoolState.Object {
 
 function stateCompare(actual: unknown, expected: unknown) {
   if (!isBasePoolState(actual) || !isBasePoolState(expected)) {
-    expect(actual).toStrictEqual(actual);
+    expect(actual).toStrictEqual(expected);
     return;
   }
 
@@ -174,6 +174,12 @@ describe('Ekubo Mainnet', function () {
       [
         [newPool(TwammPool, twammEthUsdcPoolKey)],
         22232621, // https://etherscan.io/tx/0x99479c8426fb328ec3245c625fb7edfbb4bb4dd2a2fbfcd027fc513962cca193
+      ],
+    ],
+    VirtualOrdersExecuted: [
+      [
+        [newPool(TwammPool, twammEthUsdcPoolKey)],
+        22995949, // https://etherscan.io/tx/0xbc9390f6712296bceed6efa909e61f943fbf897412d3cd8d491120706fadcde1
       ],
     ],
   };
