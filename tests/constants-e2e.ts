@@ -1356,6 +1356,14 @@ export const Tokens: {
       address: '0x000000c396558ffbab5ea628f39658bdf61345b3',
       decimals: 18,
     },
+    BOLD: {
+      address: '0x03569CC076654F82679C4BA2124D64774781B01D',
+      decimals: 18,
+    },
+    USND: {
+      address: '0x4ecf61a6c2FaB8A047CEB3B3B263B401763e9D49',
+      decimals: 18,
+    },
   },
   [Network.OPTIMISM]: {
     DAI: {
@@ -1799,6 +1807,22 @@ export const Tokens: {
     },
     UNI: {
       address: '0x8f187aA05619a017077f5308904739877ce9eA21',
+      decimals: 18,
+    },
+    wstETH: {
+      address: '0xc02fE7317D4eb8753a02c35fe019786854A92001',
+      decimals: 18,
+    },
+    weETH: {
+      address: '0x7DCC39B4d1C53CB31e1aBc0e358b43987FEF80f7',
+      decimals: 18,
+    },
+    ezETH: {
+      address: '0x2416092f143378750bb29b79eD961ab195CcEea5',
+      decimals: 18,
+    },
+    rsETH: {
+      address: '0xc3eACf0612346366Db554C991D7858716db09f58',
       decimals: 18,
     },
   },

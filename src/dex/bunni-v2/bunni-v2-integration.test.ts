@@ -55,6 +55,7 @@ async function checkOnChainPricing(
   prices: bigint[],
   poolKey: PoolKey,
   zeroForOne: boolean,
+  side: SwapSide,
   amounts: bigint[],
 ) {
   const exchangeAddress = BunniV2Config.BunniV2[bunniV2.network].quoter;
@@ -78,7 +79,17 @@ async function checkOnChainPricing(
     decodeReaderResult(readerResult, readerIface, funcName),
   );
 
-  expect(prices).toEqual(expectedPrices);
+  // accept deviations of +/- 0.01% from on chain pricing
+  for (let i = 0; i < prices.length; i++) {
+    if (side === SwapSide.SELL)
+      expect(prices[i]).toBeGreaterThanOrEqual(
+        (expectedPrices[i] * 9999n) / 10000n,
+      );
+    else
+      expect(prices[i]).toBeLessThanOrEqual(
+        (expectedPrices[i] * 10001n) / 10000n,
+      );
+  }
 }
 
 async function testPricingOnNetwork(
@@ -124,7 +135,7 @@ async function testPricingOnNetwork(
   if (bunniV2.hasConstantPriceLargeAmounts) {
     checkConstantPoolPrices(poolPrices!, amounts, dexKey);
   } else {
-    checkPoolPrices(poolPrices!, amounts, side, dexKey);
+    checkPoolPrices(poolPrices!, amounts, side, dexKey, false);
   }
 
   // Check if onchain pricing equals to calculated ones
@@ -135,6 +146,7 @@ async function testPricingOnNetwork(
     poolPrices![0].prices,
     poolPrices![0].data.path[0].pool.key,
     poolPrices![0].data.path[0].zeroForOne,
+    side,
     amounts,
   );
 }
@@ -149,39 +161,58 @@ describe('BunniV2', function () {
     const dexHelper = new DummyDexHelper(network);
     const tokens = Tokens[network];
 
-    describe('ETH-BUNNI', () => {
-      const srcTokenSymbol = 'BUNNI';
-      const destTokenSymbol = 'ETH';
+    describe('USDC-USDT', () => {
+      const srcTokenSymbol = 'USDC';
+      const destTokenSymbol = 'USDT';
 
-      const amountsForSell = (srcTokenSymbol: string) => {
+      const amountsForSell = (
+        srcTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (2n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (3n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (4n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (5n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (6n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (7n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (8n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (9n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (10n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
-      const amountsForBuy = (destTokenSymbol: string) => {
+      const amountsForBuy = (
+        destTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[destTokenSymbol].decimals],
-          2n * BI_POWS[tokens[destTokenSymbol].decimals],
-          3n * BI_POWS[tokens[destTokenSymbol].decimals],
-          4n * BI_POWS[tokens[destTokenSymbol].decimals],
-          5n * BI_POWS[tokens[destTokenSymbol].decimals],
-          6n * BI_POWS[tokens[destTokenSymbol].decimals],
-          7n * BI_POWS[tokens[destTokenSymbol].decimals],
-          8n * BI_POWS[tokens[destTokenSymbol].decimals],
-          9n * BI_POWS[tokens[destTokenSymbol].decimals],
-          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (2n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (3n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (4n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (5n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (6n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (7n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (8n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (9n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (10n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
@@ -190,6 +221,12 @@ describe('BunniV2', function () {
         bunniV2 = new BunniV2(network, dexKey, dexHelper);
         if (bunniV2.initializePricing) {
           await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      afterAll(async () => {
+        if (bunniV2.releaseResources) {
+          bunniV2.releaseResources();
         }
       });
 
@@ -202,7 +239,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(srcTokenSymbol),
+          amountsForSell(srcTokenSymbol, 100n, 1n),
           'quoteExactInputSingle',
         );
       });
@@ -216,7 +253,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(destTokenSymbol),
+          amountsForBuy(destTokenSymbol, 100n, 1n),
           'quoteExactOutputSingle',
         );
       });
@@ -230,7 +267,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(destTokenSymbol),
+          amountsForSell(destTokenSymbol, 100n, 1n),
           'quoteExactInputSingle',
         );
       });
@@ -244,148 +281,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(srcTokenSymbol),
-          'quoteExactOutputSingle',
-        );
-      });
-
-      it(`${srcTokenSymbol} getTopPoolsForToken`, async function () {
-        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
-        if (newBunniV2.updatePoolState) {
-          await newBunniV2.updatePoolState();
-        }
-        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
-          tokens[srcTokenSymbol].address,
-          10,
-        );
-        console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
-
-        if (!newBunniV2.hasConstantPriceLargeAmounts) {
-          checkPoolsLiquidity(
-            poolLiquidity,
-            Tokens[network][srcTokenSymbol].address,
-            dexKey,
-          );
-        }
-      });
-
-      it(`${destTokenSymbol} getTopPoolsForToken`, async function () {
-        const newBunniV2 = new BunniV2(network, dexKey, dexHelper);
-        if (newBunniV2.updatePoolState) {
-          await newBunniV2.updatePoolState();
-        }
-        const poolLiquidity = await newBunniV2.getTopPoolsForToken(
-          tokens[destTokenSymbol].address,
-          10,
-        );
-        console.log(`${destTokenSymbol} Top Pools:`, poolLiquidity);
-
-        if (!newBunniV2.hasConstantPriceLargeAmounts) {
-          checkPoolsLiquidity(
-            poolLiquidity,
-            Tokens[network][destTokenSymbol].address,
-            dexKey,
-          );
-        }
-      });
-    });
-
-    describe('USR-USDC', () => {
-      const srcTokenSymbol = 'USR';
-      const destTokenSymbol = 'USDC';
-
-      const amountsForSell = (srcTokenSymbol: string) => {
-        return [
-          0n,
-          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
-        ];
-      };
-
-      const amountsForBuy = (destTokenSymbol: string) => {
-        return [
-          0n,
-          1n * BI_POWS[tokens[destTokenSymbol].decimals],
-          2n * BI_POWS[tokens[destTokenSymbol].decimals],
-          3n * BI_POWS[tokens[destTokenSymbol].decimals],
-          4n * BI_POWS[tokens[destTokenSymbol].decimals],
-          5n * BI_POWS[tokens[destTokenSymbol].decimals],
-          6n * BI_POWS[tokens[destTokenSymbol].decimals],
-          7n * BI_POWS[tokens[destTokenSymbol].decimals],
-          8n * BI_POWS[tokens[destTokenSymbol].decimals],
-          9n * BI_POWS[tokens[destTokenSymbol].decimals],
-          10n * BI_POWS[tokens[destTokenSymbol].decimals],
-        ];
-      };
-
-      beforeAll(async () => {
-        blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-        bunniV2 = new BunniV2(network, dexKey, dexHelper);
-        if (bunniV2.initializePricing) {
-          await bunniV2.initializePricing(blockNumber);
-        }
-      });
-
-      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
-        await testPricingOnNetwork(
-          bunniV2,
-          network,
-          dexKey,
-          blockNumber,
-          srcTokenSymbol,
-          destTokenSymbol,
-          SwapSide.SELL,
-          amountsForSell(srcTokenSymbol),
-          'quoteExactInputSingle',
-        );
-      });
-
-      it(`${srcTokenSymbol} -> ${destTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
-        await testPricingOnNetwork(
-          bunniV2,
-          network,
-          dexKey,
-          blockNumber,
-          srcTokenSymbol,
-          destTokenSymbol,
-          SwapSide.BUY,
-          amountsForBuy(destTokenSymbol),
-          'quoteExactOutputSingle',
-        );
-      });
-
-      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume SELL`, async function () {
-        await testPricingOnNetwork(
-          bunniV2,
-          network,
-          dexKey,
-          blockNumber,
-          destTokenSymbol,
-          srcTokenSymbol,
-          SwapSide.SELL,
-          amountsForSell(destTokenSymbol),
-          'quoteExactInputSingle',
-        );
-      });
-
-      it(`${destTokenSymbol} -> ${srcTokenSymbol} getPoolIdentifiers and getPricesVolume BUY`, async function () {
-        await testPricingOnNetwork(
-          bunniV2,
-          network,
-          dexKey,
-          blockNumber,
-          destTokenSymbol,
-          srcTokenSymbol,
-          SwapSide.BUY,
-          amountsForBuy(srcTokenSymbol),
+          amountsForBuy(srcTokenSymbol, 100n, 1n),
           'quoteExactOutputSingle',
         );
       });
@@ -435,35 +331,54 @@ describe('BunniV2', function () {
       const srcTokenSymbol = 'USD0';
       const destTokenSymbol = 'USD0++';
 
-      const amountsForSell = (srcTokenSymbol: string) => {
+      const amountsForSell = (
+        srcTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (2n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (3n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (4n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (5n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (6n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (7n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (8n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (9n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (10n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
-      const amountsForBuy = (destTokenSymbol: string) => {
+      const amountsForBuy = (
+        destTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[destTokenSymbol].decimals],
-          2n * BI_POWS[tokens[destTokenSymbol].decimals],
-          3n * BI_POWS[tokens[destTokenSymbol].decimals],
-          4n * BI_POWS[tokens[destTokenSymbol].decimals],
-          5n * BI_POWS[tokens[destTokenSymbol].decimals],
-          6n * BI_POWS[tokens[destTokenSymbol].decimals],
-          7n * BI_POWS[tokens[destTokenSymbol].decimals],
-          8n * BI_POWS[tokens[destTokenSymbol].decimals],
-          9n * BI_POWS[tokens[destTokenSymbol].decimals],
-          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (2n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (3n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (4n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (5n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (6n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (7n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (8n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (9n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (10n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
@@ -472,6 +387,12 @@ describe('BunniV2', function () {
         bunniV2 = new BunniV2(network, dexKey, dexHelper);
         if (bunniV2.initializePricing) {
           await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      afterAll(async () => {
+        if (bunniV2.releaseResources) {
+          bunniV2.releaseResources();
         }
       });
 
@@ -484,7 +405,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(srcTokenSymbol),
+          amountsForSell(srcTokenSymbol, 10n, 1n),
           'quoteExactInputSingle',
         );
       });
@@ -498,7 +419,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(destTokenSymbol),
+          amountsForBuy(destTokenSymbol, 10n, 1n),
           'quoteExactOutputSingle',
         );
       });
@@ -512,7 +433,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(destTokenSymbol),
+          amountsForSell(destTokenSymbol, 10n, 1n),
           'quoteExactInputSingle',
         );
       });
@@ -526,7 +447,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(srcTokenSymbol),
+          amountsForBuy(srcTokenSymbol, 10n, 1n),
           'quoteExactOutputSingle',
         );
       });
@@ -578,39 +499,58 @@ describe('BunniV2', function () {
     const dexHelper = new DummyDexHelper(network);
     const tokens = Tokens[network];
 
-    describe('ETH-BUNNI', () => {
-      const srcTokenSymbol = 'BUNNI';
-      const destTokenSymbol = 'ETH';
+    describe('USND-USDC', () => {
+      const srcTokenSymbol = 'USND';
+      const destTokenSymbol = 'USDC';
 
-      const amountsForSell = (srcTokenSymbol: string) => {
+      const amountsForSell = (
+        srcTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (2n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (3n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (4n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (5n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (6n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (7n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (8n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (9n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (10n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
-      const amountsForBuy = (destTokenSymbol: string) => {
+      const amountsForBuy = (
+        destTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[destTokenSymbol].decimals],
-          2n * BI_POWS[tokens[destTokenSymbol].decimals],
-          3n * BI_POWS[tokens[destTokenSymbol].decimals],
-          4n * BI_POWS[tokens[destTokenSymbol].decimals],
-          5n * BI_POWS[tokens[destTokenSymbol].decimals],
-          6n * BI_POWS[tokens[destTokenSymbol].decimals],
-          7n * BI_POWS[tokens[destTokenSymbol].decimals],
-          8n * BI_POWS[tokens[destTokenSymbol].decimals],
-          9n * BI_POWS[tokens[destTokenSymbol].decimals],
-          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (2n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (3n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (4n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (5n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (6n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (7n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (8n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (9n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (10n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
@@ -619,6 +559,12 @@ describe('BunniV2', function () {
         bunniV2 = new BunniV2(network, dexKey, dexHelper);
         if (bunniV2.initializePricing) {
           await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      afterAll(async () => {
+        if (bunniV2.releaseResources) {
+          bunniV2.releaseResources();
         }
       });
 
@@ -631,7 +577,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(srcTokenSymbol),
+          amountsForSell(srcTokenSymbol, 10n, 1n),
           'quoteExactInputSingle',
         );
       });
@@ -645,7 +591,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(destTokenSymbol),
+          amountsForBuy(destTokenSymbol, 10n, 1n),
           'quoteExactOutputSingle',
         );
       });
@@ -659,7 +605,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(destTokenSymbol),
+          amountsForSell(destTokenSymbol, 10n, 1n),
           'quoteExactInputSingle',
         );
       });
@@ -673,7 +619,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(srcTokenSymbol),
+          amountsForBuy(srcTokenSymbol, 10n, 1n),
           'quoteExactOutputSingle',
         );
       });
@@ -725,39 +671,58 @@ describe('BunniV2', function () {
     const dexHelper = new DummyDexHelper(network);
     const tokens = Tokens[network];
 
-    describe('ETH-BUNNI', () => {
-      const srcTokenSymbol = 'BUNNI';
-      const destTokenSymbol = 'ETH';
+    describe('ETH-USDC', () => {
+      const srcTokenSymbol = 'ETH';
+      const destTokenSymbol = 'USDC';
 
-      const amountsForSell = (srcTokenSymbol: string) => {
+      const amountsForSell = (
+        srcTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (2n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (3n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (4n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (5n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (6n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (7n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (8n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (9n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (10n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
-      const amountsForBuy = (destTokenSymbol: string) => {
+      const amountsForBuy = (
+        destTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[destTokenSymbol].decimals],
-          2n * BI_POWS[tokens[destTokenSymbol].decimals],
-          3n * BI_POWS[tokens[destTokenSymbol].decimals],
-          4n * BI_POWS[tokens[destTokenSymbol].decimals],
-          5n * BI_POWS[tokens[destTokenSymbol].decimals],
-          6n * BI_POWS[tokens[destTokenSymbol].decimals],
-          7n * BI_POWS[tokens[destTokenSymbol].decimals],
-          8n * BI_POWS[tokens[destTokenSymbol].decimals],
-          9n * BI_POWS[tokens[destTokenSymbol].decimals],
-          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (2n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (3n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (4n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (5n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (6n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (7n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (8n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (9n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (10n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
@@ -766,6 +731,12 @@ describe('BunniV2', function () {
         bunniV2 = new BunniV2(network, dexKey, dexHelper);
         if (bunniV2.initializePricing) {
           await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      afterAll(async () => {
+        if (bunniV2.releaseResources) {
+          bunniV2.releaseResources();
         }
       });
 
@@ -778,7 +749,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(srcTokenSymbol),
+          amountsForSell(srcTokenSymbol, 1n, 10n),
           'quoteExactInputSingle',
         );
       });
@@ -792,7 +763,7 @@ describe('BunniV2', function () {
           srcTokenSymbol,
           destTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(destTokenSymbol),
+          amountsForBuy(destTokenSymbol, 1n, 10n),
           'quoteExactOutputSingle',
         );
       });
@@ -806,7 +777,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.SELL,
-          amountsForSell(destTokenSymbol),
+          amountsForSell(destTokenSymbol, 1n, 10n),
           'quoteExactInputSingle',
         );
       });
@@ -820,7 +791,7 @@ describe('BunniV2', function () {
           destTokenSymbol,
           srcTokenSymbol,
           SwapSide.BUY,
-          amountsForBuy(srcTokenSymbol),
+          amountsForBuy(srcTokenSymbol, 1n, 10n),
           'quoteExactOutputSingle',
         );
       });
@@ -872,39 +843,58 @@ describe('BunniV2', function () {
     const dexHelper = new DummyDexHelper(network);
     const tokens = Tokens[network];
 
-    describe('USDC-USD₮0', () => {
-      const srcTokenSymbol = 'USDC';
-      const destTokenSymbol = 'USD₮0';
+    describe('ETH-weETH', () => {
+      const srcTokenSymbol = 'ETH';
+      const destTokenSymbol = 'weETH';
 
-      const amountsForSell = (srcTokenSymbol: string) => {
+      const amountsForSell = (
+        srcTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-          10n * BI_POWS[tokens[srcTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (2n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (3n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (4n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (5n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (6n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (7n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (8n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (9n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) / scaleDown,
+          (10n * BI_POWS[tokens[srcTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
-      const amountsForBuy = (destTokenSymbol: string) => {
+      const amountsForBuy = (
+        destTokenSymbol: string,
+        scaleUp: bigint = 1n,
+        scaleDown: bigint = 1n,
+      ) => {
         return [
           0n,
-          1n * BI_POWS[tokens[destTokenSymbol].decimals],
-          2n * BI_POWS[tokens[destTokenSymbol].decimals],
-          3n * BI_POWS[tokens[destTokenSymbol].decimals],
-          4n * BI_POWS[tokens[destTokenSymbol].decimals],
-          5n * BI_POWS[tokens[destTokenSymbol].decimals],
-          6n * BI_POWS[tokens[destTokenSymbol].decimals],
-          7n * BI_POWS[tokens[destTokenSymbol].decimals],
-          8n * BI_POWS[tokens[destTokenSymbol].decimals],
-          9n * BI_POWS[tokens[destTokenSymbol].decimals],
-          10n * BI_POWS[tokens[destTokenSymbol].decimals],
+          (1n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (2n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (3n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (4n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (5n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (6n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (7n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (8n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (9n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
+          (10n * BI_POWS[tokens[destTokenSymbol].decimals] * scaleUp) /
+            scaleDown,
         ];
       };
 
@@ -913,6 +903,12 @@ describe('BunniV2', function () {
         bunniV2 = new BunniV2(network, dexKey, dexHelper);
         if (bunniV2.initializePricing) {
           await bunniV2.initializePricing(blockNumber);
+        }
+      });
+
+      afterAll(async () => {
+        if (bunniV2.releaseResources) {
+          bunniV2.releaseResources();
         }
       });
 

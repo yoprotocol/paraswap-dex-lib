@@ -1,26 +1,87 @@
 import { Logger } from 'log4js';
 import { SUBGRAPH_TIMEOUT } from '../../constants';
 import { IDexHelper } from '../../dex-helper';
-import { SubgraphPool, SubgraphTopPool } from './types';
+import {
+  DexParams,
+  SubgraphPool,
+  SubgraphProtocolState,
+  SubgraphTopPool,
+} from './types';
+
+export async function queryProtocolState(
+  dexHelper: IDexHelper,
+  logger: Logger,
+  config: DexParams,
+  blockNumber: number,
+  latestBlock: boolean = false,
+): Promise<SubgraphProtocolState | null> {
+  if (!config.subgraphURL) return null;
+
+  const query = `{
+    bunniHook (
+      id: "${config.bunniHook.address.toLowerCase()}"
+      ${latestBlock ? '' : `block: { number: ${blockNumber}} `}
+    ) {
+      hookFeesModifier
+      currentK
+      pendingK
+      activeBlock
+    }
+  }`;
+
+  const res = await dexHelper.httpRequest.querySubgraph<{
+    data: {
+      bunniHook: SubgraphProtocolState;
+    };
+    errors?: { message: string }[];
+  }>(
+    config.subgraphURL,
+    {
+      query,
+    },
+    { timeout: SUBGRAPH_TIMEOUT },
+  );
+
+  if (res.errors && res.errors.length) {
+    if (res.errors[0].message.includes('missing block')) {
+      logger.info(
+        `Subgraph missing block ${blockNumber}, fallback to the latest block...`,
+      );
+      return queryProtocolState(dexHelper, logger, config, blockNumber, true);
+    } else {
+      throw new Error(res.errors[0].message);
+    }
+  }
+
+  return res.data.bunniHook || null;
+}
 
 export async function queryPools(
   dexHelper: IDexHelper,
   logger: Logger,
-  subgraphURL: string,
+  config: DexParams,
   blockNumber: number,
   skip: number,
   first: number,
   latestBlock: boolean = false,
 ): Promise<SubgraphPool[]> {
-  if (!subgraphURL) return [];
+  if (!config.subgraphURL) return [];
 
   const query = `query ($skip: Int!, $first: Int!) {
     pools (
       skip: $skip
       first: $first
       ${latestBlock ? '' : `block: { number: ${blockNumber}} `}
+      where: {
+        and: [
+          { bunniHub_: { id: "${config.bunniHub.toLowerCase()}" } }
+          { bunniHook_: { id: "${config.bunniHook.address.toLowerCase()}" } }
+        ]
+      }
     ) {
       id
+      bunniHub { id }
+      bunniToken { id }
       currency0 { id }
       currency1 { id }
       fee
@@ -35,7 +96,7 @@ export async function queryPools(
     };
     errors?: { message: string }[];
   }>(
-    subgraphURL,
+    config.subgraphURL,
     {
       query,
       variables: { skip, first },
@@ -51,7 +112,7 @@ export async function queryPools(
       return queryPools(
         dexHelper,
         logger,
-        subgraphURL,
+        config,
         blockNumber,
         skip,
         first,
@@ -68,7 +129,7 @@ export async function queryPools(
 export async function queryAvailablePoolsForToken(
   dexHelper: IDexHelper,
   logger: Logger,
-  subgraphURL: string,
+  config: DexParams,
   tokenAddress: string,
   skip: number,
   first: number,
@@ -89,9 +150,10 @@ export async function queryAvailablePoolsForToken(
                 { currency1_: { id: "${tokenAddress.toLowerCase()}" } },
               ]
             },
-            { bunniToken_: { totalSupply_gt: 0 } }
+            { bunniToken_: { totalSupply_gt: 0.000001 } },
+            { bunniHub_: { id: "${config.bunniHub.toLowerCase()}" } },
+            { bunniHook_: { id: "${config.bunniHook.address.toLowerCase()}" } },
           ]
-          
         }
       ) {
         id
@@ -131,7 +193,7 @@ export async function queryAvailablePoolsForToken(
     data: { pools: SubgraphTopPool[] };
     errors?: { message: string }[];
   }>(
-    subgraphURL,
+    config.subgraphURL,
     {
       query,
       variables: { skip: skip, first: first },

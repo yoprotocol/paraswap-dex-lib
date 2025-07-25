@@ -16,10 +16,10 @@ import {
   ETHER_ADDRESS,
 } from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
-import { getDexKeysWithNetwork, isETHAddress } from '../../utils';
+import { bigIntify, getDexKeysWithNetwork, isETHAddress } from '../../utils';
 import { IDex } from '../../dex/idex';
 import { IDexHelper } from '../../dex-helper/idex-helper';
-import { BunniV2Data, DexParams, PoolState, PoolStateMap } from './types';
+import { BunniV2Data, DexParams, PoolState, ProtocolState } from './types';
 import { SimpleExchange } from '../simple-exchange';
 import { BunniV2Config } from './config';
 import { BunniV2EventPool } from './bunni-v2-pool';
@@ -36,28 +36,28 @@ import {
   swapExactOutputCalldata,
   swapExactOutputSingleCalldata,
 } from './encoder';
-import {
-  getAvailablePoolsForToken,
-  isWETHAddress,
-  updatePricePerVaultShares,
-} from './utils';
+import { getAvailablePoolsForToken, updatePricePerVaultShares } from './utils';
 import ERC4626ABI from '../../abi//ERC4626.json';
+import { TickMath } from './lib/TickMath';
+
+const VAULT_SHARE_PRICES_UPDATE_TTL = 1 * 60; // 1 minute
 
 export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   protected eventPools: BunniV2EventPool;
 
   readonly hasConstantPriceLargeAmounts = false;
   readonly needWrapNative = false;
-
   readonly isFeeOnTransferSupported = false;
 
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(BunniV2Config);
 
+  WETH: string;
   config: DexParams;
   logger: Logger;
   quoterInterface: Interface;
   erc4626Interface: Interface;
+  updateVaultSharePricesTimer?: NodeJS.Timeout;
 
   constructor(
     readonly network: Network,
@@ -65,6 +65,9 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     readonly dexHelper: IDexHelper,
   ) {
     super(dexHelper, dexKey);
+
+    this.WETH =
+      this.dexHelper.config.data.wrappedNativeTokenAddress.toLowerCase();
     this.config = BunniV2Config.BunniV2[network];
     this.logger = dexHelper.getLogger(dexKey);
     this.quoterInterface = new Interface(V4QuoterABI);
@@ -80,6 +83,28 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
 
   async initializePricing(blockNumber: number) {
     await this.eventPools.initialize(blockNumber);
+
+    if (!this.updateVaultSharePricesTimer) {
+      try {
+        await this.updateVaultSharePrices();
+      } catch (error) {
+        this.logger.error(
+          `${this.dexKey}: Failed to update vault share prices on initialize:`,
+          error,
+        );
+      }
+
+      this.updateVaultSharePricesTimer = setInterval(async () => {
+        try {
+          await this.updateVaultSharePrices();
+        } catch (error) {
+          this.logger.error(
+            `${this.dexKey}: Failed to update vault share prices:`,
+            error,
+          );
+        }
+      }, VAULT_SHARE_PRICES_UPDATE_TTL * 1000);
+    }
   }
 
   getAdapters(side: SwapSide): { name: string; index: number }[] | null {
@@ -105,7 +130,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   }
 
   findPoolIdentifiersWithTokens(
-    pools: DeepReadonly<PoolStateMap>,
+    pools: DeepReadonly<ProtocolState>,
     srcToken: string,
     destToken: string,
   ): string[] {
@@ -115,52 +140,44 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   }
 
   getAvailablePoolsForPair(
-    pools: DeepReadonly<PoolStateMap>,
+    pools: DeepReadonly<ProtocolState>,
     srcToken: string,
     destToken: string,
   ): PoolState[] {
     const isEthSrc = isETHAddress(srcToken);
     const isEthDest = isETHAddress(destToken);
 
-    const isWethSrc = isWETHAddress(srcToken, this.config);
-    const isWethDest = isWETHAddress(destToken, this.config);
-
-    const needCheckWeth = isEthSrc || isEthDest;
-    const needCheckETH = isWethSrc || isWethDest;
+    const isWethSrc = srcToken.toLowerCase() === this.WETH;
+    const isWethDest = destToken.toLowerCase() === this.WETH;
 
     const _srcToken = isEthSrc ? NULL_ADDRESS : srcToken.toLowerCase();
     const _destToken = isEthDest ? NULL_ADDRESS : destToken.toLowerCase();
 
-    return Object.values(pools).filter((poolState: PoolState) => {
-      const checkToken0Src = poolState.key.currency0 === _srcToken;
-      const checkToken1Dest = poolState.key.currency1 === _destToken;
-      const checkToken1Src = poolState.key.currency1 === _srcToken;
-      const checkToken0Dest = poolState.key.currency0 === _destToken;
+    const matchesSrcToken = (poolToken: string): boolean => {
+      return (
+        poolToken === _srcToken ||
+        (isEthSrc && poolToken === this.WETH) ||
+        (isWethSrc && poolToken === NULL_ADDRESS)
+      );
+    };
 
-      const checkToken0Weth =
-        needCheckWeth && isWETHAddress(poolState.key.currency0, this.config); // check token0 to discover WETH pools when ETH is src or dest
-      const checkToken0ETH =
-        needCheckETH && poolState.key.currency0 === NULL_ADDRESS; // check token0 to discover ETH pools when WETH is src or dest
-      const checkToken1Weth =
-        needCheckWeth && isWETHAddress(poolState.key.currency1, this.config); // check token1 to discover WETH pools when ETH is src or dest
-      const checkToken1ETH =
-        needCheckETH && poolState.key.currency1 === NULL_ADDRESS; // check token1 to discover ETH pools when WETH is src or dest
+    const matchesDestToken = (poolToken: string): boolean => {
+      return (
+        poolToken === _destToken ||
+        (isEthDest && poolToken === this.WETH) ||
+        (isWethDest && poolToken === NULL_ADDRESS)
+      );
+    };
+
+    return Object.values(pools.poolStates).filter(pool => {
+      const token0 = pool.key.currency0.toLowerCase();
+      const token1 = pool.key.currency1.toLowerCase();
 
       return (
-        ((checkToken0Src ||
-          (isEthSrc && checkToken0Weth) ||
-          (isWethSrc && checkToken0ETH)) &&
-          (checkToken1Dest ||
-            (isEthDest && checkToken1Weth) ||
-            (isWethDest && checkToken1ETH))) ||
-        ((checkToken0Dest ||
-          (isEthDest && checkToken0Weth) ||
-          (isWethDest && checkToken0ETH)) &&
-          (checkToken1Src ||
-            (isEthSrc && checkToken1Weth) ||
-            (isWethSrc && checkToken1ETH)))
+        (matchesSrcToken(token0) && matchesDestToken(token1)) ||
+        (matchesSrcToken(token1) && matchesDestToken(token0))
       );
-    });
+    }) as PoolState[];
   }
 
   async getPricesVolume(
@@ -199,13 +216,13 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         srcToken.address.toLowerCase() === pool.key.currency0.toLowerCase() ||
         (isETHAddress(srcToken.address) &&
           pool.key.currency0 === NULL_ADDRESS) || // ETH is src and native ETH pool
-        (isETHAddress(srcToken.address) &&
-          pool.key.currency0 === this.config.WETH.toLowerCase()) || // ETH is src and WETH pool
-        (srcToken.address.toLowerCase() === this.config.WETH.toLowerCase() &&
+        (isETHAddress(srcToken.address) && pool.key.currency0 === this.WETH) || // ETH is src and WETH pool
+        (srcToken.address.toLowerCase() === this.WETH &&
           pool.key.currency0 === NULL_ADDRESS); // WETH is src and native ETH pool
 
       try {
-        prices = await this.getOnChainPrices(
+        // attempt to quote the swap locally
+        prices = await this.getOffChainPrices(
           zeroForOne,
           amounts,
           pool,
@@ -214,7 +231,20 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         );
       } catch (error) {
         this.logger.warn(error);
-        prices = null;
+
+        // revert to fetching prices via RPC
+        try {
+          prices = await this.getOnChainPrices(
+            zeroForOne,
+            amounts,
+            pool,
+            side,
+            blockNumber,
+          );
+        } catch (error) {
+          this.logger.error(error);
+          prices = null;
+        }
       }
 
       if (prices === null) {
@@ -225,7 +255,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         return null;
       }
 
-      if (prices.every(price => price === 0n)) {
+      if (prices.every(price => price === 0n || price === 1n)) {
         return null;
       }
 
@@ -250,6 +280,49 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
 
     const prices = await Promise.all(pricesPromises);
     return prices.filter(res => res !== null);
+  }
+
+  async getOffChainPrices(
+    zeroForOne: boolean,
+    amounts: bigint[],
+    pool: PoolState,
+    side: SwapSide,
+    blockNumber: number,
+  ): Promise<bigint[]> {
+    // pricing logic requires the block timestamp
+    let blockTimestamp: bigint | undefined;
+
+    // if block is the chain head, use the chain head timestamp
+    if (blockNumber === this.dexHelper.blockManager.getLatestBlockNumber()) {
+      const activeChainHead = this.dexHelper.blockManager.getActiveChainHead();
+      if (activeChainHead)
+        blockTimestamp = bigIntify(activeChainHead.timestamp);
+    }
+
+    // otherwise, get the block timestamp via RPC call
+    if (blockTimestamp === undefined) {
+      const block = await this.dexHelper.provider.getBlock(blockNumber);
+      blockTimestamp = bigIntify(block.timestamp);
+    }
+
+    const quotes = amounts.map(amount => {
+      return this.eventPools._quoteSwap(
+        pool,
+        {
+          zeroForOne,
+          amountSpecified: side === SwapSide.SELL ? -amount : amount,
+          sqrtPriceLimitX96: zeroForOne
+            ? TickMath.MIN_SQRT_PRICE + 1n
+            : TickMath.MAX_SQRT_PRICE - 1n,
+        },
+        bigIntify(blockNumber),
+        blockTimestamp,
+      );
+    });
+
+    return quotes.map(quote =>
+      side === SwapSide.SELL ? quote.outputAmount : quote.inputAmount,
+    );
   }
 
   async getOnChainPrices(
@@ -290,9 +363,64 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     return results.map(result => (result.success ? result.returnData : 0n));
   }
 
-  // Returns estimated gas cost of calldata for this DEX in multiSwap
   getCalldataGasCost(poolPrices: PoolPrices<BunniV2Data>): number | number[] {
-    return CALLDATA_GAS_COST.DEX_NO_PAYLOAD;
+    if (poolPrices.data.path.length === 1) {
+      return (
+        CALLDATA_GAS_COST.DEX_OVERHEAD +
+        // poolKey -> currency0
+        CALLDATA_GAS_COST.ADDRESS +
+        // poolKey -> currency1
+        CALLDATA_GAS_COST.ADDRESS +
+        // poolKey -> fee
+        CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+        // poolKey -> tickSpacing
+        CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+        //poolKey -> hooks
+        CALLDATA_GAS_COST.ADDRESS +
+        // zeroForOne
+        CALLDATA_GAS_COST.BOOL +
+        // amountIn
+        CALLDATA_GAS_COST.AMOUNT +
+        // amountOutMinimum
+        CALLDATA_GAS_COST.AMOUNT +
+        // hookData
+        CALLDATA_GAS_COST.ZERO_BYTE
+      );
+    } else {
+      return (
+        CALLDATA_GAS_COST.DEX_OVERHEAD +
+        // currency
+        CALLDATA_GAS_COST.ADDRESS +
+        // amount
+        CALLDATA_GAS_COST.AMOUNT +
+        // minAmount
+        CALLDATA_GAS_COST.AMOUNT +
+        //
+        poolPrices.data.path.reduce(step => {
+          return (
+            CALLDATA_GAS_COST.DEX_OVERHEAD +
+            // poolKey -> currency0
+            CALLDATA_GAS_COST.ADDRESS +
+            // poolKey -> currency1
+            CALLDATA_GAS_COST.ADDRESS +
+            // poolKey -> fee
+            CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+            // poolKey -> tickSpacing
+            CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+            //poolKey -> hooks
+            CALLDATA_GAS_COST.ADDRESS +
+            // zeroForOne
+            CALLDATA_GAS_COST.BOOL +
+            // amountIn
+            CALLDATA_GAS_COST.AMOUNT +
+            // amountOutMinimum
+            CALLDATA_GAS_COST.AMOUNT +
+            // hookData
+            CALLDATA_GAS_COST.ZERO_BYTE
+          );
+        }, 0)
+      );
+    }
   }
 
   getDexParam(
@@ -311,7 +439,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       amount1: bigint,
       amount2: bigint,
       recipient: Address,
-      dexHelper: IDexHelper,
+      wethAddr: string,
     ) => string;
 
     if (data.path.length === 1 && side === SwapSide.SELL) {
@@ -339,7 +467,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       BigInt(srcAmount),
       side === SwapSide.SELL ? 0n : BigInt(destAmount),
       recipient,
-      this.dexHelper,
+      this.WETH,
     );
 
     return {
@@ -347,9 +475,12 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       sendEthButSupportsInsertFromAmount: true,
       dexFuncHasRecipient: true,
       exchangeData,
-      targetExchange: BunniV2Config.BunniV2[this.network].router,
-      permit2Approval: true,
+      targetExchange: this.config.router,
       returnAmountPos: undefined,
+      transferSrcTokenBeforeSwap: isETHAddress(srcToken)
+        ? undefined
+        : this.config.router,
+      skipApproval: true,
     };
   }
 
@@ -382,7 +513,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     const availablePoolsForToken = await getAvailablePoolsForToken(
       this.dexHelper,
       this.logger,
-      BunniV2Config.BunniV2[this.network].subgraphURL,
+      this.config,
       _tokenAddress,
     );
 
@@ -440,73 +571,81 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       pricePerVaultShares,
     );
 
-    const connectors: PoolLiquidity[] = availablePoolsForToken.map(pool => {
-      const connectorAddress =
-        _tokenAddress.toLowerCase() === pool.currency0.id.toLowerCase()
-          ? pool.currency1.id.toLowerCase()
-          : pool.currency0.id.toLowerCase();
+    const connectors: PoolLiquidity[] = await Promise.all(
+      availablePoolsForToken.map(async pool => {
+        const connectorAddress =
+          _tokenAddress.toLowerCase() === pool.currency0.id.toLowerCase()
+            ? pool.currency1.id.toLowerCase()
+            : pool.currency0.id.toLowerCase();
 
-      const connectorDecimals =
-        _tokenAddress.toLowerCase() === pool.currency0.id.toLowerCase()
-          ? parseInt(pool.currency1.decimals)
-          : parseInt(pool.currency0.decimals);
+        const connectorDecimals =
+          _tokenAddress.toLowerCase() === pool.currency0.id.toLowerCase()
+            ? parseInt(pool.currency1.decimals)
+            : parseInt(pool.currency0.decimals);
 
-      const rawBalance0 = parseFloat(pool.bunniToken.rawBalance0);
-      const rawBalance1 = parseFloat(pool.bunniToken.rawBalance1);
+        const rawBalance0 = parseFloat(pool.bunniToken.rawBalance0);
+        const rawBalance1 = parseFloat(pool.bunniToken.rawBalance1);
 
-      const reserveBalance0 = pool.bunniToken.vault0
-        ? parseFloat(pool.bunniToken.reserve0) *
-          (pricePerVaultShares.get(pool.bunniToken.vault0.id.toLowerCase())
-            ?.pricePerVaultShare || 0)
-        : 0;
-      const reserveBalance1 = pool.bunniToken.vault1
-        ? parseFloat(pool.bunniToken.reserve1) *
-          (pricePerVaultShares.get(pool.bunniToken.vault1.id.toLowerCase())
-            ?.pricePerVaultShare || 0)
-        : 0;
+        const reserveBalance0 = pool.bunniToken.vault0
+          ? parseFloat(pool.bunniToken.reserve0) *
+            (pricePerVaultShares.get(pool.bunniToken.vault0.id.toLowerCase())
+              ?.pricePerVaultShare || 0)
+          : 0;
+        const reserveBalance1 = pool.bunniToken.vault1
+          ? parseFloat(pool.bunniToken.reserve1) *
+            (pricePerVaultShares.get(pool.bunniToken.vault1.id.toLowerCase())
+              ?.pricePerVaultShare || 0)
+          : 0;
 
-      const totalBalance0 = rawBalance0 + reserveBalance0;
-      const totalBalance1 = rawBalance1 + reserveBalance1;
+        const totalBalance0 = rawBalance0 + reserveBalance0;
+        const totalBalance1 = rawBalance1 + reserveBalance1;
 
-      let liquidity0 = 0;
-      if (parseFloat(pool.currency0.price) > 0) {
-        liquidity0 = totalBalance0 * parseFloat(pool.currency0.price);
-      } else if (parseFloat(pool.currency1.price) > 0) {
-        liquidity0 =
-          totalBalance0 *
-          parseFloat(pool.priceCurrency1) *
-          parseFloat(pool.currency1.price);
-      } else {
-        // TODO what do we do here (i.e. neither token has a USD price from the subgraph)?
-      }
+        let liquidity0 = 0;
+        if (parseFloat(pool.currency0.price) > 0) {
+          liquidity0 = totalBalance0 * parseFloat(pool.currency0.price);
+        } else if (parseFloat(pool.currency1.price) > 0) {
+          liquidity0 =
+            totalBalance0 *
+            parseFloat(pool.priceCurrency1) *
+            parseFloat(pool.currency1.price);
+        } else {
+          const usdTokenAmounts = await this.dexHelper.getUsdTokenAmounts([
+            [pool.currency0.id, bigIntify(Math.floor(totalBalance0))],
+          ]);
+          liquidity0 = usdTokenAmounts[0];
+        }
 
-      let liquidity1 = 0;
-      if (parseFloat(pool.currency1.price) > 0) {
-        liquidity1 = totalBalance1 * parseFloat(pool.currency1.price);
-      } else if (parseFloat(pool.currency0.price) > 0) {
-        liquidity1 =
-          totalBalance1 *
-          parseFloat(pool.priceCurrency0) *
-          parseFloat(pool.currency0.price);
-      } else {
-        // TODO what do we do here (i.e. neither token has a USD price from the subgraph)?
-      }
+        let liquidity1 = 0;
+        if (parseFloat(pool.currency1.price) > 0) {
+          liquidity1 = totalBalance1 * parseFloat(pool.currency1.price);
+        } else if (parseFloat(pool.currency0.price) > 0) {
+          liquidity1 =
+            totalBalance1 *
+            parseFloat(pool.priceCurrency0) *
+            parseFloat(pool.currency0.price);
+        } else {
+          const usdTokenAmounts = await this.dexHelper.getUsdTokenAmounts([
+            [pool.currency1.id, bigIntify(Math.floor(totalBalance1))],
+          ]);
+          liquidity1 = usdTokenAmounts[0];
+        }
 
-      return {
-        exchange: this.dexKey,
-        address: BunniV2Config.BunniV2[this.network].poolManager,
-        connectorTokens: [
-          {
-            address:
-              connectorAddress.toLowerCase() === NULL_ADDRESS
-                ? ETHER_ADDRESS
-                : connectorAddress.toLowerCase(),
-            decimals: connectorDecimals,
-          },
-        ],
-        liquidityUSD: liquidity0 + liquidity1,
-      };
-    });
+        return {
+          exchange: this.dexKey,
+          address: BunniV2Config.BunniV2[this.network].poolManager,
+          connectorTokens: [
+            {
+              address:
+                connectorAddress.toLowerCase() === NULL_ADDRESS
+                  ? ETHER_ADDRESS
+                  : connectorAddress.toLowerCase(),
+              decimals: connectorDecimals,
+            },
+          ],
+          liquidityUSD: liquidity0 + liquidity1,
+        };
+      }),
+    );
 
     const pools = _.orderBy(connectors, ['liquidityUSD'], ['desc']).slice(
       0,
@@ -515,5 +654,17 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     return pools;
   }
 
-  releaseResources(): AsyncOrSync<void> {}
+  async updateVaultSharePrices(): Promise<void> {
+    await this.eventPools._updateVaultSharePrices();
+  }
+
+  releaseResources(): AsyncOrSync<void> {
+    if (this.updateVaultSharePricesTimer) {
+      clearInterval(this.updateVaultSharePricesTimer);
+      this.updateVaultSharePricesTimer = undefined;
+      this.logger.info(
+        `${this.dexKey}: cleared updateVaultSharePricesTimer before shutting down`,
+      );
+    }
+  }
 }
