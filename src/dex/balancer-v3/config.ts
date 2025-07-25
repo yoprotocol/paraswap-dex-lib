@@ -187,9 +187,16 @@ export const BalancerV3Config: DexConfigMap<DexParams> = {
         {
           type: 'StableSurge',
           apiName: 'STABLE_SURGE',
-          factoryAddress: '0x3D9319BB29DAF6081D01DC56b6203EfcC90f0bAD', // StableSurge Pool Factory V2
-          factoryDeploymentBlock: 20504864,
-          hookAddress: '0x049919Ae32E50aEe5ea1A0998a841d175ec6f1b3', // StableSurge Hook V2
+          factoryAddress: '0x6187F6C78ca4d89490d959e9c629B93214e6776e', // Pools with StableSurge hook will always be deployed from this factory
+          factoryDeploymentBlock: 20250121,
+          hookAddress: '0x8A83Aa9bb7C4Cff14ae0aEcec0fB9ef234901c0C', // Address of the hook that will be used by pools
+        },
+        {
+          type: 'StableSurge', // StableSurgeV2 - Is same as V1 with changes: up to 50k amp factor (vs 5k on v1) and ability to set a swap fee manager
+          apiName: 'STABLE_SURGE',
+          factoryAddress: '0x3D9319BB29DAF6081D01DC56b6203EfcC90f0bAD', // Pools with StableSurge hook will always be deployed from this factory
+          factoryDeploymentBlock: 20250404,
+          hookAddress: '0x049919Ae32E50aEe5ea1A0998a841d175ec6f1b3', // Address of the hook that will be used by pools
         },
       ],
     },
