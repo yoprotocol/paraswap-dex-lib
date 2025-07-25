@@ -67,7 +67,7 @@ function testForNetwork(
     network,
   );
   const tokens = Tokens[network];
-  const holders = Holders[network];
+  const holders = Holders[network] ?? {};
   const nativeTokenSymbol = NativeTokenSymbols[network];
 
   const poolIdentifiers = poolIds ? { [dexKey]: poolIds } : undefined;
