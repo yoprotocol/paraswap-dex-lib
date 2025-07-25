@@ -187,8 +187,9 @@ export const BalancerV3Config: DexConfigMap<DexParams> = {
         {
           type: 'StableSurge',
           apiName: 'STABLE_SURGE',
-          factory: '0x3D9319BB29DAF6081D01DC56b6203EfcC90f0bAD', // StableSurge Pool Factory V2
-          address: '0x049919Ae32E50aEe5ea1A0998a841d175ec6f1b3', // StableSurge Hook V2
+          factoryAddress: '0x3D9319BB29DAF6081D01DC56b6203EfcC90f0bAD', // StableSurge Pool Factory V2
+          factoryDeploymentBlock: 20504864,
+          hookAddress: '0x049919Ae32E50aEe5ea1A0998a841d175ec6f1b3', // StableSurge Hook V2
         },
       ],
     },
