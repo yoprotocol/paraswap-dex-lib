@@ -10,13 +10,17 @@ import { bigIntify } from '../../../../utils';
 import { TickBitMap } from '../../contract-math/TickBitMap';
 import { uint24ToBigInt } from '../../../../lib/decoders';
 import { Interface } from 'ethers/lib/utils';
-import RamsesV2PoolABI from '../../../../abi/ramses-v2/RamsesV2Pool.abi.json';
+import PangolinV3PoolABI from '../../../../abi/pangolin-v3/PangolinV3Pool.abi.json';
+import UniswapV3PoolABI from '../../../../abi/uniswap-v3/UniswapV3Pool.abi.json';
 import { IDexHelper } from '../../../../dex-helper';
 import { Contract } from 'web3-eth-contract';
 import { Address, Logger } from '../../../../types';
 
-export class RamsesV2EventPool extends UniswapV3EventPool {
-  public readonly poolIface = new Interface(RamsesV2PoolABI);
+export class PangolinV3EventPool extends UniswapV3EventPool {
+  public readonly poolIface = new Interface([
+    ...PangolinV3PoolABI,
+    ...UniswapV3PoolABI,
+  ]);
 
   constructor(
     readonly dexHelper: IDexHelper,
@@ -33,6 +37,7 @@ export class RamsesV2EventPool extends UniswapV3EventPool {
     logger: Logger,
     mapKey: string = '',
     readonly poolInitCodeHash: string,
+    public readonly tickSpacing?: bigint,
   ) {
     super(
       dexHelper,
@@ -49,15 +54,7 @@ export class RamsesV2EventPool extends UniswapV3EventPool {
       poolInitCodeHash,
     );
 
-    this.handlers['FeeAdjustment'] = this.handleFeeAdjustmentEvent.bind(this);
-  }
-
-  handleFeeAdjustmentEvent(event: any, pool: PoolState): PoolState {
-    const newFee = bigIntify(event.args.newFee);
-
-    pool.fee = newFee;
-
-    return pool;
+    this.handlers['SetFee'] = this.handleFeeAdjustmentEvent.bind(this);
   }
 
   async generateState(blockNumber: number): Promise<Readonly<PoolState>> {
@@ -67,7 +64,7 @@ export class RamsesV2EventPool extends UniswapV3EventPool {
       ...callData,
       {
         target: this.poolAddress,
-        callData: this.poolIface.encodeFunctionData('currentFee'),
+        callData: this.poolIface.encodeFunctionData('fee'),
         decodeFunction: uint24ToBigInt,
       },
     ];
@@ -155,5 +152,11 @@ export class RamsesV2EventPool extends UniswapV3EventPool {
       balance0,
       balance1,
     };
+  }
+
+  handleFeeAdjustmentEvent(event: any, pool: PoolState): PoolState {
+    pool.fee = bigIntify(event.args.fee);
+
+    return pool;
   }
 }
