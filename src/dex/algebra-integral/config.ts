@@ -21,4 +21,14 @@ export const AlgebraIntegralConfig: DexConfigMap<DexParams> = {
       chunksCount: 10,
     },
   },
+  BlackholeCL: {
+    [Network.AVALANCHE]: {
+      factory: '0x512eb749541B7cf294be882D636218c84a5e9E5F',
+      subgraphURL: '7uEwiKmfbRQqV8Ec9nvdKrMFVFQv5qaM271gdBvHtywj',
+      quoter: '0x3e182bcf14Be6142b9217847ec1112e3c39Eb689',
+      router: '0xaBfc48e8BED7b26762745f3139555F320119709d',
+      uniswapMulticall: '0x9dF9457D5C55B4C880Dc86C67AE323B00B5be48E',
+      chunksCount: 10,
+    },
+  },
 };
