@@ -3,6 +3,8 @@ import {
   PoolState,
   DexKey,
   UnpackedDexVariables,
+  SwapResult,
+  PricingResult,
   BITS_DEX_LITE_DEX_VARIABLES_FEE,
   BITS_DEX_LITE_DEX_VARIABLES_REVENUE_CUT,
   BITS_DEX_LITE_DEX_VARIABLES_REBALANCING_STATUS,
@@ -60,23 +62,14 @@ export class FluidDexLiteMathError extends Error {
   }
 }
 
-export interface SwapResult {
-  amountOut: bigint;
-  amountIn: bigint;
-}
-
-export interface PricingResult {
-  centerPrice: bigint;
-  upperRangePrice: bigint;
-  lowerRangePrice: bigint;
-  token0ImaginaryReserves: bigint;
-  token1ImaginaryReserves: bigint;
-}
-
 // Helper function to calculate powers of 10
 function tenPow(power: bigint): bigint {
+  if (power < 0n) {
+    throw new FluidDexLiteMathError(`Power cannot be negative: ${power}`);
+  }
+
   const powerNum = Number(power);
-  
+
   // Handle the most common cases for optimization
   if (powerNum === 3) return 1000n;
   if (powerNum === 9) return 1000000000n;
@@ -88,47 +81,96 @@ function tenPow(power: bigint): bigint {
   if (powerNum === 6) return 1000000n;
   if (powerNum === 7) return 10000000n;
   if (powerNum === 8) return 100000000n;
-  
-  if (powerNum < 0 || powerNum > 9) {
-    throw new FluidDexLiteMathError(`Invalid power: ${power}`);
+
+  // Handle valid powers outside the optimization range
+  if (powerNum >= 0 && powerNum <= 77) {
+    // Safe limit for BigInt exponentiation
+    return 10n ** power;
   }
-  
-  return 10n ** power;
+
+  throw new FluidDexLiteMathError(
+    `Power too large or invalid: ${power}. Must be between 0-77`,
+  );
 }
 
 // Unpack dexVariables from the packed uint256
 export function unpackDexVariables(dexVariables: bigint): UnpackedDexVariables {
   return {
     fee: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_FEE)) & X13,
-    revenueCut: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_REVENUE_CUT)) & X7,
-    rebalancingStatus: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_REBALANCING_STATUS)) & X2,
-    centerPriceShiftActive: ((dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_CENTER_PRICE_SHIFT_ACTIVE)) & X1) === 1n,
-    centerPrice: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_CENTER_PRICE)) & X40,
-    centerPriceContractAddress: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_CENTER_PRICE_CONTRACT_ADDRESS)) & X19,
-    rangePercentShiftActive: ((dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_RANGE_PERCENT_SHIFT_ACTIVE)) & X1) === 1n,
-    upperPercent: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_UPPER_PERCENT)) & X14,
-    lowerPercent: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_LOWER_PERCENT)) & X14,
-    thresholdPercentShiftActive: ((dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_THRESHOLD_PERCENT_SHIFT_ACTIVE)) & X1) === 1n,
-    upperShiftThresholdPercent: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_UPPER_SHIFT_THRESHOLD_PERCENT)) & X7,
-    lowerShiftThresholdPercent: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_LOWER_SHIFT_THRESHOLD_PERCENT)) & X7,
-    token0Decimals: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_DECIMALS)) & X5,
-    token1Decimals: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_DECIMALS)) & X5,
-    token0TotalSupplyAdjusted: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_TOTAL_SUPPLY_ADJUSTED)) & X60,
-    token1TotalSupplyAdjusted: (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_TOTAL_SUPPLY_ADJUSTED)) & X60,
+    revenueCut:
+      (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_REVENUE_CUT)) & X7,
+    rebalancingStatus:
+      (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_REBALANCING_STATUS)) &
+      X2,
+    centerPriceShiftActive:
+      ((dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_CENTER_PRICE_SHIFT_ACTIVE)) &
+        X1) ===
+      1n,
+    centerPrice:
+      (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_CENTER_PRICE)) & X40,
+    centerPriceContractAddress:
+      (dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_CENTER_PRICE_CONTRACT_ADDRESS)) &
+      X19,
+    rangePercentShiftActive:
+      ((dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_RANGE_PERCENT_SHIFT_ACTIVE)) &
+        X1) ===
+      1n,
+    upperPercent:
+      (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_UPPER_PERCENT)) & X14,
+    lowerPercent:
+      (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_LOWER_PERCENT)) & X14,
+    thresholdPercentShiftActive:
+      ((dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_THRESHOLD_PERCENT_SHIFT_ACTIVE)) &
+        X1) ===
+      1n,
+    upperShiftThresholdPercent:
+      (dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_UPPER_SHIFT_THRESHOLD_PERCENT)) &
+      X7,
+    lowerShiftThresholdPercent:
+      (dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_LOWER_SHIFT_THRESHOLD_PERCENT)) &
+      X7,
+    token0Decimals:
+      (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_DECIMALS)) &
+      X5,
+    token1Decimals:
+      (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_DECIMALS)) &
+      X5,
+    token0TotalSupplyAdjusted:
+      (dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_TOTAL_SUPPLY_ADJUSTED)) &
+      X60,
+    token1TotalSupplyAdjusted:
+      (dexVariables >>
+        BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_TOTAL_SUPPLY_ADJUSTED)) &
+      X60,
   };
 }
 
 // Expand center price from compressed format
 function expandCenterPrice(centerPrice: bigint): bigint {
-  return (centerPrice >> DEFAULT_EXPONENT_SIZE) << (centerPrice & DEFAULT_EXPONENT_MASK);
+  return (
+    (centerPrice >> DEFAULT_EXPONENT_SIZE) <<
+    (centerPrice & DEFAULT_EXPONENT_MASK)
+  );
 }
 
 // Helper function for linear interpolation during shifting
-function calcShiftingDone(current: bigint, old: bigint, timePassed: bigint, shiftDuration: bigint): bigint {
+function calcShiftingDone(
+  current: bigint,
+  old: bigint,
+  timePassed: bigint,
+  shiftDuration: bigint,
+): bigint {
   if (current > old) {
-    return old + (((current - old) * timePassed) / shiftDuration);
+    return old + ((current - old) * timePassed) / shiftDuration;
   } else {
-    return old - (((old - current) * timePassed) / shiftDuration);
+    return old - ((old - current) * timePassed) / shiftDuration;
   }
 }
 
@@ -137,23 +179,39 @@ function calcRangeShifting(
   upperRange: bigint,
   lowerRange: bigint,
   rangeShift: bigint,
-  currentTimestamp: bigint
+  currentTimestamp: bigint,
 ): { upperRange: bigint; lowerRange: bigint } {
-  const shiftDuration = (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_TIME_TO_SHIFT)) & X20;
-  const startTimestamp = (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_TIMESTAMP)) & X33;
+  const shiftDuration =
+    (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_TIME_TO_SHIFT)) & X20;
+  const startTimestamp =
+    (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_TIMESTAMP)) & X33;
 
-  if ((startTimestamp + shiftDuration) < currentTimestamp) {
+  if (startTimestamp + shiftDuration < currentTimestamp) {
     // shifting fully done
     return { upperRange, lowerRange };
   }
 
   const timePassed = currentTimestamp - startTimestamp;
-  const oldUpperRange = (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_OLD_UPPER_RANGE_PERCENT)) & X14;
-  const oldLowerRange = (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_OLD_LOWER_RANGE_PERCENT)) & X14;
+  const oldUpperRange =
+    (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_OLD_UPPER_RANGE_PERCENT)) &
+    X14;
+  const oldLowerRange =
+    (rangeShift >> BigInt(BITS_DEX_LITE_RANGE_SHIFT_OLD_LOWER_RANGE_PERCENT)) &
+    X14;
 
   return {
-    upperRange: calcShiftingDone(upperRange, oldUpperRange, timePassed, shiftDuration),
-    lowerRange: calcShiftingDone(lowerRange, oldLowerRange, timePassed, shiftDuration)
+    upperRange: calcShiftingDone(
+      upperRange,
+      oldUpperRange,
+      timePassed,
+      shiftDuration,
+    ),
+    lowerRange: calcShiftingDone(
+      lowerRange,
+      oldLowerRange,
+      timePassed,
+      shiftDuration,
+    ),
   };
 }
 
@@ -162,23 +220,42 @@ function calcThresholdShifting(
   upperThreshold: bigint,
   lowerThreshold: bigint,
   thresholdShift: bigint,
-  currentTimestamp: bigint
+  currentTimestamp: bigint,
 ): { upperThreshold: bigint; lowerThreshold: bigint } {
-  const shiftDuration = (thresholdShift >> BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_TIME_TO_SHIFT)) & X20;
-  const startTimestamp = (thresholdShift >> BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_TIMESTAMP)) & X33;
+  const shiftDuration =
+    (thresholdShift >> BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_TIME_TO_SHIFT)) &
+    X20;
+  const startTimestamp =
+    (thresholdShift >> BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_TIMESTAMP)) & X33;
 
-  if ((startTimestamp + shiftDuration) < currentTimestamp) {
+  if (startTimestamp + shiftDuration < currentTimestamp) {
     // shifting fully done
     return { upperThreshold, lowerThreshold };
   }
 
   const timePassed = currentTimestamp - startTimestamp;
-  const oldUpperThreshold = (thresholdShift >> BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_OLD_UPPER_THRESHOLD_PERCENT)) & X7;
-  const oldLowerThreshold = (thresholdShift >> BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_OLD_LOWER_THRESHOLD_PERCENT)) & X7;
+  const oldUpperThreshold =
+    (thresholdShift >>
+      BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_OLD_UPPER_THRESHOLD_PERCENT)) &
+    X7;
+  const oldLowerThreshold =
+    (thresholdShift >>
+      BigInt(BITS_DEX_LITE_THRESHOLD_SHIFT_OLD_LOWER_THRESHOLD_PERCENT)) &
+    X7;
 
   return {
-    upperThreshold: calcShiftingDone(upperThreshold, oldUpperThreshold, timePassed, shiftDuration),
-    lowerThreshold: calcShiftingDone(lowerThreshold, oldLowerThreshold, timePassed, shiftDuration)
+    upperThreshold: calcShiftingDone(
+      upperThreshold,
+      oldUpperThreshold,
+      timePassed,
+      shiftDuration,
+    ),
+    lowerThreshold: calcShiftingDone(
+      lowerThreshold,
+      oldLowerThreshold,
+      timePassed,
+      shiftDuration,
+    ),
   };
 }
 
@@ -187,14 +264,44 @@ function calculateReservesOutsideRange(
   geometricMean: bigint,
   pa: bigint,
   rx: bigint,
-  ry: bigint
+  ry: bigint,
 ): { xa: bigint; yb: bigint } {
+  // Validate inputs
+  if (geometricMean <= 0n) {
+    throw new FluidDexLiteMathError('Geometric mean must be positive');
+  }
+  if (pa <= 0n) {
+    throw new FluidDexLiteMathError('Price pa must be positive');
+  }
+  if (rx < 0n || ry < 0n) {
+    throw new FluidDexLiteMathError('Reserves must be non-negative');
+  }
+  if (pa <= geometricMean) {
+    throw new FluidDexLiteMathError(
+      'Price pa must be greater than geometric mean',
+    );
+  }
+
   const p1 = pa - geometricMean;
-  const p2 = ((geometricMean * rx) + (ry * PRICE_PRECISION)) / (2n * p1);
+
+  // Check for potential division by zero
+  if (p1 === 0n) {
+    throw new FluidDexLiteMathError('Price difference cannot be zero');
+  }
+
+  const p2 = (geometricMean * rx + ry * PRICE_PRECISION) / (2n * p1);
+
+  // Validate intermediate calculation
+  const discriminant = (rx * ry * PRICE_PRECISION) / p1 + p2 * p2;
+  if (discriminant < 0n) {
+    throw new FluidDexLiteMathError(
+      'Invalid discriminant in reserves calculation',
+    );
+  }
 
   // xa = part2 + (part3 + (part2 * part2))^(1/2)
   // yb = xa * gp
-  const xa = p2 + sqrt((((rx * ry * PRICE_PRECISION) / p1) + (p2 * p2)));
+  const xa = p2 + sqrt(discriminant);
   const yb = (xa * geometricMean) / PRICE_PRECISION;
 
   return { xa, yb };
@@ -203,7 +310,7 @@ function calculateReservesOutsideRange(
 // Square root implementation for BigInt
 function sqrt(value: bigint): bigint {
   if (value < 0n) {
-    throw new FluidDexLiteMathError("Square root of negative number");
+    throw new FluidDexLiteMathError('Square root of negative number');
   }
   if (value < 2n) {
     return value;
@@ -211,7 +318,7 @@ function sqrt(value: bigint): bigint {
 
   let x = value;
   let result = value;
-  
+
   // Newton's method
   while (x > 0n) {
     x = (result + value / result) / 2n;
@@ -220,7 +327,7 @@ function sqrt(value: bigint): bigint {
     }
     result = x;
   }
-  
+
   return result;
 }
 
@@ -229,54 +336,70 @@ export function getPricesAndReserves(
   state: PoolState,
   dexKey: DexKey,
   dexId: string,
-  currentTimestamp: bigint = BigInt(Math.floor(Date.now() / 1000))
+  currentTimestamp: bigint = BigInt(Math.floor(Date.now() / 1000)),
 ): PricingResult {
   const unpackedVars = unpackDexVariables(state.dexVariables);
-  
+
   // Calculate center price
   let centerPrice: bigint;
-  
+
   // Revert if external price contract is configured
   if (unpackedVars.centerPriceContractAddress !== 0n) {
-    throw new FluidDexLiteMathError("External price contracts not supported in pricing");
+    throw new FluidDexLiteMathError(
+      'External price contracts not supported in pricing',
+    );
   }
-  
+
   // Revert if center price shifting is active
   if (unpackedVars.centerPriceShiftActive) {
-    throw new FluidDexLiteMathError("Center price shifting not supported in pricing");
+    throw new FluidDexLiteMathError(
+      'Center price shifting not supported in pricing',
+    );
   }
-  
+
   // Use stored center price
   centerPrice = expandCenterPrice(unpackedVars.centerPrice);
 
   // Calculate range percents
   let upperRangePercent = unpackedVars.upperPercent;
   let lowerRangePercent = unpackedVars.lowerPercent;
-  
+
   if (unpackedVars.rangePercentShiftActive) {
-    const rangeResult = calcRangeShifting(upperRangePercent, lowerRangePercent, state.rangeShift, currentTimestamp);
+    const rangeResult = calcRangeShifting(
+      upperRangePercent,
+      lowerRangePercent,
+      state.rangeShift,
+      currentTimestamp,
+    );
     upperRangePercent = rangeResult.upperRange;
     lowerRangePercent = rangeResult.lowerRange;
   }
 
   // Calculate range prices
-  let upperRangePrice = (centerPrice * FOUR_DECIMALS) / (FOUR_DECIMALS - upperRangePercent);
-  let lowerRangePrice = (centerPrice * (FOUR_DECIMALS - lowerRangePercent)) / FOUR_DECIMALS;
+  let upperRangePrice =
+    (centerPrice * FOUR_DECIMALS) / (FOUR_DECIMALS - upperRangePercent);
+  let lowerRangePrice =
+    (centerPrice * (FOUR_DECIMALS - lowerRangePercent)) / FOUR_DECIMALS;
 
   // Handle rebalancing logic
   const rebalancingStatus = unpackedVars.rebalancingStatus;
-  
+
   if (rebalancingStatus > 1n) {
     let centerPriceShiftData = 0n;
-    
+
     if (rebalancingStatus === 2n) {
       // Price shifting towards upper range
       centerPriceShiftData = state.centerPriceShift;
-      const shiftingTime = (centerPriceShiftData >> BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_SHIFTING_TIME)) & X24;
+      const shiftingTime =
+        (centerPriceShiftData >>
+          BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_SHIFTING_TIME)) &
+        X24;
       const timeElapsed = currentTimestamp - state.lastInteractionTimestamp;
-      
+
       if (timeElapsed < shiftingTime) {
-        centerPrice = centerPrice + (((upperRangePrice - centerPrice) * timeElapsed) / shiftingTime);
+        centerPrice =
+          centerPrice +
+          ((upperRangePrice - centerPrice) * timeElapsed) / shiftingTime;
       } else {
         // 100% price shifted
         centerPrice = upperRangePrice;
@@ -284,11 +407,16 @@ export function getPricesAndReserves(
     } else if (rebalancingStatus === 3n) {
       // Price shifting towards lower range
       centerPriceShiftData = state.centerPriceShift;
-      const shiftingTime = (centerPriceShiftData >> BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_SHIFTING_TIME)) & X24;
+      const shiftingTime =
+        (centerPriceShiftData >>
+          BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_SHIFTING_TIME)) &
+        X24;
       const timeElapsed = currentTimestamp - state.lastInteractionTimestamp;
-      
+
       if (timeElapsed < shiftingTime) {
-        centerPrice = centerPrice - (((centerPrice - lowerRangePrice) * timeElapsed) / shiftingTime);
+        centerPrice =
+          centerPrice -
+          ((centerPrice - lowerRangePrice) * timeElapsed) / shiftingTime;
       } else {
         // 100% price shifted
         centerPrice = lowerRangePrice;
@@ -298,36 +426,50 @@ export function getPricesAndReserves(
     // Apply min/max bounds if rebalancing happened
     if (centerPriceShiftData > 0n) {
       // Check max center price
-      let maxCenterPrice = (centerPriceShiftData >> BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_MAX_CENTER_PRICE)) & X28;
-      maxCenterPrice = (maxCenterPrice >> DEFAULT_EXPONENT_SIZE) << (maxCenterPrice & DEFAULT_EXPONENT_MASK);
-      
+      let maxCenterPrice =
+        (centerPriceShiftData >>
+          BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_MAX_CENTER_PRICE)) &
+        X28;
+      maxCenterPrice =
+        (maxCenterPrice >> DEFAULT_EXPONENT_SIZE) <<
+        (maxCenterPrice & DEFAULT_EXPONENT_MASK);
+
       if (centerPrice > maxCenterPrice) {
         centerPrice = maxCenterPrice;
       } else {
         // Check min center price
-        let minCenterPrice = (centerPriceShiftData >> BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_MIN_CENTER_PRICE)) & X28;
-        minCenterPrice = (minCenterPrice >> DEFAULT_EXPONENT_SIZE) << (minCenterPrice & DEFAULT_EXPONENT_MASK);
-        
+        let minCenterPrice =
+          (centerPriceShiftData >>
+            BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_MIN_CENTER_PRICE)) &
+          X28;
+        minCenterPrice =
+          (minCenterPrice >> DEFAULT_EXPONENT_SIZE) <<
+          (minCenterPrice & DEFAULT_EXPONENT_MASK);
+
         if (centerPrice < minCenterPrice) {
           centerPrice = minCenterPrice;
         }
       }
 
       // Update range prices as center price moved
-      upperRangePrice = (centerPrice * FOUR_DECIMALS) / (FOUR_DECIMALS - upperRangePercent);
-      lowerRangePrice = (centerPrice * (FOUR_DECIMALS - lowerRangePercent)) / FOUR_DECIMALS;
+      upperRangePrice =
+        (centerPrice * FOUR_DECIMALS) / (FOUR_DECIMALS - upperRangePercent);
+      lowerRangePrice =
+        (centerPrice * (FOUR_DECIMALS - lowerRangePercent)) / FOUR_DECIMALS;
     }
   }
 
   // Calculate geometric mean
   let geometricMean: bigint;
-  
+
   if (upperRangePrice < 10n ** 38n) {
     // Normal case
     geometricMean = sqrt(upperRangePrice * lowerRangePrice);
   } else {
     // Handle very large prices
-    geometricMean = sqrt((upperRangePrice / (10n ** 18n)) * (lowerRangePrice / (10n ** 18n))) * (10n ** 18n);
+    geometricMean =
+      sqrt((upperRangePrice / 10n ** 18n) * (lowerRangePrice / 10n ** 18n)) *
+      10n ** 18n;
   }
 
   // Calculate imaginary reserves
@@ -336,20 +478,20 @@ export function getPricesAndReserves(
 
   if (geometricMean < PRICE_PRECISION) {
     const reserves = calculateReservesOutsideRange(
-      geometricMean, 
-      upperRangePrice, 
-      unpackedVars.token0TotalSupplyAdjusted, 
-      unpackedVars.token1TotalSupplyAdjusted
+      geometricMean,
+      upperRangePrice,
+      unpackedVars.token0TotalSupplyAdjusted,
+      unpackedVars.token1TotalSupplyAdjusted,
     );
     token0ImaginaryReserves = reserves.xa;
     token1ImaginaryReserves = reserves.yb;
   } else {
     // Inverse calculation for large geometric mean
     const reserves = calculateReservesOutsideRange(
-      (10n ** 54n) / geometricMean,
-      (10n ** 54n) / lowerRangePrice,
+      10n ** 54n / geometricMean,
+      10n ** 54n / lowerRangePrice,
       unpackedVars.token1TotalSupplyAdjusted,
-      unpackedVars.token0TotalSupplyAdjusted
+      unpackedVars.token0TotalSupplyAdjusted,
     );
     token1ImaginaryReserves = reserves.xa;
     token0ImaginaryReserves = reserves.yb;
@@ -375,13 +517,16 @@ export function calculateSwap(
   dexId: string,
   swap0To1: boolean,
   amountSpecified: bigint,
-  side: SwapSide
+  side: SwapSide,
 ): SwapResult {
   const unpackedVars = unpackDexVariables(state.dexVariables);
-  
+
   // Basic validation
-  if (unpackedVars.token0TotalSupplyAdjusted === 0n && unpackedVars.token1TotalSupplyAdjusted === 0n) {
-    throw new FluidDexLiteMathError("Pool not initialized");
+  if (
+    unpackedVars.token0TotalSupplyAdjusted === 0n &&
+    unpackedVars.token1TotalSupplyAdjusted === 0n
+  ) {
+    throw new FluidDexLiteMathError('Pool not initialized');
   }
 
   // Get current pricing with all shifting logic
@@ -393,7 +538,7 @@ export function calculateSwap(
       swap0To1,
       unpackedVars,
       pricing.token0ImaginaryReserves,
-      pricing.token1ImaginaryReserves
+      pricing.token1ImaginaryReserves,
     );
   } else {
     return calculateSwapOut(
@@ -401,7 +546,7 @@ export function calculateSwap(
       swap0To1,
       unpackedVars,
       pricing.token0ImaginaryReserves,
-      pricing.token1ImaginaryReserves
+      pricing.token1ImaginaryReserves,
     );
   }
 }
@@ -412,64 +557,105 @@ function calculateSwapIn(
   swap0To1: boolean,
   unpackedVars: UnpackedDexVariables,
   token0ImaginaryReserves: bigint,
-  token1ImaginaryReserves: bigint
+  token1ImaginaryReserves: bigint,
 ): SwapResult {
+  // Basic input validation
+  if (amountIn <= 0n) {
+    throw new FluidDexLiteMathError('Amount in must be positive');
+  }
+  if (token0ImaginaryReserves <= 0n || token1ImaginaryReserves <= 0n) {
+    throw new FluidDexLiteMathError('Imaginary reserves must be positive');
+  }
+
   let adjustedAmountIn = amountIn;
-  
+
   // Apply decimal adjustments
   if (swap0To1) {
     const token0Decimals = unpackedVars.token0Decimals;
     if (token0Decimals > TOKENS_DECIMALS_PRECISION) {
-      adjustedAmountIn = adjustedAmountIn / tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
+      adjustedAmountIn =
+        adjustedAmountIn / tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      adjustedAmountIn = adjustedAmountIn * tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
+      adjustedAmountIn =
+        adjustedAmountIn * tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
     }
   } else {
     const token1Decimals = unpackedVars.token1Decimals;
     if (token1Decimals > TOKENS_DECIMALS_PRECISION) {
-      adjustedAmountIn = adjustedAmountIn / tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
+      adjustedAmountIn =
+        adjustedAmountIn / tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      adjustedAmountIn = adjustedAmountIn * tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
+      adjustedAmountIn =
+        adjustedAmountIn * tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
     }
   }
 
   // Validate amount
   if (adjustedAmountIn < FOUR_DECIMALS || adjustedAmountIn > X60) {
-    throw new FluidDexLiteMathError("Invalid swap amount");
+    throw new FluidDexLiteMathError('Invalid swap amount');
   }
 
   // Check against half of reserves
-  const relevantReserves = swap0To1 ? token0ImaginaryReserves : token1ImaginaryReserves;
+  const relevantReserves = swap0To1
+    ? token0ImaginaryReserves
+    : token1ImaginaryReserves;
   if (adjustedAmountIn > relevantReserves / 2n) {
-    throw new FluidDexLiteMathError("Excessive swap amount");
+    throw new FluidDexLiteMathError('Excessive swap amount');
   }
 
-  // Calculate fee
+  // Calculate fee - ensure fee is valid
+  if (unpackedVars.fee >= SIX_DECIMALS) {
+    throw new FluidDexLiteMathError('Fee cannot be 100% or higher');
+  }
+
   const fee = (adjustedAmountIn * unpackedVars.fee) / SIX_DECIMALS;
   const amountInAfterFee = adjustedAmountIn - fee;
+
+  if (amountInAfterFee <= 0n) {
+    throw new FluidDexLiteMathError('Amount after fee must be positive');
+  }
 
   // Constant product formula: amountOut = (amountIn * reserveOut) / (reserveIn + amountIn)
   let amountOut: bigint;
   if (swap0To1) {
-    amountOut = (amountInAfterFee * token1ImaginaryReserves) / (token0ImaginaryReserves + amountInAfterFee);
+    // Check for potential overflow in intermediate calculation
+    const numerator = amountInAfterFee * token1ImaginaryReserves;
+    const denominator = token0ImaginaryReserves + amountInAfterFee;
+    if (denominator === 0n) {
+      throw new FluidDexLiteMathError('Division by zero in swap calculation');
+    }
+    amountOut = numerator / denominator;
   } else {
-    amountOut = (amountInAfterFee * token0ImaginaryReserves) / (token1ImaginaryReserves + amountInAfterFee);
+    const numerator = amountInAfterFee * token0ImaginaryReserves;
+    const denominator = token1ImaginaryReserves + amountInAfterFee;
+    if (denominator === 0n) {
+      throw new FluidDexLiteMathError('Division by zero in swap calculation');
+    }
+    amountOut = numerator / denominator;
+  }
+
+  if (amountOut === 0n) {
+    throw new FluidDexLiteMathError('Swap output amount is zero');
   }
 
   // Apply decimal adjustments to output
   if (swap0To1) {
     const token1Decimals = unpackedVars.token1Decimals;
     if (token1Decimals > TOKENS_DECIMALS_PRECISION) {
-      amountOut = amountOut * tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
+      amountOut =
+        amountOut * tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      amountOut = amountOut / tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
+      amountOut =
+        amountOut / tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
     }
   } else {
     const token0Decimals = unpackedVars.token0Decimals;
     if (token0Decimals > TOKENS_DECIMALS_PRECISION) {
-      amountOut = amountOut * tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
+      amountOut =
+        amountOut * tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      amountOut = amountOut / tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
+      amountOut =
+        amountOut / tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
     }
   }
 
@@ -485,48 +671,90 @@ function calculateSwapOut(
   swap0To1: boolean,
   unpackedVars: UnpackedDexVariables,
   token0ImaginaryReserves: bigint,
-  token1ImaginaryReserves: bigint
+  token1ImaginaryReserves: bigint,
 ): SwapResult {
+  // Basic input validation
+  if (amountOut <= 0n) {
+    throw new FluidDexLiteMathError('Amount out must be positive');
+  }
+  if (token0ImaginaryReserves <= 0n || token1ImaginaryReserves <= 0n) {
+    throw new FluidDexLiteMathError('Imaginary reserves must be positive');
+  }
+
   let adjustedAmountOut = amountOut;
-  
+
   // Apply decimal adjustments
   if (swap0To1) {
     const token1Decimals = unpackedVars.token1Decimals;
     if (token1Decimals > TOKENS_DECIMALS_PRECISION) {
-      adjustedAmountOut = adjustedAmountOut / tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
+      adjustedAmountOut =
+        adjustedAmountOut / tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      adjustedAmountOut = adjustedAmountOut * tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
+      adjustedAmountOut =
+        adjustedAmountOut * tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
     }
   } else {
     const token0Decimals = unpackedVars.token0Decimals;
     if (token0Decimals > TOKENS_DECIMALS_PRECISION) {
-      adjustedAmountOut = adjustedAmountOut / tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
+      adjustedAmountOut =
+        adjustedAmountOut / tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      adjustedAmountOut = adjustedAmountOut * tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
+      adjustedAmountOut =
+        adjustedAmountOut * tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
     }
   }
 
   // Validate amount
   if (adjustedAmountOut < FOUR_DECIMALS || adjustedAmountOut > X60) {
-    throw new FluidDexLiteMathError("Invalid swap amount");
+    throw new FluidDexLiteMathError('Invalid swap amount');
   }
 
   // Check against half of reserves
-  const relevantReserves = swap0To1 ? token1ImaginaryReserves : token0ImaginaryReserves;
+  const relevantReserves = swap0To1
+    ? token1ImaginaryReserves
+    : token0ImaginaryReserves;
   if (adjustedAmountOut > relevantReserves / 2n) {
-    throw new FluidDexLiteMathError("Excessive swap amount");
+    throw new FluidDexLiteMathError('Excessive swap amount');
   }
 
   // Reverse constant product formula: amountIn = (amountOut * reserveIn) / (reserveOut - amountOut)
   let amountInBeforeFee: bigint;
   if (swap0To1) {
-    amountInBeforeFee = (adjustedAmountOut * token0ImaginaryReserves) / (token1ImaginaryReserves - adjustedAmountOut);
+    const denominator = token1ImaginaryReserves - adjustedAmountOut;
+    if (denominator <= 0n) {
+      throw new FluidDexLiteMathError(
+        'Insufficient liquidity - amount out too large',
+      );
+    }
+    const numerator = adjustedAmountOut * token0ImaginaryReserves;
+    amountInBeforeFee = numerator / denominator;
   } else {
-    amountInBeforeFee = (adjustedAmountOut * token1ImaginaryReserves) / (token0ImaginaryReserves - adjustedAmountOut);
+    const denominator = token0ImaginaryReserves - adjustedAmountOut;
+    if (denominator <= 0n) {
+      throw new FluidDexLiteMathError(
+        'Insufficient liquidity - amount out too large',
+      );
+    }
+    const numerator = adjustedAmountOut * token1ImaginaryReserves;
+    amountInBeforeFee = numerator / denominator;
   }
 
-  // Add fee
-  const fee = ((amountInBeforeFee * SIX_DECIMALS) / (SIX_DECIMALS - unpackedVars.fee)) - amountInBeforeFee;
+  if (amountInBeforeFee === 0n) {
+    throw new FluidDexLiteMathError('Calculated input amount is zero');
+  }
+
+  // Add fee - ensure fee calculation is valid
+  if (unpackedVars.fee >= SIX_DECIMALS) {
+    throw new FluidDexLiteMathError('Fee cannot be 100% or higher');
+  }
+
+  const feeDenominator = SIX_DECIMALS - unpackedVars.fee;
+  if (feeDenominator <= 0n) {
+    throw new FluidDexLiteMathError('Invalid fee configuration');
+  }
+
+  const fee =
+    (amountInBeforeFee * SIX_DECIMALS) / feeDenominator - amountInBeforeFee;
   const amountIn = amountInBeforeFee + fee;
 
   // Apply decimal adjustments to input
@@ -534,16 +762,20 @@ function calculateSwapOut(
   if (swap0To1) {
     const token0Decimals = unpackedVars.token0Decimals;
     if (token0Decimals > TOKENS_DECIMALS_PRECISION) {
-      finalAmountIn = finalAmountIn * tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
+      finalAmountIn =
+        finalAmountIn * tenPow(token0Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      finalAmountIn = finalAmountIn / tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
+      finalAmountIn =
+        finalAmountIn / tenPow(TOKENS_DECIMALS_PRECISION - token0Decimals);
     }
   } else {
     const token1Decimals = unpackedVars.token1Decimals;
     if (token1Decimals > TOKENS_DECIMALS_PRECISION) {
-      finalAmountIn = finalAmountIn * tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
+      finalAmountIn =
+        finalAmountIn * tenPow(token1Decimals - TOKENS_DECIMALS_PRECISION);
     } else {
-      finalAmountIn = finalAmountIn / tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
+      finalAmountIn =
+        finalAmountIn / tenPow(TOKENS_DECIMALS_PRECISION - token1Decimals);
     }
   }
 
@@ -551,4 +783,4 @@ function calculateSwapOut(
     amountIn: finalAmountIn,
     amountOut: amountOut,
   };
-} 
+}

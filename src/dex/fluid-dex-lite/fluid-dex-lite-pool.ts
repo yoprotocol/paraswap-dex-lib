@@ -3,7 +3,13 @@ import { DeepReadonly } from 'ts-essentials';
 import { Log, BlockHeader, Logger } from '../../types';
 import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import { IDexHelper } from '../../dex-helper/idex-helper';
-import { PoolState, DexKey, PoolParams, BITS_DEX_LITE_CENTER_PRICE_SHIFT_LAST_INTERACTION_TIMESTAMP, X33 } from './types';
+import {
+  PoolState,
+  DexKey,
+  PoolParams,
+  BITS_DEX_LITE_CENTER_PRICE_SHIFT_LAST_INTERACTION_TIMESTAMP,
+  X33,
+} from './types';
 import FluidDexLiteABI from '../../abi/fluid-dex-lite/FluidDexLite.abi.json';
 import { defaultAbiCoder } from 'ethers/lib/utils';
 import { keccak256 } from 'web3-utils';
@@ -43,7 +49,7 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
     protected fluidDexLiteAddress: string,
   ) {
     super(parentName, `${mapKey}`, dexHelper, logger);
-    
+
     this.poolParams = poolParams;
     this.logDecoder = (log: Log) => this.fluidDexLiteIface.parseLog(log);
     this.addressesSubscribed = [fluidDexLiteAddress];
@@ -51,13 +57,20 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
     // Add handlers for all events that update state
     this.handlers['LogSwap'] = this.handleLogSwap.bind(this);
     this.handlers['LogInitialize'] = this.handleLogInitialize.bind(this);
-    this.handlers['LogUpdateFeeAndRevenueCut'] = this.handleLogUpdateFeeAndRevenueCut.bind(this);
-    this.handlers['LogUpdateRebalancingStatus'] = this.handleLogUpdateRebalancingStatus.bind(this);
-    this.handlers['LogUpdateRangePercents'] = this.handleLogUpdateRangePercents.bind(this);
-    this.handlers['LogUpdateShiftTime'] = this.handleLogUpdateShiftTime.bind(this);
-    this.handlers['LogUpdateCenterPriceLimits'] = this.handleLogUpdateCenterPriceLimits.bind(this);
-    this.handlers['LogUpdateThresholdPercent'] = this.handleLogUpdateThresholdPercent.bind(this);
-    this.handlers['LogUpdateCenterPriceAddress'] = this.handleLogUpdateCenterPriceAddress.bind(this);
+    this.handlers['LogUpdateFeeAndRevenueCut'] =
+      this.handleLogUpdateFeeAndRevenueCut.bind(this);
+    this.handlers['LogUpdateRebalancingStatus'] =
+      this.handleLogUpdateRebalancingStatus.bind(this);
+    this.handlers['LogUpdateRangePercents'] =
+      this.handleLogUpdateRangePercents.bind(this);
+    this.handlers['LogUpdateShiftTime'] =
+      this.handleLogUpdateShiftTime.bind(this);
+    this.handlers['LogUpdateCenterPriceLimits'] =
+      this.handleLogUpdateCenterPriceLimits.bind(this);
+    this.handlers['LogUpdateThresholdPercent'] =
+      this.handleLogUpdateThresholdPercent.bind(this);
+    this.handlers['LogUpdateCenterPriceAddress'] =
+      this.handleLogUpdateCenterPriceAddress.bind(this);
     this.handlers['LogDeposit'] = this.handleLogDeposit.bind(this);
     this.handlers['LogWithdraw'] = this.handleLogWithdraw.bind(this);
   }
@@ -78,27 +91,49 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
       if (event.name in this.handlers) {
         // Check if this event is for our specific dex pool
         const dexId = this.poolParams.dexId.toLowerCase();
-        
+
         // For LogSwap, extract dexId from swapData
         if (event.name === 'LogSwap') {
+          if (!event.args.swapData) {
+            this.logger.debug('LogSwap event missing swapData');
+            return null;
+          }
+
           const swapData = BigInt(event.args.swapData.toString());
           // Extract first 64 bits (8 bytes) as dexId
-          const eventDexId = '0x' + (swapData & ((1n << 64n) - 1n)).toString(16).padStart(16, '0').toLowerCase();
+          const eventDexId =
+            '0x' +
+            (swapData & ((1n << 64n) - 1n))
+              .toString(16)
+              .padStart(16, '0')
+              .toLowerCase();
+
           if (eventDexId !== dexId) {
-            return null; // Not for this pool
+            // Not for this pool, skip silently
+            return null;
           }
         } else {
           // For other events, check if dexId matches
           if (event.args.dexId) {
             const eventDexId = event.args.dexId.toString().toLowerCase();
             // Ensure both are properly formatted as 0x + 16 hex chars
-            const normalizedEventDexId = eventDexId.startsWith('0x') ? eventDexId : '0x' + eventDexId;
-            if (normalizedEventDexId !== dexId) {
-              return null; // Not for this pool
+            const normalizedEventDexId = eventDexId.startsWith('0x')
+              ? eventDexId.padStart(18, '0').slice(0, 18) // Ensure exactly 16 chars after 0x
+              : '0x' + eventDexId.padStart(16, '0'); // Add 0x and pad to 16 chars
+
+            const normalizedPoolDexId = dexId.padStart(18, '0').slice(0, 18);
+
+            if (normalizedEventDexId !== normalizedPoolDexId) {
+              // Not for this pool, skip silently
+              return null;
             }
+          } else {
+            // Event without dexId field - this shouldn't happen for FluidDexLite events
+            this.logger.debug(`Event ${event.name} missing dexId field`);
+            return null;
           }
         }
-        
+
         return this.handlers[event.name](event, state, log, blockHeader);
       }
     } catch (e) {
@@ -112,43 +147,64 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
    */
   async generateState(blockNumber: number): Promise<DeepReadonly<PoolState>> {
     const dexIdBytes = this.poolParams.dexId;
-    
+
     // Calculate storage slots for mappings
-    const dexVariablesSlot = this.calculateMappingStorageSlot(DEX_LITE_DEX_VARIABLES_SLOT, dexIdBytes);
-    const centerPriceShiftSlot = this.calculateMappingStorageSlot(DEX_LITE_CENTER_PRICE_SHIFT_SLOT, dexIdBytes);
-    const rangeShiftSlot = this.calculateMappingStorageSlot(DEX_LITE_RANGE_SHIFT_SLOT, dexIdBytes);
-    const thresholdShiftSlot = this.calculateMappingStorageSlot(DEX_LITE_THRESHOLD_SHIFT_SLOT, dexIdBytes);
+    const dexVariablesSlot = this.calculateMappingStorageSlot(
+      DEX_LITE_DEX_VARIABLES_SLOT,
+      dexIdBytes,
+    );
+    const centerPriceShiftSlot = this.calculateMappingStorageSlot(
+      DEX_LITE_CENTER_PRICE_SHIFT_SLOT,
+      dexIdBytes,
+    );
+    const rangeShiftSlot = this.calculateMappingStorageSlot(
+      DEX_LITE_RANGE_SHIFT_SLOT,
+      dexIdBytes,
+    );
+    const thresholdShiftSlot = this.calculateMappingStorageSlot(
+      DEX_LITE_THRESHOLD_SHIFT_SLOT,
+      dexIdBytes,
+    );
 
     const multicallData = [
       {
         target: this.fluidDexLiteAddress,
-        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [dexVariablesSlot]),
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
+          dexVariablesSlot,
+        ]),
         decodeFunction: uint256ToBigInt,
       },
       {
         target: this.fluidDexLiteAddress,
-        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [centerPriceShiftSlot]),
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
+          centerPriceShiftSlot,
+        ]),
         decodeFunction: uint256ToBigInt,
       },
       {
         target: this.fluidDexLiteAddress,
-        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [rangeShiftSlot]),
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
+          rangeShiftSlot,
+        ]),
         decodeFunction: uint256ToBigInt,
       },
       {
         target: this.fluidDexLiteAddress,
-        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [thresholdShiftSlot]),
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
+          thresholdShiftSlot,
+        ]),
         decodeFunction: uint256ToBigInt,
       },
     ];
 
-    const storageResults = await this.dexHelper.multiWrapper.tryAggregate<bigint>(
-      false,
-      multicallData,
-      blockNumber,
-      this.dexHelper.multiWrapper.defaultBatchSize,
-      false,
-    );
+    const storageResults =
+      await this.dexHelper.multiWrapper.tryAggregate<bigint>(
+        false,
+        multicallData,
+        blockNumber,
+        this.dexHelper.multiWrapper.defaultBatchSize,
+        false,
+      );
 
     const dexVariables = storageResults[0].returnData;
     const centerPriceShift = storageResults[1].returnData;
@@ -157,7 +213,10 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
 
     // Extract lastInteractionTimestamp from centerPriceShift data
     // Use consistent bit shifting pattern (even though bit position is 0)
-    const lastInteractionTimestamp = (centerPriceShift >> BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_LAST_INTERACTION_TIMESTAMP)) & X33;
+    const lastInteractionTimestamp =
+      (centerPriceShift >>
+        BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_LAST_INTERACTION_TIMESTAMP)) &
+      X33;
 
     return {
       dexVariables,
@@ -173,9 +232,12 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
     // For bytes8 keys in Solidity mappings, we need to pad to bytes32
     // The dexId is bytes8 but storage slot calculation expects bytes32
     const paddedKey = key.padEnd(66, '0'); // Pad to 32 bytes (0x + 64 hex chars)
-    
+
     // Solidity mapping storage slot calculation: keccak256(abi.encode(key, slot))
-    const encoded = defaultAbiCoder.encode(['bytes32', 'uint256'], [paddedKey, slot]);
+    const encoded = defaultAbiCoder.encode(
+      ['bytes32', 'uint256'],
+      [paddedKey, slot],
+    );
     return keccak256(encoded);
   }
 

@@ -15,7 +15,7 @@ export type PoolState = {
   centerPriceShift: bigint;
   // Range shift variables
   rangeShift: bigint;
-  // Threshold shift variables  
+  // Threshold shift variables
   thresholdShift: bigint;
   // Last interaction timestamp for rebalancing calculations
   lastInteractionTimestamp: bigint;
@@ -102,7 +102,7 @@ export const BITS_DEX_LITE_CENTER_PRICE_SHIFT_PERCENT = 113;
 export const BITS_DEX_LITE_CENTER_PRICE_SHIFT_TIME_TO_SHIFT = 133;
 export const BITS_DEX_LITE_CENTER_PRICE_SHIFT_TIMESTAMP = 153;
 
-// RangeShift bit positions  
+// RangeShift bit positions
 export const BITS_DEX_LITE_RANGE_SHIFT_OLD_UPPER_RANGE_PERCENT = 0;
 export const BITS_DEX_LITE_RANGE_SHIFT_OLD_LOWER_RANGE_PERCENT = 14;
 export const BITS_DEX_LITE_RANGE_SHIFT_TIME_TO_SHIFT = 28;
@@ -122,4 +122,18 @@ export const PRICE_PRECISION = 10n ** 27n;
 export const TOKENS_DECIMALS_PRECISION = 9n;
 export const MINIMUM_LIQUIDITY_SWAP = 10000n;
 export const DEFAULT_EXPONENT_SIZE = 8n;
-export const DEFAULT_EXPONENT_MASK = 0xFFn;
+export const DEFAULT_EXPONENT_MASK = 0xffn;
+
+// Result interfaces for math calculations
+export interface SwapResult {
+  amountOut: bigint;
+  amountIn: bigint;
+}
+
+export interface PricingResult {
+  centerPrice: bigint;
+  upperRangePrice: bigint;
+  lowerRangePrice: bigint;
+  token0ImaginaryReserves: bigint;
+  token1ImaginaryReserves: bigint;
+}

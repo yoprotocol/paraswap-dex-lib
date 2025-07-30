@@ -8,6 +8,8 @@ import {
   SimpleExchangeParam,
   PoolLiquidity,
   Logger,
+  DexExchangeParam,
+  NumberAsString,
 } from '../../types';
 import { SwapSide, Network } from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
@@ -25,6 +27,7 @@ import { uint256ToBigInt } from '../../lib/decoders';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { keccak256 } from 'web3-utils';
 import { calculateSwap } from './fluid-dex-lite-math';
+import { extractReturnAmountPosition } from '../../executor/utils';
 
 // Storage slot constants
 const DEX_LITE_DEXES_LIST_SLOT = 1;
@@ -34,7 +37,7 @@ export class FluidDexLite
   implements IDex<FluidDexLiteData>
 {
   protected eventPools: { [key: string]: FluidDexLiteEventPool | null } = {};
-  protected pools: PoolParams[] = [];
+  public pools: PoolParams[] = [];
 
   readonly hasConstantPriceLargeAmounts = false;
   readonly needWrapNative = true;
@@ -55,7 +58,7 @@ export class FluidDexLite
     super(dexHelper, dexKey);
     this.logger = dexHelper.getLogger(dexKey);
     this.fluidDexLiteIface = new Interface(FluidDexLiteABI);
-    
+
     const config = FluidDexLiteConfig[dexKey][network];
     if (!config) {
       throw new Error(`No config found for ${dexKey} on network ${network}`);
@@ -70,13 +73,11 @@ export class FluidDexLite
     try {
       // Step 1: Read the _dexesList array from storage
       await this.loadDexesList(blockNumber);
-      
+
       // Step 2: Initialize event pools for each dex
       await this.initializeEventPools(blockNumber);
-      
-      this.logger.info(
-        `FluidDexLite: Initialized ${this.pools.length} pools`,
-      );
+
+      this.logger.info(`FluidDexLite: Initialized ${this.pools.length} pools`);
     } catch (error) {
       this.logger.error('FluidDexLite: Failed to initialize pricing', error);
       throw error;
@@ -87,20 +88,26 @@ export class FluidDexLite
   private async loadDexesList(blockNumber: number): Promise<void> {
     try {
       // First, read the array length from the storage slot
-      const lengthSlot = hexZeroPad('0x' + DEX_LITE_DEXES_LIST_SLOT.toString(16), 32);
+      const lengthSlot = hexZeroPad(
+        '0x' + DEX_LITE_DEXES_LIST_SLOT.toString(16),
+        32,
+      );
       const lengthCallData = {
         target: this.dexLiteAddress,
-        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [lengthSlot]),
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
+          lengthSlot,
+        ]),
         decodeFunction: uint256ToBigInt,
       };
 
-      const lengthResult = await this.dexHelper.multiWrapper.tryAggregate<bigint>(
-        false,
-        [lengthCallData],
-        blockNumber,
-        this.dexHelper.multiWrapper.defaultBatchSize,
-        false,
-      );
+      const lengthResult =
+        await this.dexHelper.multiWrapper.tryAggregate<bigint>(
+          false,
+          [lengthCallData],
+          blockNumber,
+          this.dexHelper.multiWrapper.defaultBatchSize,
+          false,
+        );
 
       const arrayLength = Number(lengthResult[0].returnData);
       if (arrayLength === 0) {
@@ -110,35 +117,38 @@ export class FluidDexLite
 
       // Calculate base slot for array data: keccak256(slot)
       const arrayBaseSlot = keccak256(
-        defaultAbiCoder.encode(['uint256'], [DEX_LITE_DEXES_LIST_SLOT])
+        defaultAbiCoder.encode(['uint256'], [DEX_LITE_DEXES_LIST_SLOT]),
       );
 
       const dexesList: DexKey[] = [];
-      
+
       // Read all DexKey structs (each takes 3 slots: token0, token1, salt)
       for (let i = 0; i < arrayLength; i++) {
         const baseIndex = BigInt(arrayBaseSlot) + BigInt(i * 3); // Each DexKey struct takes 3 slots
-        
+
         const multicallData = [
           {
             target: this.dexLiteAddress,
-            callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
-              hexZeroPad('0x' + baseIndex.toString(16), 32)
-            ]),
+            callData: this.fluidDexLiteIface.encodeFunctionData(
+              'readFromStorage',
+              [hexZeroPad('0x' + baseIndex.toString(16), 32)],
+            ),
             decodeFunction: uint256ToBigInt,
           },
           {
             target: this.dexLiteAddress,
-            callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
-              hexZeroPad('0x' + (baseIndex + 1n).toString(16), 32)
-            ]),
+            callData: this.fluidDexLiteIface.encodeFunctionData(
+              'readFromStorage',
+              [hexZeroPad('0x' + (baseIndex + 1n).toString(16), 32)],
+            ),
             decodeFunction: uint256ToBigInt,
           },
           {
             target: this.dexLiteAddress,
-            callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [
-              hexZeroPad('0x' + (baseIndex + 2n).toString(16), 32)
-            ]),
+            callData: this.fluidDexLiteIface.encodeFunctionData(
+              'readFromStorage',
+              [hexZeroPad('0x' + (baseIndex + 2n).toString(16), 32)],
+            ),
             decodeFunction: uint256ToBigInt,
           },
         ];
@@ -186,7 +196,7 @@ export class FluidDexLite
     for (const pool of this.pools) {
       try {
         const mapKey = `${pool.dexKey.token0}_${pool.dexKey.token1}_${pool.dexKey.salt}`;
-        
+
         const eventPool = new FluidDexLiteEventPool(
           this.dexKey,
           this.network,
@@ -200,14 +210,16 @@ export class FluidDexLite
 
         await eventPool.initialize(blockNumber);
         this.eventPools[mapKey] = eventPool;
-        
+
         this.logger.debug(`FluidDexLite: Initialized event pool for ${mapKey}`);
       } catch (error) {
         this.logger.error(
           `FluidDexLite: Failed to initialize event pool for ${pool.dexId}`,
           error,
         );
-        this.eventPools[`${pool.dexKey.token0}_${pool.dexKey.token1}_${pool.dexKey.salt}`] = null;
+        this.eventPools[
+          `${pool.dexKey.token0}_${pool.dexKey.token1}_${pool.dexKey.salt}`
+        ] = null;
       }
     }
   }
@@ -216,7 +228,7 @@ export class FluidDexLite
   private calculateDexId(dexKey: DexKey): string {
     const encoded = defaultAbiCoder.encode(
       ['address', 'address', 'bytes32'],
-      [dexKey.token0, dexKey.token1, dexKey.salt]
+      [dexKey.token0, dexKey.token1, dexKey.salt],
     );
     const hash = keccak256(encoded);
     // Take first 8 bytes (16 hex chars)
@@ -224,18 +236,23 @@ export class FluidDexLite
   }
 
   // Helper function to get pool by token addresses
-  private getPoolForTokens(srcToken: Address, destToken: Address): PoolParams | null {
+  private getPoolForTokens(
+    srcToken: Address,
+    destToken: Address,
+  ): PoolParams | null {
     const srcAddr = srcToken.toLowerCase();
     const destAddr = destToken.toLowerCase();
-    
-    return this.pools.find(pool => {
-      const token0 = pool.dexKey.token0.toLowerCase();
-      const token1 = pool.dexKey.token1.toLowerCase();
-      return (
-        (token0 === srcAddr && token1 === destAddr) ||
-        (token0 === destAddr && token1 === srcAddr)
-      );
-    }) || null;
+
+    return (
+      this.pools.find(pool => {
+        const token0 = pool.dexKey.token0.toLowerCase();
+        const token1 = pool.dexKey.token1.toLowerCase();
+        return (
+          (token0 === srcAddr && token1 === destAddr) ||
+          (token0 === destAddr && token1 === srcAddr)
+        );
+      }) || null
+    );
   }
 
   // Helper function to get event pool
@@ -315,7 +332,7 @@ export class FluidDexLite
       }
 
       const poolIdentifier = `${this.dexKey}_${pool.dexId}`;
-      
+
       // Check if this pool is in limitPools if specified
       if (limitPools && !limitPools.includes(poolIdentifier)) {
         return null;
@@ -337,7 +354,8 @@ export class FluidDexLite
       }
 
       // Determine swap direction
-      const swap0To1 = pool.dexKey.token0.toLowerCase() === srcToken.address.toLowerCase();
+      const swap0To1 =
+        pool.dexKey.token0.toLowerCase() === srcToken.address.toLowerCase();
 
       // Calculate prices using the math library
       const prices: bigint[] = [0n]; // First element is always 0
@@ -351,10 +369,11 @@ export class FluidDexLite
             pool.dexId,
             swap0To1,
             amounts[i],
-            side
+            side,
           );
 
-          const outputAmount = side === SwapSide.SELL ? result.amountOut : result.amountIn;
+          const outputAmount =
+            side === SwapSide.SELL ? result.amountOut : result.amountIn;
           prices.push(outputAmount);
           gasCost.push(this.getGasCost()); // Use a default gas cost
         } catch (error) {
@@ -369,7 +388,9 @@ export class FluidDexLite
       }
 
       // Get unit amount (1 token with proper decimals)
-      const unitAmount = 10n ** BigInt(side === SwapSide.SELL ? srcToken.decimals : destToken.decimals);
+      const unitAmount =
+        10n **
+        BigInt(side === SwapSide.SELL ? srcToken.decimals : destToken.decimals);
       let unit = 0n;
 
       try {
@@ -379,9 +400,10 @@ export class FluidDexLite
           pool.dexId,
           swap0To1,
           unitAmount,
-          side
+          side,
         );
-        unit = side === SwapSide.SELL ? unitResult.amountOut : unitResult.amountIn;
+        unit =
+          side === SwapSide.SELL ? unitResult.amountOut : unitResult.amountIn;
       } catch (error) {
         this.logger.debug('FluidDexLite: Error calculating unit price', error);
       }
@@ -437,6 +459,141 @@ export class FluidDexLite
     };
   }
 
+  // Step 4: Generate calldata for Augustus to swap through FluidDexLite
+  getDexParam(
+    srcToken: Address,
+    destToken: Address,
+    srcAmount: NumberAsString,
+    destAmount: NumberAsString,
+    recipient: Address,
+    data: FluidDexLiteData,
+    side: SwapSide,
+  ): DexExchangeParam {
+    const { dexKey, swap0To1 } = data;
+
+    // Validate that the pool actually exists in our loaded pools
+    const pool = this.pools.find(
+      p =>
+        p.dexKey.token0.toLowerCase() === dexKey.token0.toLowerCase() &&
+        p.dexKey.token1.toLowerCase() === dexKey.token1.toLowerCase() &&
+        p.dexKey.salt.toLowerCase() === dexKey.salt.toLowerCase(),
+    );
+
+    if (!pool) {
+      throw new Error(
+        `FluidDexLite: Pool not found for tokens ${dexKey.token0}/${dexKey.token1} with salt ${dexKey.salt}`,
+      );
+    }
+
+    // Validate the swap direction matches the token addresses
+    const normalizedSrcToken = srcToken.toLowerCase();
+    const normalizedToken0 = dexKey.token0.toLowerCase();
+    const normalizedToken1 = dexKey.token1.toLowerCase();
+
+    const expectedSwap0To1 = normalizedSrcToken === normalizedToken0;
+    if (swap0To1 !== expectedSwap0To1) {
+      throw new Error(
+        `FluidDexLite: Swap direction mismatch. Expected swap0To1: ${expectedSwap0To1}, got: ${swap0To1}`,
+      );
+    }
+
+    // Validate that srcToken and destToken are actually part of this pool
+    if (
+      (normalizedSrcToken !== normalizedToken0 &&
+        normalizedSrcToken !== normalizedToken1) ||
+      (destToken.toLowerCase() !== normalizedToken0 &&
+        destToken.toLowerCase() !== normalizedToken1)
+    ) {
+      throw new Error(
+        `FluidDexLite: Tokens ${srcToken}/${destToken} are not part of pool ${normalizedToken0}/${normalizedToken1}`,
+      );
+    }
+
+    // Determine swap amount and limits based on side
+    let amountSpecified: string;
+    let amountLimit: string;
+
+    if (side === SwapSide.SELL) {
+      // Exact input: positive amountSpecified, amountLimit is minimum output
+      amountSpecified = srcAmount;
+      amountLimit = destAmount;
+    } else {
+      // Exact output: negative amountSpecified, amountLimit is maximum input
+      amountSpecified = `-${destAmount}`;
+      amountLimit = srcAmount;
+    }
+
+    // Encode swapSingle function call
+    const swapData = this.fluidDexLiteIface.encodeFunctionData('swapSingle', [
+      dexKey, // DexKey calldata dexKey_
+      swap0To1, // bool swap0To1_
+      amountSpecified, // int256 amountSpecified_
+      amountLimit, // uint256 amountLimit_
+      recipient, // address to_
+      false, // bool isCallback_ (set to false for now)
+      '0x', // bytes calldata callbackData_ (empty)
+      '0x', // bytes calldata extraData_ (empty)
+    ]);
+
+    return {
+      needWrapNative: false, // FluidDexLite can handle ETH directly
+      dexFuncHasRecipient: true, // Has to_ parameter for recipient
+      exchangeData: swapData, // Encoded swapSingle call
+      targetExchange: this.dexLiteAddress, // FluidDexLite contract address
+      spender: this.dexLiteAddress, // Approve tokens to FluidDexLite contract
+      returnAmountPos: extractReturnAmountPosition(
+        this.fluidDexLiteIface,
+        'swapSingle',
+        'amountUnspecified_',
+      ),
+    };
+  }
+
+  // Legacy compatibility method for SimpleExchange
+  async getSimpleParam(
+    srcToken: string,
+    destToken: string,
+    srcAmount: string,
+    destAmount: string,
+    data: FluidDexLiteData,
+    side: SwapSide,
+  ): Promise<SimpleExchangeParam> {
+    const { dexKey, swap0To1 } = data;
+
+    // Determine swap amount and limits based on side
+    let amountSpecified: string;
+    let amountLimit: string;
+
+    if (side === SwapSide.SELL) {
+      // Exact input: positive amountSpecified, amountLimit is minimum output
+      amountSpecified = srcAmount;
+      amountLimit = destAmount;
+    } else {
+      // Exact output: negative amountSpecified, amountLimit is maximum input
+      amountSpecified = `-${destAmount}`;
+      amountLimit = srcAmount;
+    }
+
+    // Encode swapSingle function call with Augustus as recipient
+    const swapData = this.fluidDexLiteIface.encodeFunctionData('swapSingle', [
+      dexKey, // DexKey calldata dexKey_
+      swap0To1, // bool swap0To1_
+      amountSpecified, // int256 amountSpecified_
+      amountLimit, // uint256 amountLimit_
+      this.augustusAddress, // address to_ (Augustus for simple swaps)
+      false, // bool isCallback_ (set to false for now)
+      '0x', // bytes calldata callbackData_ (empty)
+      '0x', // bytes calldata extraData_ (empty)
+    ]);
+
+    return {
+      callees: [this.dexLiteAddress],
+      calldata: [swapData],
+      values: ['0'],
+      networkFee: '0',
+    };
+  }
+
   // This is called once before getTopPoolsForToken is
   // called for multiple tokens. This can be helpful to
   // update common state required for calculating
@@ -451,29 +608,71 @@ export class FluidDexLite
     limit: number,
   ): Promise<PoolLiquidity[]> {
     try {
-      const relevantPools = this.pools.filter(pool =>
-        pool.dexKey.token0.toLowerCase() === tokenAddress.toLowerCase() ||
-        pool.dexKey.token1.toLowerCase() === tokenAddress.toLowerCase()
+      const normalizedTokenAddress = tokenAddress.toLowerCase();
+      const relevantPools = this.pools.filter(
+        pool =>
+          pool.dexKey.token0.toLowerCase() === normalizedTokenAddress ||
+          pool.dexKey.token1.toLowerCase() === normalizedTokenAddress,
       );
 
       const poolLiquidity: PoolLiquidity[] = [];
-      const currentBlock = await this.dexHelper.web3Provider.eth.getBlockNumber();
+      const currentBlock =
+        await this.dexHelper.web3Provider.eth.getBlockNumber();
 
-      for (const pool of relevantPools.slice(0, limit)) {
+      for (const pool of relevantPools.slice(0, limit * 2)) {
+        // Fetch more to filter out inactive ones
         const eventPool = this.getEventPool(pool);
         if (!eventPool) continue;
 
         try {
           const state = eventPool.getState(currentBlock);
-          if (!state) continue;
+          if (!state || state.dexVariables === 0n) {
+            // Skip pools with no liquidity
+            continue;
+          }
 
-          // Calculate rough liquidity based on token supplies
-          // TODO: Implement proper liquidity calculation
-          const liquidityUSD = 1000; // Placeholder
+          // Unpack dex variables to get token supplies
+          const unpackedVars = this.unpackDexVariables(state.dexVariables);
 
-          const connectorToken = pool.dexKey.token0.toLowerCase() === tokenAddress.toLowerCase()
-            ? { address: pool.dexKey.token1, decimals: 18 }
-            : { address: pool.dexKey.token0, decimals: 18 };
+          // Calculate liquidity based on adjusted total supplies
+          // These represent the actual liquidity available in the pool
+          const token0Supply = unpackedVars.token0TotalSupplyAdjusted;
+          const token1Supply = unpackedVars.token1TotalSupplyAdjusted;
+
+          if (token0Supply === 0n || token1Supply === 0n) {
+            // Skip pools with no liquidity
+            continue;
+          }
+
+          // Get decimals for proper scaling
+          const token0Decimals = Number(unpackedVars.token0Decimals);
+          const token1Decimals = Number(unpackedVars.token1Decimals);
+
+          // Calculate geometric mean of liquidity as a proxy for USD value
+          // Convert to 18 decimal standard for calculation
+          const token0LiquidityNormalized =
+            token0Supply * 10n ** (18n - BigInt(token0Decimals));
+          const token1LiquidityNormalized =
+            token1Supply * 10n ** (18n - BigInt(token1Decimals));
+
+          // Simple geometric mean calculation (sqrt(a * b))
+          const geometricMeanSquared =
+            token0LiquidityNormalized * token1LiquidityNormalized;
+          const liquidityUSD = Number(
+            this.sqrt(geometricMeanSquared) / 10n ** 18n,
+          );
+
+          // Determine connector token (the other token in the pair)
+          const connectorToken =
+            pool.dexKey.token0.toLowerCase() === normalizedTokenAddress
+              ? {
+                  address: pool.dexKey.token1,
+                  decimals: token1Decimals,
+                }
+              : {
+                  address: pool.dexKey.token0,
+                  decimals: token0Decimals,
+                };
 
           poolLiquidity.push({
             exchange: this.dexKey,
@@ -482,15 +681,49 @@ export class FluidDexLite
             liquidityUSD,
           });
         } catch (error) {
-          this.logger.debug(`FluidDexLite: Error getting liquidity for pool ${pool.dexId}`, error);
+          this.logger.debug(
+            `FluidDexLite: Error getting liquidity for pool ${pool.dexId}`,
+            error,
+          );
         }
       }
 
-      return poolLiquidity.sort((a, b) => b.liquidityUSD - a.liquidityUSD);
+      // Sort by liquidity and return top pools
+      return poolLiquidity
+        .sort((a, b) => b.liquidityUSD - a.liquidityUSD)
+        .slice(0, limit);
     } catch (error) {
       this.logger.error('FluidDexLite: Error in getTopPoolsForToken', error);
       return [];
     }
+  }
+
+  // Helper function to unpack dex variables
+  private unpackDexVariables(dexVariables: bigint) {
+    return {
+      token0Decimals: (dexVariables >> 126n) & 0x1fn,
+      token1Decimals: (dexVariables >> 131n) & 0x1fn,
+      token0TotalSupplyAdjusted: (dexVariables >> 136n) & 0xfffffffffffffffffn,
+      token1TotalSupplyAdjusted: (dexVariables >> 196n) & 0xfffffffffffffffffn,
+    };
+  }
+
+  // Simple square root implementation for BigInt
+  private sqrt(value: bigint): bigint {
+    if (value < 0n) return 0n;
+    if (value < 2n) return value;
+
+    let x = value;
+    let result = value;
+
+    // Newton's method - simplified for BigInt
+    while (x > 0n) {
+      x = (result + value / result) / 2n;
+      if (x >= result) break;
+      result = x;
+    }
+
+    return result;
   }
 
   // This is optional function in case if your implementation has acquired any resources
