@@ -1,44 +1,65 @@
 import { Interface } from '@ethersproject/abi';
 import { DeepReadonly } from 'ts-essentials';
-import { Log, Logger } from '../../types';
-import { catchParseLogError } from '../../utils';
+import { Log, BlockHeader, Logger } from '../../types';
 import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import { IDexHelper } from '../../dex-helper/idex-helper';
-import { PoolState } from './types';
+import { PoolState, DexKey, PoolParams, BITS_DEX_LITE_CENTER_PRICE_SHIFT_LAST_INTERACTION_TIMESTAMP, X33 } from './types';
+import FluidDexLiteABI from '../../abi/fluid-dex-lite/FluidDexLite.abi.json';
+import { defaultAbiCoder } from 'ethers/lib/utils';
+import { keccak256 } from 'web3-utils';
+import { uint256ToBigInt } from '../../lib/decoders';
+
+// Storage slot constants from DexLiteSlotsLink
+const DEX_LITE_DEXES_LIST_SLOT = 1;
+const DEX_LITE_DEX_VARIABLES_SLOT = 2;
+const DEX_LITE_CENTER_PRICE_SHIFT_SLOT = 3;
+const DEX_LITE_RANGE_SHIFT_SLOT = 4;
+const DEX_LITE_THRESHOLD_SHIFT_SLOT = 5;
 
 export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
-  handlers: {
+  decoder = (log: Log) => this.fluidDexLiteIface.parseLog(log);
+
+  private handlers: {
     [event: string]: (
       event: any,
       state: DeepReadonly<PoolState>,
       log: Readonly<Log>,
+      blockHeader: Readonly<BlockHeader>,
     ) => DeepReadonly<PoolState> | null;
   } = {};
 
   logDecoder: (log: Log) => any;
-
   addressesSubscribed: string[];
+  poolParams: PoolParams;
 
   constructor(
     readonly parentName: string,
     protected network: number,
     protected dexHelper: IDexHelper,
     logger: Logger,
-    protected fluidDexLiteIface = new Interface(
-      '' /* TODO: Import and put here FluidDexLite ABI */,
-    ), // TODO: add any additional params required for event subscriber
+    mapKey: string,
+    protected fluidDexLiteIface = new Interface(FluidDexLiteABI),
+    poolParams: PoolParams,
+    protected fluidDexLiteAddress: string,
   ) {
-    // TODO: Add pool name
-    super(parentName, 'POOL_NAME', dexHelper, logger);
-
-    // TODO: make logDecoder decode logs that
+    super(parentName, `${mapKey}`, dexHelper, logger);
+    
+    this.poolParams = poolParams;
     this.logDecoder = (log: Log) => this.fluidDexLiteIface.parseLog(log);
-    this.addressesSubscribed = [
-      /* subscribed addresses */
-    ];
+    this.addressesSubscribed = [fluidDexLiteAddress];
 
-    // Add handlers
-    this.handlers['myEvent'] = this.handleMyEvent.bind(this);
+    // Add handlers for all events that update state
+    this.handlers['LogSwap'] = this.handleLogSwap.bind(this);
+    this.handlers['LogInitialize'] = this.handleLogInitialize.bind(this);
+    this.handlers['LogUpdateFeeAndRevenueCut'] = this.handleLogUpdateFeeAndRevenueCut.bind(this);
+    this.handlers['LogUpdateRebalancingStatus'] = this.handleLogUpdateRebalancingStatus.bind(this);
+    this.handlers['LogUpdateRangePercents'] = this.handleLogUpdateRangePercents.bind(this);
+    this.handlers['LogUpdateShiftTime'] = this.handleLogUpdateShiftTime.bind(this);
+    this.handlers['LogUpdateCenterPriceLimits'] = this.handleLogUpdateCenterPriceLimits.bind(this);
+    this.handlers['LogUpdateThresholdPercent'] = this.handleLogUpdateThresholdPercent.bind(this);
+    this.handlers['LogUpdateCenterPriceAddress'] = this.handleLogUpdateCenterPriceAddress.bind(this);
+    this.handlers['LogDeposit'] = this.handleLogDeposit.bind(this);
+    this.handlers['LogWithdraw'] = this.handleLogWithdraw.bind(this);
   }
 
   /**
@@ -46,46 +67,298 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
    * addresses release log. The function accepts the current
    * state, updates the state according to the log, and returns
    * the updated state.
-   * @param state - Current state of event subscriber
-   * @param log - Log released by one of the subscribed addresses
-   * @returns Updates state of the event subscriber after the log
    */
   protected processLog(
     state: DeepReadonly<PoolState>,
     log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
   ): DeepReadonly<PoolState> | null {
     try {
       const event = this.logDecoder(log);
       if (event.name in this.handlers) {
-        return this.handlers[event.name](event, state, log);
+        // Check if this event is for our specific dex pool
+        const dexId = this.poolParams.dexId.toLowerCase();
+        
+        // For LogSwap, extract dexId from swapData
+        if (event.name === 'LogSwap') {
+          const swapData = BigInt(event.args.swapData.toString());
+          // Extract first 64 bits (8 bytes) as dexId
+          const eventDexId = '0x' + (swapData & ((1n << 64n) - 1n)).toString(16).padStart(16, '0').toLowerCase();
+          if (eventDexId !== dexId) {
+            return null; // Not for this pool
+          }
+        } else {
+          // For other events, check if dexId matches
+          if (event.args.dexId) {
+            const eventDexId = event.args.dexId.toString().toLowerCase();
+            // Ensure both are properly formatted as 0x + 16 hex chars
+            const normalizedEventDexId = eventDexId.startsWith('0x') ? eventDexId : '0x' + eventDexId;
+            if (normalizedEventDexId !== dexId) {
+              return null; // Not for this pool
+            }
+          }
+        }
+        
+        return this.handlers[event.name](event, state, log, blockHeader);
       }
     } catch (e) {
-      catchParseLogError(e, this.logger);
+      this.logger.error('Error processing log', e);
     }
-
     return null;
   }
 
   /**
-   * The function generates state using on-chain calls. This
-   * function is called to regenerate state if the event based
-   * system fails to fetch events and the local state is no
-   * more correct.
-   * @param blockNumber - Blocknumber for which the state should
-   * should be generated
-   * @returns state of the event subscriber at blocknumber
+   * The function generates state using on-chain calls.
    */
   async generateState(blockNumber: number): Promise<DeepReadonly<PoolState>> {
-    // TODO: complete me!
-    return {};
+    const dexIdBytes = this.poolParams.dexId;
+    
+    // Calculate storage slots for mappings
+    const dexVariablesSlot = this.calculateMappingStorageSlot(DEX_LITE_DEX_VARIABLES_SLOT, dexIdBytes);
+    const centerPriceShiftSlot = this.calculateMappingStorageSlot(DEX_LITE_CENTER_PRICE_SHIFT_SLOT, dexIdBytes);
+    const rangeShiftSlot = this.calculateMappingStorageSlot(DEX_LITE_RANGE_SHIFT_SLOT, dexIdBytes);
+    const thresholdShiftSlot = this.calculateMappingStorageSlot(DEX_LITE_THRESHOLD_SHIFT_SLOT, dexIdBytes);
+
+    const multicallData = [
+      {
+        target: this.fluidDexLiteAddress,
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [dexVariablesSlot]),
+        decodeFunction: uint256ToBigInt,
+      },
+      {
+        target: this.fluidDexLiteAddress,
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [centerPriceShiftSlot]),
+        decodeFunction: uint256ToBigInt,
+      },
+      {
+        target: this.fluidDexLiteAddress,
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [rangeShiftSlot]),
+        decodeFunction: uint256ToBigInt,
+      },
+      {
+        target: this.fluidDexLiteAddress,
+        callData: this.fluidDexLiteIface.encodeFunctionData('readFromStorage', [thresholdShiftSlot]),
+        decodeFunction: uint256ToBigInt,
+      },
+    ];
+
+    const storageResults = await this.dexHelper.multiWrapper.tryAggregate<bigint>(
+      false,
+      multicallData,
+      blockNumber,
+      this.dexHelper.multiWrapper.defaultBatchSize,
+      false,
+    );
+
+    const dexVariables = storageResults[0].returnData;
+    const centerPriceShift = storageResults[1].returnData;
+    const rangeShift = storageResults[2].returnData;
+    const thresholdShift = storageResults[3].returnData;
+
+    // Extract lastInteractionTimestamp from centerPriceShift data
+    // Use consistent bit shifting pattern (even though bit position is 0)
+    const lastInteractionTimestamp = (centerPriceShift >> BigInt(BITS_DEX_LITE_CENTER_PRICE_SHIFT_LAST_INTERACTION_TIMESTAMP)) & X33;
+
+    return {
+      dexVariables,
+      centerPriceShift,
+      rangeShift,
+      thresholdShift,
+      lastInteractionTimestamp,
+    };
   }
 
-  // Its just a dummy example
-  handleMyEvent(
+  // Helper function to calculate mapping storage slot
+  private calculateMappingStorageSlot(slot: number, key: string): string {
+    // For bytes8 keys in Solidity mappings, we need to pad to bytes32
+    // The dexId is bytes8 but storage slot calculation expects bytes32
+    const paddedKey = key.padEnd(66, '0'); // Pad to 32 bytes (0x + 64 hex chars)
+    
+    // Solidity mapping storage slot calculation: keccak256(abi.encode(key, slot))
+    const encoded = defaultAbiCoder.encode(['bytes32', 'uint256'], [paddedKey, slot]);
+    return keccak256(encoded);
+  }
+
+  // Event handlers
+  handleLogSwap(
     event: any,
     state: DeepReadonly<PoolState>,
     log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
   ): DeepReadonly<PoolState> | null {
-    return null;
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    // Update timestamp to current block timestamp for swap events
+    const newTimestamp = BigInt(blockHeader.timestamp);
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: state.centerPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: newTimestamp,
+    };
+  }
+
+  handleLogInitialize(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    const newCenterPriceShift = BigInt(event.args.centerPriceShift.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: newCenterPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogUpdateFeeAndRevenueCut(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: state.centerPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogUpdateRebalancingStatus(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: state.centerPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogUpdateRangePercents(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    const newRangeShift = BigInt(event.args.rangeShift.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: state.centerPriceShift,
+      rangeShift: newRangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogUpdateShiftTime(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newCenterPriceShift = BigInt(event.args.centerPriceShift.toString());
+    return {
+      dexVariables: state.dexVariables,
+      centerPriceShift: newCenterPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogUpdateCenterPriceLimits(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newCenterPriceShift = BigInt(event.args.centerPriceShift.toString());
+    return {
+      dexVariables: state.dexVariables,
+      centerPriceShift: newCenterPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogUpdateThresholdPercent(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    const newThresholdShift = BigInt(event.args.thresholdShift.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: state.centerPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: newThresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogUpdateCenterPriceAddress(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    const newCenterPriceShift = BigInt(event.args.centerPriceShift.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: newCenterPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogDeposit(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: state.centerPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
+  }
+
+  handleLogWithdraw(
+    event: any,
+    state: DeepReadonly<PoolState>,
+    log: Readonly<Log>,
+    blockHeader: Readonly<BlockHeader>,
+  ): DeepReadonly<PoolState> | null {
+    const newDexVariables = BigInt(event.args.dexVariables.toString());
+    return {
+      dexVariables: newDexVariables,
+      centerPriceShift: state.centerPriceShift,
+      rangeShift: state.rangeShift,
+      thresholdShift: state.thresholdShift,
+      lastInteractionTimestamp: state.lastInteractionTimestamp,
+    };
   }
 }

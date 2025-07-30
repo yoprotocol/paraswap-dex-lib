@@ -50,7 +50,13 @@ async function fetchPoolState(
   poolAddress: string,
 ): Promise<PoolState> {
   // TODO: complete me!
-  return {};
+  return {
+    dexVariables: 0n,
+    centerPriceShift: 0n,
+    rangeShift: 0n,
+    thresholdShift: 0n,
+    lastInteractionTimestamp: 0n,
+  };
 }
 
 // eventName -> blockNumbers
@@ -69,12 +75,21 @@ describe('FluidDexLite EventPool Mainnet', function () {
   };
 
   beforeEach(async () => {
+    // Mock pool parameters for testing
+    const mockPoolParams = {
+      dexKey: { token0: '0x', token1: '0x', salt: '0x' },
+      dexId: '0x1234567890abcdef',
+    };
+    
     fluidDexLitePool = new FluidDexLiteEventPool(
       dexKey,
       network,
       dexHelper,
       logger,
-      /* TODO: Put here additional constructor arguments if needed */
+      'test-map-key',
+      undefined, // Use default interface
+      mockPoolParams,
+      '0x0000000000000000000000000000000000000000', // Mock contract address
     );
   });
 
