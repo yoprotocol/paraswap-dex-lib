@@ -82,15 +82,7 @@ function tenPow(power: bigint): bigint {
   if (powerNum === 7) return 10000000n;
   if (powerNum === 8) return 100000000n;
 
-  // Handle valid powers outside the optimization range
-  if (powerNum >= 0 && powerNum <= 77) {
-    // Safe limit for BigInt exponentiation
-    return 10n ** power;
-  }
-
-  throw new FluidDexLiteMathError(
-    `Power too large or invalid: ${power}. Must be between 0-77`,
-  );
+  throw new FluidDexLiteMathError(`Power invalid: ${power}.`);
 }
 
 // Unpack dexVariables from the packed uint256

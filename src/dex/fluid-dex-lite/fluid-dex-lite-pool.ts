@@ -9,6 +9,7 @@ import {
   PoolParams,
   BITS_DEX_LITE_CENTER_PRICE_SHIFT_LAST_INTERACTION_TIMESTAMP,
   X33,
+  X64,
 } from './types';
 import FluidDexLiteABI from '../../abi/fluid-dex-lite/FluidDexLite.abi.json';
 import { defaultAbiCoder } from 'ethers/lib/utils';
@@ -103,10 +104,7 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
           // Extract first 64 bits (8 bytes) as dexId
           const eventDexId =
             '0x' +
-            (swapData & ((1n << 64n) - 1n))
-              .toString(16)
-              .padStart(16, '0')
-              .toLowerCase();
+            (swapData & X64).toString(16).padStart(16, '0').toLowerCase();
 
           if (eventDexId !== dexId) {
             // Not for this pool, skip silently

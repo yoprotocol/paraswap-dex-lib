@@ -88,9 +88,10 @@ export const X19 = 0x7ffffn;
 export const X20 = 0xfffffn;
 export const X24 = 0xffffffn;
 export const X28 = 0xfffffffn;
-export const X33 = 0x1fffffffffn;
+export const X33 = 0x1ffffffffn;
 export const X40 = 0xffffffffffn;
-export const X60 = 0xfffffffffffffffffn;
+export const X60 = 0xfffffffffffffffn;
+export const X64 = 0xffffffffffffffffn;
 export const X73 = 0x1ffffffffffffffffffn;
 
 // CenterPriceShift bit positions

@@ -265,7 +265,7 @@ export class FluidDexLite
   private getGasCost(): number {
     // Default gas cost estimate for FluidDexLite swaps
     // This should be calibrated based on actual gas usage
-    return 150000;
+    return 10000;
   }
 
   // Legacy: was only used for V5
