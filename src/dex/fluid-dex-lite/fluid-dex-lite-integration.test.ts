@@ -15,6 +15,9 @@ import {
 import { Tokens } from '../../../tests/constants-e2e';
 import FluidDexLiteABI from '../../abi/fluid-dex-lite/FluidDexLite.abi.json';
 
+// Set timeout for all tests
+jest.setTimeout(300 * 1000);
+
 /*
   FluidDexLite Integration Tests
   =============================
@@ -26,34 +29,10 @@ import FluidDexLiteABI from '../../abi/fluid-dex-lite/FluidDexLite.abi.json';
   - getTopPoolsForToken liquidity calculations  
   - getDexParam calldata generation
   - On-chain pricing validation
+  - USDC/USDT swap simulation (mirroring Foundry test)
   
   Run with: npx jest src/dex/fluid-dex-lite/fluid-dex-lite-integration.test.ts
 */
-
-// Test configuration
-const network = Network.MAINNET;
-const dexKey = 'FluidDexLite';
-
-// Use common stablecoin tokens that likely exist in FluidDexLite
-const TokenASymbol = 'USDC';
-const TokenA = Tokens[network][TokenASymbol];
-
-const TokenBSymbol = 'USDT';
-const TokenB = Tokens[network][TokenBSymbol];
-
-const amounts = [
-  0n,
-  1000n * BI_POWS[6], // 1,000 USDC
-  5000n * BI_POWS[6], // 5,000 USDC
-  10000n * BI_POWS[6], // 10,000 USDC
-];
-
-const amountsBuy = [
-  0n,
-  1000n * BI_POWS[6], // 1,000 USDT
-  5000n * BI_POWS[6], // 5,000 USDT
-  10000n * BI_POWS[6], // 10,000 USDT
-];
 
 const fluidDexLiteIface = new Interface(FluidDexLiteABI);
 
@@ -226,124 +205,281 @@ async function testPricingOnNetwork(
   );
 }
 
-// Main test execution function
-export async function runIntegrationTests() {
-  console.log('🚀 Starting FluidDexLite Integration Tests...\n');
+describe('FluidDexLite Integration', () => {
+  const network = Network.MAINNET;
+  const dexKey = 'FluidDexLite';
+  const TokenASymbol = 'USDC';
+  const TokenBSymbol = 'USDT';
+  const TokenA = Tokens[network][TokenASymbol];
+  const TokenB = Tokens[network][TokenBSymbol];
 
-  const dexHelper = new DummyDexHelper(network);
-  const fluidDexLite = new FluidDexLite(network, dexKey, dexHelper);
+  const amounts = [
+    0n,
+    1000n * BI_POWS[6], // 1,000 USDC
+    5000n * BI_POWS[6], // 5,000 USDC
+    10000n * BI_POWS[6], // 10,000 USDC
+  ];
 
-  try {
-    const blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-    console.log(`Block Number: ${blockNumber}`);
+  const amountsBuy = [
+    0n,
+    1000n * BI_POWS[6], // 1,000 USDT
+    5000n * BI_POWS[6], // 5,000 USDT
+    10000n * BI_POWS[6], // 10,000 USDT
+  ];
+
+  // Small amounts for testing (mirroring Foundry test)
+  const smallAmounts = [
+    0n,
+    1n * BI_POWS[6], // 1 USDC (same as Foundry test)
+  ];
+
+  let fluidDexLite: FluidDexLite;
+  let dexHelper: DummyDexHelper;
+  let blockNumber: number;
+
+  beforeAll(async () => {
+    dexHelper = new DummyDexHelper(network);
+    fluidDexLite = new FluidDexLite(network, dexKey, dexHelper);
+    blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
 
     // Initialize FluidDexLite
-    console.log('Initializing FluidDexLite...');
     if (fluidDexLite.initializePricing) {
       await fluidDexLite.initializePricing(blockNumber);
     }
+  });
 
-    // Test pool discovery
-    console.log(`\n=== Pool Discovery Test ===`);
-    console.log(`Total pools loaded: ${fluidDexLite.pools.length}`);
-
-    if (fluidDexLite.pools.length > 0) {
-      const firstPool = fluidDexLite.pools[0];
-      console.log('Sample pool:', {
-        dexId: firstPool.dexId,
-        token0: firstPool.dexKey.token0,
-        token1: firstPool.dexKey.token1,
-      });
-    }
-
-    // Test getTopPoolsForToken
-    console.log(`\n=== getTopPoolsForToken Test ===`);
-    const liquidityPools = await fluidDexLite.getTopPoolsForToken(
-      TokenA.address,
-      5,
-    );
-    console.log(
-      `Liquidity pools found for ${TokenASymbol}: ${liquidityPools.length}`,
-    );
-
-    if (liquidityPools.length > 0) {
-      console.log('Top pool:', liquidityPools[0]);
-    }
-
-    // Test pricing for SELL side
-    await testPricingOnNetwork(
-      fluidDexLite,
-      network,
-      dexKey,
-      blockNumber,
-      TokenASymbol,
-      TokenBSymbol,
-      SwapSide.SELL,
-      amounts,
-      'swapSingle',
-    );
-
-    // Test pricing for BUY side
-    await testPricingOnNetwork(
-      fluidDexLite,
-      network,
-      dexKey,
-      blockNumber,
-      TokenASymbol,
-      TokenBSymbol,
-      SwapSide.BUY,
-      amountsBuy,
-      'swapSingle',
-    );
-
-    // Test getDexParam
-    console.log(`\n=== getDexParam Test ===`);
-    const pool = fluidDexLite.pools.find(
-      p =>
-        (p.dexKey.token0.toLowerCase() === TokenA.address.toLowerCase() &&
-          p.dexKey.token1.toLowerCase() === TokenB.address.toLowerCase()) ||
-        (p.dexKey.token1.toLowerCase() === TokenA.address.toLowerCase() &&
-          p.dexKey.token0.toLowerCase() === TokenB.address.toLowerCase()),
-    );
-
-    if (pool) {
-      const swap0To1 =
-        pool.dexKey.token0.toLowerCase() === TokenA.address.toLowerCase();
-
-      const data = {
-        exchange: fluidDexLite.dexLiteAddress,
-        dexKey: pool.dexKey,
-        swap0To1,
-      };
-
-      const dexParam = fluidDexLite.getDexParam(
-        TokenA.address,
-        TokenB.address,
-        '1000000000', // 1000 USDC
-        '999000000', // Expected ~999 USDT
-        '0x0000000000000000000000000000000000000000', // recipient
-        data,
-        SwapSide.SELL,
-      );
-
-      console.log('getDexParam result:', {
-        needWrapNative: dexParam.needWrapNative,
-        dexFuncHasRecipient: dexParam.dexFuncHasRecipient,
-        targetExchange: dexParam.targetExchange,
-        returnAmountPos: dexParam.returnAmountPos,
-        exchangeDataLength: dexParam.exchangeData.length,
-      });
-    } else {
-      console.log('No suitable pool found for getDexParam test');
-    }
-  } catch (error) {
-    console.error('❌ Integration test failed:', error);
-  } finally {
-    // Cleanup
+  afterAll(async () => {
     if (fluidDexLite.releaseResources) {
       await fluidDexLite.releaseResources();
     }
-  }
+  });
 
-  console.log('\n🎉 FluidDexLite Integration Tests Completed!');
-}
+  describe('Pool Discovery and Initialization', () => {
+    it('should initialize FluidDexLite correctly', () => {
+      console.log(`Total pools loaded: ${fluidDexLite.pools.length}`);
+      console.log('FluidDexLite address:', fluidDexLite.dexLiteAddress);
+
+      // For newly deployed protocols, pools might not exist yet
+      // This is expected behavior
+      expect(fluidDexLite.dexLiteAddress).toBeDefined();
+      expect(typeof fluidDexLite.pools.length).toBe('number');
+
+      if (fluidDexLite.pools.length > 0) {
+        const firstPool = fluidDexLite.pools[0];
+        console.log('Sample pool:', {
+          dexId: firstPool.dexId,
+          token0: firstPool.dexKey.token0,
+          token1: firstPool.dexKey.token1,
+        });
+
+        expect(firstPool.dexId).toBeDefined();
+        expect(firstPool.dexKey.token0).toBeDefined();
+        expect(firstPool.dexKey.token1).toBeDefined();
+      } else {
+        console.log(
+          'No pools found yet - this is expected for newly deployed protocols',
+        );
+      }
+    });
+
+    it('should handle USDC/USDT pool discovery', () => {
+      const usdcUsdtPool = fluidDexLite.pools.find(
+        p =>
+          (p.dexKey.token0.toLowerCase() === TokenA.address.toLowerCase() &&
+            p.dexKey.token1.toLowerCase() === TokenB.address.toLowerCase()) ||
+          (p.dexKey.token1.toLowerCase() === TokenA.address.toLowerCase() &&
+            p.dexKey.token0.toLowerCase() === TokenB.address.toLowerCase()),
+      );
+
+      if (usdcUsdtPool) {
+        console.log('USDC/USDT pool found:', {
+          dexId: usdcUsdtPool.dexId,
+          token0: usdcUsdtPool.dexKey.token0,
+          token1: usdcUsdtPool.dexKey.token1,
+        });
+        expect(usdcUsdtPool.dexId).toBeDefined();
+      } else {
+        console.log(
+          'USDC/USDT pool not found yet - expected for new deployment',
+        );
+      }
+    });
+
+    it('should handle getTopPoolsForToken when no pools exist', async () => {
+      const liquidityPools = await fluidDexLite.getTopPoolsForToken(
+        TokenA.address,
+        5,
+      );
+      console.log(
+        `Liquidity pools found for ${TokenASymbol}: ${liquidityPools.length}`,
+      );
+
+      // Should return empty array when no pools exist
+      expect(Array.isArray(liquidityPools)).toBe(true);
+
+      if (liquidityPools.length > 0) {
+        console.log('Top pool:', liquidityPools[0]);
+        expect(liquidityPools[0].address).toBeDefined();
+        expect(liquidityPools[0].connectorTokens).toBeDefined();
+      } else {
+        console.log('No liquidity pools found - expected for new deployment');
+      }
+    });
+  });
+
+  describe('Pricing Calculations', () => {
+    it('should calculate prices for USDC -> USDT SELL', async () => {
+      await testPricingOnNetwork(
+        fluidDexLite,
+        network,
+        dexKey,
+        blockNumber,
+        TokenASymbol,
+        TokenBSymbol,
+        SwapSide.SELL,
+        amounts,
+        'swapSingle',
+      );
+    });
+
+    it('should calculate prices for USDT -> USDC BUY', async () => {
+      await testPricingOnNetwork(
+        fluidDexLite,
+        network,
+        dexKey,
+        blockNumber,
+        TokenASymbol,
+        TokenBSymbol,
+        SwapSide.BUY,
+        amountsBuy,
+        'swapSingle',
+      );
+    });
+
+    it('should calculate prices for small amounts (1 USDC)', async () => {
+      await testPricingOnNetwork(
+        fluidDexLite,
+        network,
+        dexKey,
+        blockNumber,
+        TokenASymbol,
+        TokenBSymbol,
+        SwapSide.SELL,
+        smallAmounts,
+        'swapSingle',
+      );
+    });
+  });
+
+  describe('DexParam Generation', () => {
+    it('should handle dex parameter generation when pools exist', () => {
+      const pool = fluidDexLite.pools.find(
+        p =>
+          (p.dexKey.token0.toLowerCase() === TokenA.address.toLowerCase() &&
+            p.dexKey.token1.toLowerCase() === TokenB.address.toLowerCase()) ||
+          (p.dexKey.token1.toLowerCase() === TokenA.address.toLowerCase() &&
+            p.dexKey.token0.toLowerCase() === TokenB.address.toLowerCase()),
+      );
+
+      if (pool) {
+        const swap0To1 =
+          pool.dexKey.token0.toLowerCase() === TokenA.address.toLowerCase();
+
+        const data = {
+          exchange: fluidDexLite.dexLiteAddress,
+          dexKey: pool.dexKey,
+          swap0To1,
+        };
+
+        const dexParam = fluidDexLite.getDexParam(
+          TokenA.address,
+          TokenB.address,
+          '1000000000', // 1000 USDC
+          '999000000', // Expected ~999 USDT
+          '0x0000000000000000000000000000000000000000', // recipient
+          data,
+          SwapSide.SELL,
+        );
+
+        console.log('getDexParam result:', {
+          needWrapNative: dexParam.needWrapNative,
+          dexFuncHasRecipient: dexParam.dexFuncHasRecipient,
+          targetExchange: dexParam.targetExchange,
+          returnAmountPos: dexParam.returnAmountPos,
+          exchangeDataLength: dexParam.exchangeData.length,
+        });
+
+        expect(dexParam.targetExchange).toBe(fluidDexLite.dexLiteAddress);
+        expect(dexParam.exchangeData.length).toBeGreaterThan(0);
+        expect(dexParam.returnAmountPos).toBeDefined();
+      } else {
+        console.log('No USDC/USDT pool found - skipping dexParam test');
+      }
+    });
+  });
+
+  describe('Swap Simulation (Mirroring Foundry Test)', () => {
+    it('should handle swap simulation when pools exist', async () => {
+      const pool = fluidDexLite.pools.find(
+        p =>
+          (p.dexKey.token0.toLowerCase() === TokenA.address.toLowerCase() &&
+            p.dexKey.token1.toLowerCase() === TokenB.address.toLowerCase()) ||
+          (p.dexKey.token1.toLowerCase() === TokenA.address.toLowerCase() &&
+            p.dexKey.token0.toLowerCase() === TokenB.address.toLowerCase()),
+      );
+
+      if (pool) {
+        const swap0To1 =
+          pool.dexKey.token0.toLowerCase() === TokenA.address.toLowerCase();
+
+        console.log('=== SWAP SIMULATION ===');
+        console.log('Pool dexId:', pool.dexId);
+        console.log('Swap direction (swap0To1):', swap0To1);
+        console.log('Input amount: 1 USDC (1,000,000 wei)');
+
+        // Get pool prices for 1 USDC swap
+        const pools = await fluidDexLite.getPoolIdentifiers(
+          TokenA,
+          TokenB,
+          SwapSide.SELL,
+          blockNumber,
+        );
+
+        const poolPrices = await fluidDexLite.getPricesVolume(
+          TokenA,
+          TokenB,
+          smallAmounts,
+          SwapSide.SELL,
+          blockNumber,
+          pools,
+        );
+
+        if (poolPrices && poolPrices.length > 0) {
+          const firstPool = poolPrices[0];
+          console.log(
+            'Calculated output amount:',
+            firstPool.prices[1].toString(),
+            'wei',
+          );
+          console.log(
+            'Expected rate (scaled by 1e6):',
+            ((firstPool.prices[1] * 1000000n) / smallAmounts[1]).toString(),
+          );
+
+          // Validate the swap makes sense (should receive close to 1 USDT for 1 USDC)
+          expect(firstPool.prices[1]).toBeGreaterThan(0n);
+          expect(firstPool.prices[1]).toBeLessThanOrEqual(smallAmounts[1]); // Should not receive more than input
+
+          // For stablecoins with small fee, should receive close to input amount
+          const rate = (firstPool.prices[1] * 1000000n) / smallAmounts[1];
+          expect(rate).toBeGreaterThan(990000n); // At least 0.99 rate
+          expect(rate).toBeLessThan(1001000n); // At most 1.001 rate
+        } else {
+          console.log('No pricing available for this swap');
+        }
+      } else {
+        console.log('No USDC/USDT pool found - skipping swap simulation test');
+      }
+    });
+  });
+});
