@@ -95,16 +95,18 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         );
       }
 
-      this.updateVaultSharePricesTimer = setInterval(async () => {
-        try {
-          await this.updateVaultSharePrices();
-        } catch (error) {
-          this.logger.error(
-            `${this.dexKey}: Failed to update vault share prices:`,
-            error,
-          );
-        }
-      }, VAULT_SHARE_PRICES_UPDATE_TTL * 1000);
+      if (this.dexHelper.config.isSlave === true) {
+        this.updateVaultSharePricesTimer = setInterval(async () => {
+          try {
+            await this.updateVaultSharePrices();
+          } catch (error) {
+            this.logger.error(
+              `${this.dexKey}: Failed to update vault share prices:`,
+              error,
+            );
+          }
+        }, VAULT_SHARE_PRICES_UPDATE_TTL * 1000);
+      }
     }
   }
 
