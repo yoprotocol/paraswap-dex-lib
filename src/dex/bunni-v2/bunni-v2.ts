@@ -204,7 +204,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       destToken.address,
     );
 
-    const poolIdSet = new Set((limitPools ?? []).map(id => id));
+    const poolIdSet = new Set(limitPools ?? []);
     const availablePools =
       limitPools && limitPools.length
         ? pools.filter(pool => poolIdSet.has(`BunniV2_${pool.id}`))
