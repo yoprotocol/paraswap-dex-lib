@@ -280,3 +280,16 @@ export type SubgraphTopPool = {
   priceCurrency0: string;
   priceCurrency1: string;
 };
+
+export type SubgraphTopPoolForPair = {
+  id: string;
+  currency0: {
+    id: string;
+  };
+  currency1: {
+    id: string;
+  };
+  fee: string;
+  tickSpacing: string;
+  hooks: string;
+};

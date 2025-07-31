@@ -1,8 +1,9 @@
 import { formatUnits } from 'ethers/lib/utils';
 import { IDexHelper } from '../../dex-helper';
 import { Address, Logger } from '../../types';
-import { bigIntify } from '../../utils';
+import { bigIntify, isETHAddress } from '../../utils';
 import {
+  queryAvailablePoolsForPair,
   queryAvailablePoolsForToken,
   queryPools,
   queryProtocolState,
@@ -13,6 +14,7 @@ import {
   SubgraphPool,
   SubgraphProtocolState,
   SubgraphTopPool,
+  SubgraphTopPoolForPair,
 } from './types';
 import { NULL_ADDRESS } from '../../constants';
 import { ZERO_BYTES_32, ZERO_BYTES_6 } from './lib/Constants';
@@ -99,6 +101,47 @@ export async function getAvailablePoolsForToken(
       logger,
       config,
       tokenAddress,
+      skip * first,
+      first,
+    );
+
+    pools = pools.concat(currentPools);
+  }
+
+  return pools;
+}
+
+export async function getAvailablePoolsForPairFromSubgraph(
+  dexHelper: IDexHelper,
+  logger: Logger,
+  config: DexParams,
+  srcToken: string,
+  destToken: string,
+): Promise<SubgraphTopPoolForPair[]> {
+  let skip = 0;
+  let first = 1000;
+  let pools: SubgraphTopPoolForPair[] = [];
+
+  let currentPools = await queryAvailablePoolsForPair(
+    dexHelper,
+    logger,
+    config,
+    srcToken,
+    destToken,
+    skip * first,
+    first,
+  );
+
+  pools = pools.concat(currentPools);
+
+  while (currentPools.length === first) {
+    skip++;
+    currentPools = await queryAvailablePoolsForPair(
+      dexHelper,
+      logger,
+      config,
+      srcToken,
+      destToken,
       skip * first,
       first,
     );

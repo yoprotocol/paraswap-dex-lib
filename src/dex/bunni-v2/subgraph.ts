@@ -6,6 +6,7 @@ import {
   SubgraphPool,
   SubgraphProtocolState,
   SubgraphTopPool,
+  SubgraphTopPoolForPair,
 } from './types';
 
 export async function queryProtocolState(
@@ -191,6 +192,71 @@ export async function queryAvailablePoolsForToken(
 
   const result = await dexHelper.httpRequest.querySubgraph<{
     data: { pools: SubgraphTopPool[] };
+    errors?: { message: string }[];
+  }>(
+    config.subgraphURL,
+    {
+      query,
+      variables: { skip: skip, first: first },
+    },
+    { timeout: SUBGRAPH_TIMEOUT },
+  );
+
+  if (result.errors && result.errors.length) {
+    throw new Error(result.errors[0].message);
+  }
+
+  return result.data.pools || [];
+}
+
+export async function queryAvailablePoolsForPair(
+  dexHelper: IDexHelper,
+  logger: Logger,
+  config: DexParams,
+  srcToken: string,
+  destToken: string,
+  skip: number,
+  first: number,
+): Promise<SubgraphTopPoolForPair[]> {
+  const [currency0, currency1] =
+    parseInt(srcToken, 16) < parseInt(destToken, 16)
+      ? [srcToken, destToken]
+      : [destToken, srcToken];
+
+  const query = `
+    query (
+      $skip: Int,
+      $first: Int,
+    ) {
+      pools (
+        skip: $skip,
+        first: $first,
+        where: {
+          and: [
+            { currency0_: { id: "${currency0.toLowerCase()}" } },
+            { currency1_: { id: "${currency1.toLowerCase()}" } },
+            { bunniToken_: { totalSupply_gt: 0.000001 } },
+            { bunniHub_: { id: "${config.bunniHub.toLowerCase()}" } },
+            { bunniHook_: { id: "${config.bunniHook.address.toLowerCase()}" } },
+          ]
+        }
+      ) {
+        id
+        currency0 {
+          id
+        }
+        currency1 {
+          id
+        }
+        fee
+        tickSpacing
+        hooks
+      }
+    }
+  `;
+
+  const result = await dexHelper.httpRequest.querySubgraph<{
+    data: { pools: SubgraphTopPoolForPair[] };
     errors?: { message: string }[];
   }>(
     config.subgraphURL,
