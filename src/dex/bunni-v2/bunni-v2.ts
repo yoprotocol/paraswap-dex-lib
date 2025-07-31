@@ -577,8 +577,52 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       pricePerVaultShares,
     );
 
+    const poolBalances = availablePoolsForToken.map(pool => {
+      const rawBalance0 = parseFloat(pool.bunniToken.rawBalance0);
+      const rawBalance1 = parseFloat(pool.bunniToken.rawBalance1);
+
+      const reserveBalance0 = pool.bunniToken.vault0
+        ? parseFloat(pool.bunniToken.reserve0) *
+          (pricePerVaultShares.get(pool.bunniToken.vault0.id.toLowerCase())
+            ?.pricePerVaultShare || 0)
+        : 0;
+      const reserveBalance1 = pool.bunniToken.vault1
+        ? parseFloat(pool.bunniToken.reserve1) *
+          (pricePerVaultShares.get(pool.bunniToken.vault1.id.toLowerCase())
+            ?.pricePerVaultShare || 0)
+        : 0;
+
+      const totalBalance0 = rawBalance0 + reserveBalance0;
+      const totalBalance1 = rawBalance1 + reserveBalance1;
+
+      return { totalBalance0, totalBalance1 };
+    });
+
+    const tokenAmounts = availablePoolsForToken
+      .map((pool, i) => {
+        return [
+          [
+            pool.currency0.id === NULL_ADDRESS
+              ? ETHER_ADDRESS
+              : pool.currency0.id,
+            bigIntify(Math.floor(poolBalances[i].totalBalance0)),
+          ],
+          [
+            pool.currency1.id === NULL_ADDRESS
+              ? ETHER_ADDRESS
+              : pool.currency1.id,
+            bigIntify(Math.floor(poolBalances[i].totalBalance1)),
+          ],
+        ] as [string, bigint | null][];
+      })
+      .flat();
+
+    const poolUsdBalances = await this.dexHelper.getUsdTokenAmounts(
+      tokenAmounts,
+    );
+
     const connectors: PoolLiquidity[] = await Promise.all(
-      availablePoolsForToken.map(async pool => {
+      availablePoolsForToken.map((pool, i) => {
         const connectorAddress =
           _tokenAddress.toLowerCase() === pool.currency0.id.toLowerCase()
             ? pool.currency1.id.toLowerCase()
@@ -589,52 +633,8 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
             ? parseInt(pool.currency1.decimals)
             : parseInt(pool.currency0.decimals);
 
-        const rawBalance0 = parseFloat(pool.bunniToken.rawBalance0);
-        const rawBalance1 = parseFloat(pool.bunniToken.rawBalance1);
-
-        const reserveBalance0 = pool.bunniToken.vault0
-          ? parseFloat(pool.bunniToken.reserve0) *
-            (pricePerVaultShares.get(pool.bunniToken.vault0.id.toLowerCase())
-              ?.pricePerVaultShare || 0)
-          : 0;
-        const reserveBalance1 = pool.bunniToken.vault1
-          ? parseFloat(pool.bunniToken.reserve1) *
-            (pricePerVaultShares.get(pool.bunniToken.vault1.id.toLowerCase())
-              ?.pricePerVaultShare || 0)
-          : 0;
-
-        const totalBalance0 = rawBalance0 + reserveBalance0;
-        const totalBalance1 = rawBalance1 + reserveBalance1;
-
-        let liquidity0 = 0;
-        if (parseFloat(pool.currency0.price) > 0) {
-          liquidity0 = totalBalance0 * parseFloat(pool.currency0.price);
-        } else if (parseFloat(pool.currency1.price) > 0) {
-          liquidity0 =
-            totalBalance0 *
-            parseFloat(pool.priceCurrency1) *
-            parseFloat(pool.currency1.price);
-        } else {
-          const usdTokenAmounts = await this.dexHelper.getUsdTokenAmounts([
-            [pool.currency0.id, bigIntify(Math.floor(totalBalance0))],
-          ]);
-          liquidity0 = usdTokenAmounts[0];
-        }
-
-        let liquidity1 = 0;
-        if (parseFloat(pool.currency1.price) > 0) {
-          liquidity1 = totalBalance1 * parseFloat(pool.currency1.price);
-        } else if (parseFloat(pool.currency0.price) > 0) {
-          liquidity1 =
-            totalBalance1 *
-            parseFloat(pool.priceCurrency0) *
-            parseFloat(pool.currency0.price);
-        } else {
-          const usdTokenAmounts = await this.dexHelper.getUsdTokenAmounts([
-            [pool.currency1.id, bigIntify(Math.floor(totalBalance1))],
-          ]);
-          liquidity1 = usdTokenAmounts[0];
-        }
+        const liquidity0 = poolUsdBalances[i * 2];
+        const liquidity1 = poolUsdBalances[i * 2 + 1];
 
         return {
           exchange: this.dexKey,
