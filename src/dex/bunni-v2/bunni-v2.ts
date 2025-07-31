@@ -191,6 +191,8 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     blockNumber: number,
     limitPools?: string[],
   ): Promise<null | ExchangePrices<BunniV2Data>> {
+    if (limitPools && limitPools.length === 0) return null;
+
     const poolStates = this.eventPools.getState(blockNumber);
     if (poolStates === null) return null;
 
@@ -207,10 +209,9 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     );
 
     const poolIdSet = new Set(limitPools ?? []);
-    const availablePools =
-      limitPools && limitPools.length
-        ? pools.filter(pool => poolIdSet.has(`BunniV2_${pool.id}`))
-        : pools;
+    const availablePools = limitPools
+      ? pools.filter(pool => poolIdSet.has(`BunniV2_${pool.id}`))
+      : pools;
 
     const pricesPromises = availablePools.map(async pool => {
       let prices: bigint[] | null;
