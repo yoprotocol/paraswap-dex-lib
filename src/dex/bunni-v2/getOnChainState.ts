@@ -1,7 +1,7 @@
 import { Interface } from '@ethersproject/abi';
 import { IDexHelper } from '../../dex-helper';
 import ERC4626Abi from '../../abi/ERC4626.json';
-import { DexParams, PoolState, Vault } from './types';
+import { DexParams, PoolState, VaultState } from './types';
 import { bigIntify } from '../../utils';
 import { multicall } from './utils';
 import { BigNumber, BytesLike, ethers } from 'ethers';
@@ -628,7 +628,7 @@ export async function updateFeeOverrides(
 /* -------------------------------------------------------------------------- */
 
 export async function updateVaultSharePrices(
-  vaults: Vault[],
+  vaults: VaultState[],
   dexHelper: IDexHelper,
 ): Promise<void> {
   const multiCallData = vaults.map(vault => {

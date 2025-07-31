@@ -132,20 +132,21 @@ export type PoolState = {
   VaultSharePrices &
   FeeOverrideHookletState;
 
-export type ProtocolState = {
-  poolStates: { [poolId: string]: PoolState };
-  hookFeeModifier: bigint;
-  currentK: bigint;
-  pendingK: bigint;
-  activeBlock: bigint;
-};
-
-export type Vault = {
+export type VaultState = {
   address: string;
   sharePrice: bigint;
   vaultDecimals: bigint;
   currencyDecimals: bigint;
   lastSharePriceUpdate: bigint;
+};
+
+export type ProtocolState = {
+  poolStates: { [poolId: string]: PoolState };
+  vaultStates: { [vaultAddress: string]: VaultState };
+  hookFeeModifier: bigint;
+  currentK: bigint;
+  pendingK: bigint;
+  activeBlock: bigint;
 };
 
 /* -------------------------------------------------------------------------- */

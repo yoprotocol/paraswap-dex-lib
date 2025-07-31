@@ -10,7 +10,7 @@ import {
   PoolState,
   ProtocolState,
   SwapParams,
-  Vault,
+  VaultState,
   WithdrawParams,
 } from './types';
 import { BunniV2Config } from './config';
@@ -57,8 +57,6 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
   logDecoders: { [name: string]: (log: Log) => any };
   addressesSubscribed: string[];
   config: DexParams;
-
-  vaults: { [address: string]: Vault } = {};
 
   constructor(
     readonly parentName: string,
@@ -177,6 +175,7 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
   ): Promise<DeepReadonly<ProtocolState>> {
     let protocolState = {
       poolStates: Object.create({}),
+      vaultStates: Object.create({}),
       hookFeeModifier: 0n,
       currentK: 0n,
       pendingK: 0n,
@@ -232,11 +231,13 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
         poolState.vault0,
         poolState.vault0Decimals,
         poolState.currency0Decimals,
+        protocolState,
       );
       this.initializeVault(
         poolState.vault1,
         poolState.vault1Decimals,
         poolState.currency1Decimals,
+        protocolState,
       );
     });
 
@@ -247,10 +248,11 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
     address: string,
     vaultDecimals: bigint,
     currencyDecimals: bigint,
+    protocolState: ProtocolState,
   ): void {
     if (address !== NULL_ADDRESS) {
-      if (!this.vaults[address.toLowerCase()]) {
-        this.vaults[address.toLowerCase()] = {
+      if (!protocolState.vaultStates[address.toLowerCase()]) {
+        protocolState.vaultStates[address.toLowerCase()] = {
           address: address.toLowerCase(),
           sharePrice: 0n,
           vaultDecimals,
@@ -841,6 +843,7 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
 
   _quoteSwap(
     state: PoolState,
+    vaults: { [address: string]: VaultState },
     params: SwapParams,
     blockNumber: bigint,
     blockTimestamp: bigint,
@@ -861,13 +864,18 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
       this.state?.hookFeeModifier || 0n,
       this.config.bunniHook.deploymentBlock,
       this._K(blockNumber),
-      this.vaults,
+      vaults,
       this.config,
     );
   }
 
   async _updateVaultSharePrices(): Promise<void> {
-    await updateVaultSharePrices(Object.values(this.vaults), this.dexHelper);
+    if (this.state !== null) {
+      await updateVaultSharePrices(
+        Object.values(this.state.vaultStates),
+        this.dexHelper,
+      );
+    }
   }
 
   private _K(blockNumber: bigint): bigint {

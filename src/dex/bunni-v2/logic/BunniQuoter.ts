@@ -16,7 +16,7 @@ import { abs, max, min, mulDiv, mulDivUp } from '../lib/Math';
 import { queryLDF } from '../lib/QueryLDF';
 import { queryTwap } from '../lib/QueryTwap';
 import { TickMath } from '../lib/TickMath';
-import { DexParams, PoolState, SwapParams, Vault } from '../types';
+import { DexParams, PoolState, SwapParams, VaultState } from '../types';
 import { getTopBid } from './AmAmm';
 import { _shouldSurgeFromVaults, decodeParams } from './BunniHookLogic';
 
@@ -28,7 +28,7 @@ export function quoteSwap(
   hookFeesModifier: bigint,
   hookDeploymentBlock: bigint,
   K: bigint,
-  vaults: { [address: string]: Vault },
+  vaults: { [address: string]: VaultState },
   dexParams: DexParams,
 ): {
   success: boolean;
@@ -337,7 +337,7 @@ export function quoteSwap(
 function _getReservesInUnderlying(
   reserveAmount: bigint,
   vault: string,
-  vaults: { [address: string]: Vault },
+  vaults: { [address: string]: VaultState },
 ): bigint {
   if (vault !== NULL_ADDRESS) {
     const _vault = vaults[vault.toLowerCase()];
