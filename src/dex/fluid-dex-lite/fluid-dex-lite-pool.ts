@@ -90,46 +90,38 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
     try {
       const event = this.logDecoder(log);
       if (event.name in this.handlers) {
-        // Check if this event is for our specific dex pool
-        const dexId = this.poolParams.dexId.toLowerCase();
+        // Normalize our pool's dexId once
+        const normalizedPoolDexId = this.normalizeDexId(this.poolParams.dexId);
 
-        // For LogSwap, extract dexId from swapData
+        let eventDexId = '';
+
+        // Extract dexId from event based on event type
         if (event.name === 'LogSwap') {
           if (!event.args.swapData) {
-            this.logger.debug('LogSwap event missing swapData');
             return null;
           }
 
-          const swapData = BigInt(event.args.swapData.toString());
-          // Extract first 64 bits (8 bytes) as dexId
-          const eventDexId =
-            '0x' +
-            (swapData & X64).toString(16).padStart(16, '0').toLowerCase();
-
-          if (eventDexId !== dexId) {
-            // Not for this pool, skip silently
+          try {
+            const swapData = BigInt(event.args.swapData.toString());
+            // Extract first 64 bits (8 bytes) as dexId
+            const extractedDexId = (swapData & X64).toString(16);
+            eventDexId = this.normalizeDexId(extractedDexId);
+          } catch (error) {
             return null;
           }
         } else {
-          // For other events, check if dexId matches
-          if (event.args.dexId) {
-            const eventDexId = event.args.dexId.toString().toLowerCase();
-            // Ensure both are properly formatted as 0x + 16 hex chars
-            const normalizedEventDexId = eventDexId.startsWith('0x')
-              ? eventDexId.padStart(18, '0').slice(0, 18) // Ensure exactly 16 chars after 0x
-              : '0x' + eventDexId.padStart(16, '0'); // Add 0x and pad to 16 chars
-
-            const normalizedPoolDexId = dexId.padStart(18, '0').slice(0, 18);
-
-            if (normalizedEventDexId !== normalizedPoolDexId) {
-              // Not for this pool, skip silently
-              return null;
-            }
-          } else {
-            // Event without dexId field - this shouldn't happen for FluidDexLite events
-            this.logger.debug(`Event ${event.name} missing dexId field`);
+          // For other events, check if dexId field exists
+          if (!event.args.dexId) {
             return null;
           }
+
+          eventDexId = this.normalizeDexId(event.args.dexId.toString());
+        }
+
+        // Compare normalized dexIds
+        if (eventDexId !== normalizedPoolDexId) {
+          // Not for this pool, skip silently
+          return null;
         }
 
         return this.handlers[event.name](event, state, log, blockHeader);
@@ -237,6 +229,24 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
       [paddedKey, slot],
     );
     return keccak256(encoded);
+  }
+
+  // Helper function to normalize dexId consistently
+  private normalizeDexId(dexId: string): string {
+    if (!dexId) {
+      return '';
+    }
+
+    // Convert to lowercase and ensure it's a string
+    const idStr = dexId.toString().toLowerCase();
+
+    // If it starts with 0x, ensure we have exactly 18 characters total (0x + 16 hex chars)
+    if (idStr.startsWith('0x')) {
+      return '0x' + idStr.slice(2).padStart(16, '0');
+    } else {
+      // Add 0x prefix and pad to 16 hex characters
+      return '0x' + idStr.padStart(16, '0');
+    }
   }
 
   // Event handlers

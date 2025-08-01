@@ -124,6 +124,42 @@ async function checkOnChainPricing(
       prices.map(p => p.toString()),
     );
 
+    // Validate that the prices match with reasonable tolerance
+    if (expectedPrices.length !== prices.length) {
+      console.log('Price arrays have different lengths');
+      return false;
+    }
+
+    const tolerance = 1000n; // 0.1% tolerance (1000 out of 1,000,000 basis points)
+
+    for (let i = 0; i < expectedPrices.length; i++) {
+      const expected = expectedPrices[i];
+      const actual = prices[i];
+
+      if (expected === 0n && actual === 0n) {
+        continue; // Both zero is fine
+      }
+
+      if (expected === 0n || actual === 0n) {
+        console.log(
+          `Price mismatch at index ${i}: expected ${expected}, actual ${actual}`,
+        );
+        return false;
+      }
+
+      // Calculate percentage difference: |expected - actual| / expected * 1,000,000
+      const diff = expected > actual ? expected - actual : actual - expected;
+      const percentageDiff = (diff * 1000000n) / expected;
+
+      if (percentageDiff > tolerance) {
+        console.log(
+          `Price mismatch at index ${i}: expected ${expected}, actual ${actual}, diff ${percentageDiff}bp`,
+        );
+        return false;
+      }
+    }
+
+    console.log('✅ All prices match within tolerance');
     return true;
   } catch (error) {
     console.log('On-chain pricing check failed:', error);

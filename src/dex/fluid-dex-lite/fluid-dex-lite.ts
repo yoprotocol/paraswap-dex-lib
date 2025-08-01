@@ -120,52 +120,79 @@ export class FluidDexLite
         defaultAbiCoder.encode(['uint256'], [DEX_LITE_DEXES_LIST_SLOT]),
       );
 
-      const dexesList: DexKey[] = [];
+      // OPTIMIZED: Batch ALL storage reads into a single RPC call
+      // Build all multicall data for all DexKeys (3N storage slots total)
+      const allMulticallData = [];
 
-      // Read all DexKey structs (each takes 3 slots: token0, token1, salt)
       for (let i = 0; i < arrayLength; i++) {
         const baseIndex = BigInt(arrayBaseSlot) + BigInt(i * 3); // Each DexKey struct takes 3 slots
 
-        const multicallData = [
-          {
-            target: this.dexLiteAddress,
-            callData: this.fluidDexLiteIface.encodeFunctionData(
-              'readFromStorage',
-              [hexZeroPad('0x' + baseIndex.toString(16), 32)],
-            ),
-            decodeFunction: uint256ToBigInt,
-          },
-          {
-            target: this.dexLiteAddress,
-            callData: this.fluidDexLiteIface.encodeFunctionData(
-              'readFromStorage',
-              [hexZeroPad('0x' + (baseIndex + 1n).toString(16), 32)],
-            ),
-            decodeFunction: uint256ToBigInt,
-          },
-          {
-            target: this.dexLiteAddress,
-            callData: this.fluidDexLiteIface.encodeFunctionData(
-              'readFromStorage',
-              [hexZeroPad('0x' + (baseIndex + 2n).toString(16), 32)],
-            ),
-            decodeFunction: uint256ToBigInt,
-          },
-        ];
+        // Add token0 slot
+        allMulticallData.push({
+          target: this.dexLiteAddress,
+          callData: this.fluidDexLiteIface.encodeFunctionData(
+            'readFromStorage',
+            [hexZeroPad('0x' + baseIndex.toString(16), 32)],
+          ),
+          decodeFunction: uint256ToBigInt,
+        });
 
-        const results = await this.dexHelper.multiWrapper.tryAggregate<bigint>(
-          false,
-          multicallData,
-          blockNumber,
-          this.dexHelper.multiWrapper.defaultBatchSize,
-          false,
-        );
+        // Add token1 slot
+        allMulticallData.push({
+          target: this.dexLiteAddress,
+          callData: this.fluidDexLiteIface.encodeFunctionData(
+            'readFromStorage',
+            [hexZeroPad('0x' + (baseIndex + 1n).toString(16), 32)],
+          ),
+          decodeFunction: uint256ToBigInt,
+        });
 
-        const token0 = results[0].returnData;
-        const token1 = results[1].returnData;
-        const salt = results[2].returnData;
+        // Add salt slot
+        allMulticallData.push({
+          target: this.dexLiteAddress,
+          callData: this.fluidDexLiteIface.encodeFunctionData(
+            'readFromStorage',
+            [hexZeroPad('0x' + (baseIndex + 2n).toString(16), 32)],
+          ),
+          decodeFunction: uint256ToBigInt,
+        });
+      }
 
-        // Convert to addresses
+      // Execute ALL storage reads in a single batched RPC call
+      const allResults = await this.dexHelper.multiWrapper.tryAggregate<bigint>(
+        false,
+        allMulticallData,
+        blockNumber,
+        this.dexHelper.multiWrapper.defaultBatchSize,
+        false,
+      );
+
+      // Process results to build DexKeys
+      const dexesList: DexKey[] = [];
+      for (let i = 0; i < arrayLength; i++) {
+        const resultIndex = i * 3; // Each DexKey uses 3 results
+
+        // Validate we have all required results
+        if (resultIndex + 2 >= allResults.length) {
+          this.logger.warn(
+            `FluidDexLite: Missing results for pool ${i}, skipping`,
+          );
+          continue;
+        }
+
+        const token0 = allResults[resultIndex].returnData;
+        const token1 = allResults[resultIndex + 1].returnData;
+        const salt = allResults[resultIndex + 2].returnData;
+
+        // Validate non-zero values
+        if (token0 === 0n || token1 === 0n) {
+          this.logger.debug(
+            `FluidDexLite: Invalid token addresses for pool ${i}, skipping`,
+          );
+          continue;
+        }
+
+        // Convert to addresses with proper validation
         const dexKey: DexKey = {
           token0: '0x' + token0.toString(16).padStart(40, '0'),
           token1: '0x' + token1.toString(16).padStart(40, '0'),

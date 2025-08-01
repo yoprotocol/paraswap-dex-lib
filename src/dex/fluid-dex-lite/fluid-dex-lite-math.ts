@@ -64,10 +64,6 @@ export class FluidDexLiteMathError extends Error {
 
 // Helper function to calculate powers of 10
 function tenPow(power: bigint): bigint {
-  if (power < 0n) {
-    throw new FluidDexLiteMathError(`Power cannot be negative: ${power}`);
-  }
-
   const powerNum = Number(power);
 
   // Handle the most common cases for optimization
@@ -258,38 +254,11 @@ function calculateReservesOutsideRange(
   rx: bigint,
   ry: bigint,
 ): { xa: bigint; yb: bigint } {
-  // Validate inputs
-  if (geometricMean <= 0n) {
-    throw new FluidDexLiteMathError('Geometric mean must be positive');
-  }
-  if (pa <= 0n) {
-    throw new FluidDexLiteMathError('Price pa must be positive');
-  }
-  if (rx < 0n || ry < 0n) {
-    throw new FluidDexLiteMathError('Reserves must be non-negative');
-  }
-  if (pa <= geometricMean) {
-    throw new FluidDexLiteMathError(
-      'Price pa must be greater than geometric mean',
-    );
-  }
-
   const p1 = pa - geometricMean;
-
-  // Check for potential division by zero
-  if (p1 === 0n) {
-    throw new FluidDexLiteMathError('Price difference cannot be zero');
-  }
 
   const p2 = (geometricMean * rx + ry * PRICE_PRECISION) / (2n * p1);
 
-  // Validate intermediate calculation
   const discriminant = (rx * ry * PRICE_PRECISION) / p1 + p2 * p2;
-  if (discriminant < 0n) {
-    throw new FluidDexLiteMathError(
-      'Invalid discriminant in reserves calculation',
-    );
-  }
 
   // xa = part2 + (part3 + (part2 * part2))^(1/2)
   // yb = xa * gp
@@ -301,9 +270,6 @@ function calculateReservesOutsideRange(
 
 // Square root implementation for BigInt
 function sqrt(value: bigint): bigint {
-  if (value < 0n) {
-    throw new FluidDexLiteMathError('Square root of negative number');
-  }
   if (value < 2n) {
     return value;
   }
@@ -551,14 +517,6 @@ function calculateSwapIn(
   token0ImaginaryReserves: bigint,
   token1ImaginaryReserves: bigint,
 ): SwapResult {
-  // Basic input validation
-  if (amountIn <= 0n) {
-    throw new FluidDexLiteMathError('Amount in must be positive');
-  }
-  if (token0ImaginaryReserves <= 0n || token1ImaginaryReserves <= 0n) {
-    throw new FluidDexLiteMathError('Imaginary reserves must be positive');
-  }
-
   let adjustedAmountIn = amountIn;
 
   // Apply decimal adjustments
@@ -582,12 +540,12 @@ function calculateSwapIn(
     }
   }
 
-  // Validate amount
+  // Validate amount - matches contract InvalidSwapAmounts error
   if (adjustedAmountIn < FOUR_DECIMALS || adjustedAmountIn > X60) {
     throw new FluidDexLiteMathError('Invalid swap amount');
   }
 
-  // Check against half of reserves
+  // Check against half of reserves - matches contract ExcessiveSwapAmount error
   const relevantReserves = swap0To1
     ? token0ImaginaryReserves
     : token1ImaginaryReserves;
@@ -595,17 +553,8 @@ function calculateSwapIn(
     throw new FluidDexLiteMathError('Excessive swap amount');
   }
 
-  // Calculate fee - ensure fee is valid
-  if (unpackedVars.fee >= SIX_DECIMALS) {
-    throw new FluidDexLiteMathError('Fee cannot be 100% or higher');
-  }
-
   const fee = (adjustedAmountIn * unpackedVars.fee) / SIX_DECIMALS;
   const amountInAfterFee = adjustedAmountIn - fee;
-
-  if (amountInAfterFee <= 0n) {
-    throw new FluidDexLiteMathError('Amount after fee must be positive');
-  }
 
   // Constant product formula: amountOut = (amountIn * reserveOut) / (reserveIn + amountIn)
   let amountOut: bigint;
@@ -613,21 +562,13 @@ function calculateSwapIn(
     // Check for potential overflow in intermediate calculation
     const numerator = amountInAfterFee * token1ImaginaryReserves;
     const denominator = token0ImaginaryReserves + amountInAfterFee;
-    if (denominator === 0n) {
-      throw new FluidDexLiteMathError('Division by zero in swap calculation');
-    }
+
     amountOut = numerator / denominator;
   } else {
     const numerator = amountInAfterFee * token0ImaginaryReserves;
     const denominator = token1ImaginaryReserves + amountInAfterFee;
-    if (denominator === 0n) {
-      throw new FluidDexLiteMathError('Division by zero in swap calculation');
-    }
-    amountOut = numerator / denominator;
-  }
 
-  if (amountOut === 0n) {
-    throw new FluidDexLiteMathError('Swap output amount is zero');
+    amountOut = numerator / denominator;
   }
 
   // Apply decimal adjustments to output
@@ -665,14 +606,6 @@ function calculateSwapOut(
   token0ImaginaryReserves: bigint,
   token1ImaginaryReserves: bigint,
 ): SwapResult {
-  // Basic input validation
-  if (amountOut <= 0n) {
-    throw new FluidDexLiteMathError('Amount out must be positive');
-  }
-  if (token0ImaginaryReserves <= 0n || token1ImaginaryReserves <= 0n) {
-    throw new FluidDexLiteMathError('Imaginary reserves must be positive');
-  }
-
   let adjustedAmountOut = amountOut;
 
   // Apply decimal adjustments
@@ -696,12 +629,12 @@ function calculateSwapOut(
     }
   }
 
-  // Validate amount
+  // Validate amount - matches contract InvalidSwapAmounts error
   if (adjustedAmountOut < FOUR_DECIMALS || adjustedAmountOut > X60) {
     throw new FluidDexLiteMathError('Invalid swap amount');
   }
 
-  // Check against half of reserves
+  // Check against half of reserves - matches contract ExcessiveSwapAmount error
   const relevantReserves = swap0To1
     ? token1ImaginaryReserves
     : token0ImaginaryReserves;
@@ -731,19 +664,7 @@ function calculateSwapOut(
     amountInBeforeFee = numerator / denominator;
   }
 
-  if (amountInBeforeFee === 0n) {
-    throw new FluidDexLiteMathError('Calculated input amount is zero');
-  }
-
-  // Add fee - ensure fee calculation is valid
-  if (unpackedVars.fee >= SIX_DECIMALS) {
-    throw new FluidDexLiteMathError('Fee cannot be 100% or higher');
-  }
-
   const feeDenominator = SIX_DECIMALS - unpackedVars.fee;
-  if (feeDenominator <= 0n) {
-    throw new FluidDexLiteMathError('Invalid fee configuration');
-  }
 
   const fee =
     (amountInBeforeFee * SIX_DECIMALS) / feeDenominator - amountInBeforeFee;
