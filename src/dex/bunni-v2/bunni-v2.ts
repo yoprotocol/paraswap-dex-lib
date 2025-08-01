@@ -209,153 +209,45 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     const _to = this.dexHelper.config.wrapETH(destToken);
     if (_from.address === _to.address) return null;
 
-    const state = this.eventPools.getState(blockNumber);
+    const state = await this.eventPools.getOrGenerateState(blockNumber);
 
     let pricesPromises;
 
-    if (state) {
-      const pools = this.getAvailablePoolsForPair(
-        state,
-        srcToken.address,
-        destToken.address,
-      );
+    const pools = this.getAvailablePoolsForPair(
+      state,
+      srcToken.address,
+      destToken.address,
+    );
 
-      const poolIdSet = new Set(limitPools ?? []);
-      const availablePools = limitPools
-        ? pools.filter(pool => poolIdSet.has(`BunniV2_${pool.id}`))
-        : pools;
+    const poolIdSet = new Set(limitPools ?? []);
+    const availablePools = limitPools
+      ? pools.filter(pool => poolIdSet.has(`BunniV2_${pool.id}`))
+      : pools;
 
-      pricesPromises = availablePools.map(async pool => {
-        let prices: bigint[] | null;
+    pricesPromises = availablePools.map(async pool => {
+      let prices: bigint[] | null;
 
-        const zeroForOne =
-          srcToken.address.toLowerCase() === pool.key.currency0.toLowerCase() ||
-          (isETHAddress(srcToken.address) &&
-            pool.key.currency0 === NULL_ADDRESS) || // ETH is src and native ETH pool
-          (isETHAddress(srcToken.address) &&
-            pool.key.currency0 === this.WETH) || // ETH is src and WETH pool
-          (srcToken.address.toLowerCase() === this.WETH &&
-            pool.key.currency0 === NULL_ADDRESS); // WETH is src and native ETH pool
+      const zeroForOne =
+        srcToken.address.toLowerCase() === pool.key.currency0.toLowerCase() ||
+        (isETHAddress(srcToken.address) &&
+          pool.key.currency0 === NULL_ADDRESS) || // ETH is src and native ETH pool
+        (isETHAddress(srcToken.address) && pool.key.currency0 === this.WETH) || // ETH is src and WETH pool
+        (srcToken.address.toLowerCase() === this.WETH &&
+          pool.key.currency0 === NULL_ADDRESS); // WETH is src and native ETH pool
 
-        try {
-          prices = await this.getOffChainPrices(
-            zeroForOne,
-            amounts,
-            pool,
-            state.vaultStates,
-            side,
-            blockNumber,
-          );
-        } catch (error) {
-          this.logger.warn(
-            `[${this.dexKey}-${this.network}] Off-chain pricing failed for pool ${pool.id}: ${error}. Falling back to on-chain`,
-          );
-
-          try {
-            prices = await this.getOnChainPrices(
-              zeroForOne,
-              amounts,
-              pool.key,
-              side,
-              blockNumber,
-            );
-          } catch (error) {
-            this.logger.error(
-              `[${this.dexKey}-${this.network}] On-chain pricing failed for pool ${pool.id}: ${error}`,
-            );
-            prices = null;
-          }
-        }
-
-        if (prices === null) {
-          return null;
-        }
-
-        if (prices.every(price => price === 0n || price === 1n)) {
-          return null;
-        }
-
-        return {
-          unit: BI_POWS[destToken.decimals],
-          prices,
-          data: {
-            path: [
-              {
-                tokenIn: zeroForOne ? pool.key.currency0 : pool.key.currency1,
-                tokenOut: zeroForOne ? pool.key.currency1 : pool.key.currency0,
-                zeroForOne,
-                pool: {
-                  key: pool.key,
-                },
-              },
-            ],
-          },
-          exchange: this.dexKey,
-          gasCost: BUNNI_V2_GAS_COST,
-          poolIdentifier: pool.id,
-        };
-      });
-    } else {
-      const isEthSrc = isETHAddress(srcToken.address);
-      const isEthDest = isETHAddress(destToken.address);
-
-      const isWethSrc = srcToken.address.toLowerCase() === this.WETH;
-      const isWethDest = destToken.address.toLowerCase() === this.WETH;
-
-      const _srcToken = isEthSrc
-        ? NULL_ADDRESS
-        : srcToken.address.toLowerCase();
-      const _destToken = isEthDest
-        ? NULL_ADDRESS
-        : destToken.address.toLowerCase();
-
-      const pairs: [string, string][] = [[_srcToken, _destToken]];
-      if (isEthSrc) pairs.push([this.WETH, _destToken]);
-      if (isEthDest) pairs.push([_srcToken, this.WETH]);
-      if (isWethSrc) pairs.push([NULL_ADDRESS, _destToken]);
-      if (isWethDest) pairs.push([_srcToken, NULL_ADDRESS]);
-
-      let subgraphPools: SubgraphTopPoolForPair[] = [];
-      for (const [tokenA, tokenB] of pairs) {
-        const result = await getAvailablePoolsForPairFromSubgraph(
-          this.dexHelper,
-          this.logger,
-          this.config,
-          tokenA,
-          tokenB,
+      try {
+        prices = await this.getOffChainPrices(
+          zeroForOne,
+          amounts,
+          pool,
+          state.vaultStates,
+          side,
+          blockNumber,
         );
-        subgraphPools = subgraphPools.concat(result);
-      }
-
-      const pools = subgraphPools.map(pool => {
-        return {
-          id: pool.id.toLowerCase(),
-          key: {
-            currency0: pool.currency0.id.toLowerCase(),
-            currency1: pool.currency1.id.toLowerCase(),
-            fee: BigInt(pool.fee),
-            tickSpacing: BigInt(pool.tickSpacing),
-            hooks: pool.hooks.toLowerCase(),
-          },
-        };
-      });
-
-      const poolIdSet = new Set(limitPools ?? []);
-      const availablePools = limitPools
-        ? pools.filter(pool => poolIdSet.has(`BunniV2_${pool.id}`))
-        : pools;
-
-      pricesPromises = availablePools.map(async pool => {
-        let prices: bigint[] | null;
-
-        const zeroForOne =
-          srcToken.address.toLowerCase() === pool.key.currency0.toLowerCase() ||
-          (isETHAddress(srcToken.address) &&
-            pool.key.currency0 === NULL_ADDRESS) || // ETH is src and native ETH pool
-          (isETHAddress(srcToken.address) &&
-            pool.key.currency0 === this.WETH) || // ETH is src and WETH pool
-          (srcToken.address.toLowerCase() === this.WETH &&
-            pool.key.currency0 === NULL_ADDRESS); // WETH is src and native ETH pool
+      } catch (error) {
+        this.logger.warn(
+          `[${this.dexKey}-${this.network}] Off-chain pricing failed for pool ${pool.id}: ${error}. Falling back to on-chain`,
+        );
 
         try {
           prices = await this.getOnChainPrices(
@@ -371,36 +263,36 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
           );
           prices = null;
         }
+      }
 
-        if (prices === null) {
-          return null;
-        }
+      if (prices === null) {
+        return null;
+      }
 
-        if (prices.every(price => price === 0n || price === 1n)) {
-          return null;
-        }
+      if (prices.every(price => price === 0n || price === 1n)) {
+        return null;
+      }
 
-        return {
-          unit: BI_POWS[destToken.decimals],
-          prices,
-          data: {
-            path: [
-              {
-                tokenIn: zeroForOne ? pool.key.currency0 : pool.key.currency1,
-                tokenOut: zeroForOne ? pool.key.currency1 : pool.key.currency0,
-                zeroForOne,
-                pool: {
-                  key: pool.key,
-                },
+      return {
+        unit: BI_POWS[destToken.decimals],
+        prices,
+        data: {
+          path: [
+            {
+              tokenIn: zeroForOne ? pool.key.currency0 : pool.key.currency1,
+              tokenOut: zeroForOne ? pool.key.currency1 : pool.key.currency0,
+              zeroForOne,
+              pool: {
+                key: pool.key,
               },
-            ],
-          },
-          exchange: this.dexKey,
-          gasCost: BUNNI_V2_GAS_COST,
-          poolIdentifier: pool.id,
-        };
-      });
-    }
+            },
+          ],
+        },
+        exchange: this.dexKey,
+        gasCost: BUNNI_V2_GAS_COST,
+        poolIdentifier: pool.id,
+      };
+    });
 
     const prices = await Promise.all(pricesPromises);
     return prices.filter(res => res !== null);

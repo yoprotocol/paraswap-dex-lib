@@ -244,6 +244,20 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
     return protocolState;
   }
 
+  async getOrGenerateState(
+    blockNumber: number,
+  ): Promise<DeepReadonly<ProtocolState>> {
+    let state = this.getState(blockNumber);
+    if (!state) {
+      this.logger.warn(
+        `${this.parentName}: No state found on block ${blockNumber}, generating new one`,
+      );
+      state = await this.generateState(blockNumber);
+      this.setState(state, blockNumber);
+    }
+    return state;
+  }
+
   initializeVault(
     address: string,
     vaultDecimals: bigint,
