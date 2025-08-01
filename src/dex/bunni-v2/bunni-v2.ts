@@ -427,7 +427,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     // otherwise, get the block timestamp via RPC call
     if (blockTimestamp === undefined) {
       this.logger.warn(
-        `${this.dexKey}: fallback to fetching block timestamp via RPC call`,
+        `${this.dexKey}-${this.network}: falling back to RPC for block timestamp for ${blockNumber}`,
       );
       const block = await this.dexHelper.provider.getBlock(blockNumber);
       blockTimestamp = bigIntify(block.timestamp);
