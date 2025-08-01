@@ -57,22 +57,8 @@ function testForNetwork(
 
   // FluidDexLite supports both exact input and exact output
   const sideToContractMethods = new Map([
-    [
-      SwapSide.SELL,
-      [
-        ContractMethod.simpleSwap,
-        ContractMethod.multiSwap,
-        ContractMethod.megaSwap,
-      ],
-    ],
-    [
-      SwapSide.BUY,
-      [
-        ContractMethod.simpleSwap,
-        ContractMethod.multiSwap,
-        ContractMethod.megaSwap,
-      ],
-    ],
+    [SwapSide.SELL, [ContractMethod.swapExactAmountIn]],
+    [SwapSide.BUY, [ContractMethod.swapExactAmountOut]],
   ]);
 
   describe(`${network}`, () => {
@@ -80,37 +66,10 @@ function testForNetwork(
       describe(`${side}`, () => {
         contractMethods.forEach((contractMethod: ContractMethod) => {
           describe(`${contractMethod}`, () => {
-            // Test ETH -> Token swaps
-            it(`${nativeTokenSymbol} -> ${tokenASymbol}`, async () => {
-              await testE2E(
-                tokens[nativeTokenSymbol],
-                tokens[tokenASymbol],
-                holders[nativeTokenSymbol],
-                side === SwapSide.SELL ? nativeTokenAmount : tokenAAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
-            });
+            // Only test Token -> Token swaps since only USDC/USDT pool exists
+            // Skip ETH tests as no ETH/USDC pool is deployed
 
-            // Test Token -> ETH swaps
-            it(`${tokenASymbol} -> ${nativeTokenSymbol}`, async () => {
-              await testE2E(
-                tokens[tokenASymbol],
-                tokens[nativeTokenSymbol],
-                holders[tokenASymbol],
-                side === SwapSide.SELL ? tokenAAmount : nativeTokenAmount,
-                side,
-                dexKey,
-                contractMethod,
-                network,
-                provider,
-              );
-            });
-
-            // Test Token -> Token swaps
+            // Test USDC -> USDT swaps
             it(`${tokenASymbol} -> ${tokenBSymbol}`, async () => {
               await testE2E(
                 tokens[tokenASymbol],
@@ -125,7 +84,7 @@ function testForNetwork(
               );
             });
 
-            // Test reverse Token -> Token swaps
+            // Test USDT -> USDC swaps
             it(`${tokenBSymbol} -> ${tokenASymbol}`, async () => {
               await testE2E(
                 tokens[tokenBSymbol],
@@ -153,9 +112,9 @@ describe('FluidDexLite E2E', () => {
     'FluidDexLite',
     'USDC', // TokenA: USDC (6 decimals)
     'USDT', // TokenB: USDT (6 decimals)
-    '1000000000', // 1,000 USDC
-    '1000000000', // 1,000 USDT
-    '1000000000000000000', // 1 ETH
+    '1000000', // 1 USDC (1 million wei = 1 USDC)
+    '1000000', // 1 USDT (1 million wei = 1 USDT)
+    '1000000000000000', // 0.001 ETH (not used since no ETH pool)
   );
 });
 

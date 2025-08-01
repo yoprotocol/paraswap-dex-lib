@@ -473,6 +473,11 @@ describe('FluidDexLite Integration', () => {
         console.log('Swap direction (swap0To1):', swap0To1);
         console.log('Input amount: 1 USDC (1,000,000 wei)');
 
+        // Log the dexKey and decoded variables
+        console.log('\n=== DEX KEY AND VARIABLES ===');
+        console.log(`DexKey (raw bytes): ${pool.dexId}`);
+        console.log(`Pool Address: ${fluidDexLite.dexLiteAddress}`);
+
         // Get pool prices for 1 USDC swap
         const pools = await fluidDexLite.getPoolIdentifiers(
           TokenA,
@@ -492,6 +497,15 @@ describe('FluidDexLite Integration', () => {
 
         if (poolPrices && poolPrices.length > 0) {
           const firstPool = poolPrices[0];
+
+          // Log decoded dex variables
+          console.log('\n=== DECODED DEX VARIABLES ===');
+          console.log('Pool Data:', firstPool.data);
+          console.log('Pool Exchange:', firstPool.exchange);
+          console.log('Pool Address:', firstPool.poolAddresses);
+          console.log('Pool Unit Volume:', firstPool.unit);
+          console.log('Pool Gas Cost:', firstPool.gasCost);
+
           console.log(
             'Calculated output amount:',
             firstPool.prices[1].toString(),

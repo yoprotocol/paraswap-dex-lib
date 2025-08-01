@@ -16,7 +16,19 @@ import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import { getDexKeysWithNetwork } from '../../utils';
 import { IDex } from '../../dex/idex';
 import { IDexHelper } from '../../dex-helper/idex-helper';
-import { FluidDexLiteData, DexKey, PoolParams, PoolState } from './types';
+import {
+  FluidDexLiteData,
+  DexKey,
+  PoolParams,
+  PoolState,
+  BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_DECIMALS,
+  BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_DECIMALS,
+  BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_TOTAL_SUPPLY_ADJUSTED,
+  BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_TOTAL_SUPPLY_ADJUSTED,
+  X5,
+  X60,
+} from './types';
+import { unpackDexVariables as fullUnpackDexVariables } from './fluid-dex-lite-math';
 import { SimpleExchange } from '../simple-exchange';
 import { FluidDexLiteConfig } from './config';
 import { FluidDexLiteEventPool } from './fluid-dex-lite-pool';
@@ -661,6 +673,57 @@ export class FluidDexLite
           // Unpack dex variables to get token supplies
           const unpackedVars = this.unpackDexVariables(state.dexVariables);
 
+          // Log comprehensive decoded dex variables
+          const fullUnpackedVars = fullUnpackDexVariables(state.dexVariables);
+
+          this.logger.info(`\n=== COMPLETE DECODED DEX VARIABLES ===`);
+          this.logger.info(`Pool ${pool.dexId}:`);
+          this.logger.info(`Raw dexVariables: ${state.dexVariables}`);
+          this.logger.info(`\n--- Fee & Revenue ---`);
+          this.logger.info(`Fee: ${fullUnpackedVars.fee}`);
+          this.logger.info(`Revenue Cut: ${fullUnpackedVars.revenueCut}`);
+          this.logger.info(
+            `Rebalancing Status: ${fullUnpackedVars.rebalancingStatus}`,
+          );
+          this.logger.info(`\n--- Center Price ---`);
+          this.logger.info(
+            `Center Price Shift Active: ${fullUnpackedVars.centerPriceShiftActive}`,
+          );
+          this.logger.info(`Center Price: ${fullUnpackedVars.centerPrice}`);
+          this.logger.info(
+            `Center Price Contract Address: ${fullUnpackedVars.centerPriceContractAddress}`,
+          );
+          this.logger.info(`\n--- Range Percents ---`);
+          this.logger.info(
+            `Range Percent Shift Active: ${fullUnpackedVars.rangePercentShiftActive}`,
+          );
+          this.logger.info(`Upper Percent: ${fullUnpackedVars.upperPercent}`);
+          this.logger.info(`Lower Percent: ${fullUnpackedVars.lowerPercent}`);
+          this.logger.info(`\n--- Threshold Percents ---`);
+          this.logger.info(
+            `Threshold Percent Shift Active: ${fullUnpackedVars.thresholdPercentShiftActive}`,
+          );
+          this.logger.info(
+            `Upper Shift Threshold Percent: ${fullUnpackedVars.upperShiftThresholdPercent}`,
+          );
+          this.logger.info(
+            `Lower Shift Threshold Percent: ${fullUnpackedVars.lowerShiftThresholdPercent}`,
+          );
+          this.logger.info(`\n--- Token Information ---`);
+          this.logger.info(
+            `Token0 Decimals: ${fullUnpackedVars.token0Decimals}`,
+          );
+          this.logger.info(
+            `Token1 Decimals: ${fullUnpackedVars.token1Decimals}`,
+          );
+          this.logger.info(
+            `Token0 Total Supply Adjusted: ${fullUnpackedVars.token0TotalSupplyAdjusted}`,
+          );
+          this.logger.info(
+            `Token1 Total Supply Adjusted: ${fullUnpackedVars.token1TotalSupplyAdjusted}`,
+          );
+          this.logger.info(`=== END COMPLETE DEX VARIABLES ===\n`);
+
           // Calculate liquidity based on adjusted total supplies
           // These represent the actual liquidity available in the pool
           const token0Supply = unpackedVars.token0TotalSupplyAdjusted;
@@ -687,6 +750,11 @@ export class FluidDexLite
             token0LiquidityNormalized * token1LiquidityNormalized;
           const liquidityUSD = Number(
             this.sqrt(geometricMeanSquared) / 10n ** 18n,
+          );
+
+          // Log liquidity result for debugging
+          this.logger.debug(
+            `Pool ${pool.dexId} liquidity: $${liquidityUSD.toLocaleString()}`,
           );
 
           // Determine connector token (the other token in the pair)
@@ -728,10 +796,20 @@ export class FluidDexLite
   // Helper function to unpack dex variables
   private unpackDexVariables(dexVariables: bigint) {
     return {
-      token0Decimals: (dexVariables >> 126n) & 0x1fn,
-      token1Decimals: (dexVariables >> 131n) & 0x1fn,
-      token0TotalSupplyAdjusted: (dexVariables >> 136n) & 0xfffffffffffffffffn,
-      token1TotalSupplyAdjusted: (dexVariables >> 196n) & 0xfffffffffffffffffn,
+      token0Decimals:
+        (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_DECIMALS)) &
+        X5,
+      token1Decimals:
+        (dexVariables >> BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_DECIMALS)) &
+        X5,
+      token0TotalSupplyAdjusted:
+        (dexVariables >>
+          BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_0_TOTAL_SUPPLY_ADJUSTED)) &
+        X60,
+      token1TotalSupplyAdjusted:
+        (dexVariables >>
+          BigInt(BITS_DEX_LITE_DEX_VARIABLES_TOKEN_1_TOTAL_SUPPLY_ADJUSTED)) &
+        X60,
     };
   }
 
