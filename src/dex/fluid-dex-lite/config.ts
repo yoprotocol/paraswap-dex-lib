@@ -5,7 +5,7 @@ import { Network } from '../../constants';
 export const FluidDexLiteConfig: DexConfigMap<DexParams> = {
   FluidDexLite: {
     [Network.MAINNET]: {
-      dexLiteAddress: '0xbED7f3036e2EA43BDBEDC95f1eDd0bB336F8eb2f',
+      dexLiteAddress: '0xBbcb91440523216e2b87052A99F69c604A7b6e00',
     },
   },
 };
