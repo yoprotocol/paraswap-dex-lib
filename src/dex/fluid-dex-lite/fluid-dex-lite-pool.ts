@@ -1,6 +1,6 @@
 import { Interface } from '@ethersproject/abi';
 import { DeepReadonly } from 'ts-essentials';
-import { Log, BlockHeader, Logger } from '../../types';
+import { Log, Logger } from '../../types';
 import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import { IDexHelper } from '../../dex-helper/idex-helper';
 import { PoolState, PoolParams } from './types';
@@ -32,7 +32,6 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
       event: any,
       state: DeepReadonly<PoolState>,
       log: Readonly<Log>,
-      blockHeader: Readonly<BlockHeader>,
     ) => DeepReadonly<PoolState> | null;
   } = {};
 
@@ -58,6 +57,23 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
 
     // Add handlers for all events that update state
     this.handlers['LogSwap'] = this.handleLogSwap.bind(this);
+    this.handlers['LogInitialize'] = this.handleLogInitialize.bind(this);
+    this.handlers['LogUpdateFeeAndRevenueCut'] =
+      this.handleLogUpdateFeeAndRevenueCut.bind(this);
+    this.handlers['LogUpdateRebalancingStatus'] =
+      this.handleLogUpdateRebalancingStatus.bind(this);
+    this.handlers['LogUpdateRangePercents'] =
+      this.handleLogUpdateRangePercents.bind(this);
+    this.handlers['LogUpdateShiftTime'] =
+      this.handleLogUpdateShiftTime.bind(this);
+    this.handlers['LogUpdateCenterPriceLimits'] =
+      this.handleLogUpdateCenterPriceLimits.bind(this);
+    this.handlers['LogUpdateThresholdPercent'] =
+      this.handleLogUpdateThresholdPercent.bind(this);
+    this.handlers['LogUpdateCenterPriceAddress'] =
+      this.handleLogUpdateCenterPriceAddress.bind(this);
+    this.handlers['LogDeposit'] = this.handleLogDeposit.bind(this);
+    this.handlers['LogWithdraw'] = this.handleLogWithdraw.bind(this);
   }
 
   /**
@@ -69,12 +85,11 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
   protected processLog(
     state: DeepReadonly<PoolState>,
     log: Readonly<Log>,
-    blockHeader: Readonly<BlockHeader>,
   ): DeepReadonly<PoolState> | null {
     try {
       const event = this.logDecoder(log);
       if (event.name in this.handlers) {
-        return this.handlers[event.name](event, state, log, blockHeader);
+        return this.handlers[event.name](event, state, log);
       }
     } catch (e) {
       catchParseLogError(e, this.logger);
@@ -133,25 +148,132 @@ export class FluidDexLiteEventPool extends StatefulEventSubscriber<PoolState> {
   handleLogSwap(
     event: any,
     state: DeepReadonly<PoolState>,
-    log: Readonly<Log>,
-    blockHeader: Readonly<BlockHeader>,
   ): DeepReadonly<PoolState> {
-    const dexId = normalizeDexId(this.poolParams.dexId);
-
-    const swapData = event.args.swapData;
-    if (!swapData) return state;
-    // Extract first 64 bits (8 bytes) as dexId
-    const extractedDexId = (BigInt(swapData) & X64).toString(16);
-    const eventDexId = normalizeDexId(extractedDexId);
-
-    if (eventDexId !== dexId) {
-      // Not for this pool, skip silently
-      return state;
-    }
+    if (!this.isCurrentDexId(event, 'swapData')) return state;
 
     return {
       ...state,
       dexVariables: BigInt(event.args.dexVariables),
     };
+  }
+
+  handleLogInitialize(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    if (!this.isCurrentDexId(event, 'dexId')) return state;
+
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+      centerPriceShift: BigInt(event.args.centerPriceShift),
+    };
+  }
+
+  handleLogUpdateFeeAndRevenueCut(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+    };
+  }
+
+  handleLogUpdateRebalancingStatus(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+    };
+  }
+
+  handleLogUpdateRangePercents(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+      rangeShift: BigInt(event.args.rangeShift),
+    };
+  }
+
+  handleLogUpdateShiftTime(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      centerPriceShift: BigInt(event.args.centerPriceShift),
+    };
+  }
+
+  handleLogUpdateCenterPriceLimits(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      centerPriceShift: BigInt(event.args.centerPriceShift),
+    };
+  }
+
+  handleLogUpdateThresholdPercent(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+      thresholdShift: BigInt(event.args.thresholdShift),
+    };
+  }
+
+  handleLogUpdateCenterPriceAddress(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+      centerPriceShift: BigInt(event.args.centerPriceShift),
+    };
+  }
+
+  handleLogDeposit(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    if (!this.isCurrentDexId(event, 'dexId')) return state;
+
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+    };
+  }
+
+  handleLogWithdraw(
+    event: any,
+    state: DeepReadonly<PoolState>,
+  ): DeepReadonly<PoolState> {
+    return {
+      ...state,
+      dexVariables: BigInt(event.args.dexVariables),
+    };
+  }
+
+  private isCurrentDexId(event: any, fieldName: string): boolean {
+    const dexId = normalizeDexId(this.poolParams.dexId);
+
+    const swapData = event.args[fieldName];
+    if (!swapData) return false;
+    // Extract first 64 bits (8 bytes) as dexId
+    const extractedDexId = (BigInt(swapData) & X64).toString(16);
+    const eventDexId = normalizeDexId(extractedDexId);
+
+    return eventDexId === dexId;
   }
 }

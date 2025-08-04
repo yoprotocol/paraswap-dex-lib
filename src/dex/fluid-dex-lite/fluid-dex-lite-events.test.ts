@@ -93,6 +93,8 @@ describe('FluidDexLite EventPool Mainnet', function () {
   const eventsToTest: Record<Address, EventMappings> = {
     [fluidDex.dexLiteAddress]: {
       LogSwap: [23066399, 23066345, 23066339, 23066325, 23066293],
+      LogDeposit: [23043195, 23055117, 23056328],
+      LogInitialize: [23043115],
     },
   };
 
