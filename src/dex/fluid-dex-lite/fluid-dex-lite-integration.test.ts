@@ -249,18 +249,32 @@ describe('FluidDexLite Integration', () => {
   const TokenA = Tokens[network][TokenASymbol];
   const TokenB = Tokens[network][TokenBSymbol];
 
-  const amounts = [
+  const amountsForSell = [
     0n,
-    1000n * BI_POWS[6], // 1,000 USDC
-    5000n * BI_POWS[6], // 5,000 USDC
-    10000n * BI_POWS[6], // 10,000 USDC
+    100n * BI_POWS[TokenA.decimals],
+    200n * BI_POWS[TokenA.decimals],
+    300n * BI_POWS[TokenA.decimals],
+    400n * BI_POWS[TokenA.decimals],
+    500n * BI_POWS[TokenA.decimals],
+    600n * BI_POWS[TokenA.decimals],
+    700n * BI_POWS[TokenA.decimals],
+    800n * BI_POWS[TokenA.decimals],
+    900n * BI_POWS[TokenA.decimals],
+    1000n * BI_POWS[TokenA.decimals],
   ];
 
-  const amountsBuy = [
+  const amountsForBuy = [
     0n,
-    1000n * BI_POWS[6], // 1,000 USDT
-    5000n * BI_POWS[6], // 5,000 USDT
-    10000n * BI_POWS[6], // 10,000 USDT
+    1n * BI_POWS[TokenB.decimals],
+    2n * BI_POWS[TokenB.decimals],
+    3n * BI_POWS[TokenB.decimals],
+    4n * BI_POWS[TokenB.decimals],
+    5n * BI_POWS[TokenB.decimals],
+    6n * BI_POWS[TokenB.decimals],
+    7n * BI_POWS[TokenB.decimals],
+    8n * BI_POWS[TokenB.decimals],
+    9n * BI_POWS[TokenB.decimals],
+    10n * BI_POWS[TokenB.decimals],
   ];
 
   // Small amounts for testing (mirroring Foundry test)
@@ -281,12 +295,6 @@ describe('FluidDexLite Integration', () => {
     // Initialize FluidDexLite
     if (fluidDexLite.initializePricing) {
       await fluidDexLite.initializePricing(blockNumber);
-    }
-  });
-
-  afterAll(async () => {
-    if (fluidDexLite.releaseResources) {
-      await fluidDexLite.releaseResources();
     }
   });
 
@@ -373,7 +381,7 @@ describe('FluidDexLite Integration', () => {
         TokenASymbol,
         TokenBSymbol,
         SwapSide.SELL,
-        amounts,
+        amountsForSell,
         'swapSingle',
       );
     });
@@ -387,7 +395,7 @@ describe('FluidDexLite Integration', () => {
         TokenASymbol,
         TokenBSymbol,
         SwapSide.BUY,
-        amountsBuy,
+        amountsForBuy,
         'swapSingle',
       );
     });
