@@ -182,25 +182,37 @@ export class FluidDexLite
   }
 
   // Initialize event pools for tracking state changes
-  private async initializeEventPools(blockNumber: number): Promise<void> {
+  private async initializeEventPools(
+    blockNumber: number,
+    subscribe = true,
+  ): Promise<void> {
     for (const pool of this.pools) {
       const mapKey =
         `${pool.dexKey.token0}_${pool.dexKey.token1}_${pool.dexKey.salt}`.toLowerCase();
 
       try {
-        const eventPool = new FluidDexLiteEventPool(
-          this.dexKey,
-          this.network,
-          this.dexHelper,
-          this.logger,
-          mapKey,
-          this.fluidDexLiteIface,
-          pool,
-          this.dexLiteAddress,
-        );
+        let eventPool = this.eventPools[mapKey];
 
-        await eventPool.initialize(blockNumber);
-        this.eventPools[mapKey] = eventPool;
+        if (!eventPool) {
+          eventPool = new FluidDexLiteEventPool(
+            this.dexKey,
+            this.network,
+            this.dexHelper,
+            this.logger,
+            mapKey,
+            this.fluidDexLiteIface,
+            pool,
+            this.dexLiteAddress,
+          );
+          this.eventPools[mapKey] = eventPool;
+        }
+
+        if (subscribe) {
+          await eventPool.initialize(blockNumber);
+        } else {
+          const state = await eventPool.generateState(blockNumber);
+          eventPool.setState(state, blockNumber);
+        }
 
         this.logger.debug(
           `${this.dexKey}: Initialized event pool for ${mapKey}`,
@@ -544,6 +556,12 @@ export class FluidDexLite
     };
   }
 
+  async updatePoolState() {
+    const currentBlock = await this.dexHelper.web3Provider.eth.getBlockNumber();
+    await this.loadDexesList(currentBlock);
+    await this.initializeEventPools(currentBlock, false);
+  }
+
   // Returns list of top pools based on liquidity.
   async getTopPoolsForToken(
     tokenAddress: Address,
@@ -558,8 +576,6 @@ export class FluidDexLite
       );
 
       const poolLiquidity: PoolLiquidity[] = [];
-      const currentBlock =
-        await this.dexHelper.web3Provider.eth.getBlockNumber();
 
       for (const pool of relevantPools.slice(0, limit * 2)) {
         // Fetch more to filter out inactive ones
@@ -567,7 +583,7 @@ export class FluidDexLite
         if (!eventPool) continue;
 
         try {
-          const state = eventPool.getState(currentBlock);
+          const state = eventPool.getStaleState();
           if (!state || state.dexVariables === 0n) {
             // Skip pools with no liquidity
             continue;
