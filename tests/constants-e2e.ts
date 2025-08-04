@@ -603,6 +603,10 @@ export const Tokens: {
       address: '0x0bfc9d54Fc184518A81162F8fB99c2eACa081202',
       decimals: 18,
     },
+    cbBTC: {
+      address: `0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf`,
+      decimals: 8,
+    },
     RLUSD: {
       address: '0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD',
       decimals: 18,
@@ -884,6 +888,26 @@ export const Tokens: {
     },
     WAGMI: {
       address: '0x0e0Ce4D450c705F8a0B6Dd9d5123e3df2787D16B',
+      decimals: 18,
+    },
+    beS: {
+      address: '0x871a101dcf22fe4fe37be7b654098c801cba1c88',
+      decimals: 18,
+    },
+    anS: {
+      address: '0x0c4e186eae8acaa7f7de1315d5ad174be39ec987',
+      decimals: 18,
+    },
+    SiloWS: {
+      address: '0x016c306e103fbf48ec24810d078c65ad13c5f11b',
+      decimals: 18,
+    },
+    SHADOW: {
+      address: '0x3333b97138d4b086720b5ae8a7844b1345a33333',
+      decimals: 18,
+    },
+    BEETS: {
+      address: '0x2d0e0814e62d80056181f5cd932274405966e4f0',
       decimals: 18,
     },
   },
@@ -1984,6 +2008,7 @@ export const Holders: {
     wUSDL: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
     UsualM: '0xE3f7A0c4a44b740328157A5152A85c3bCB54DA09',
     EKUBO: '0xF5b6Ee2CAEb6769659f6C091D209DfdCaF3F69Eb',
+    cbBTC: '0x5c647cE0Ae10658ec44FA4E11A51c96e94efd1Dd',
   },
   [Network.POLYGON]: {
     jGBP: '0x02aa0B826c7BA6386DdBE04C0a8715A1c0A16B24',
