@@ -603,43 +603,45 @@ export class FluidDexLite
           }
 
           // Get decimals for proper scaling
-          const token0Decimals = Number(unpackedVars.token0Decimals);
-          const token1Decimals = Number(unpackedVars.token1Decimals);
+          const token0Decimals = BigInt(unpackedVars.token0Decimals);
+          const token1Decimals = BigInt(unpackedVars.token1Decimals);
 
           // Calculate geometric mean of liquidity as a proxy for USD value
-          // Convert to 18 decimal standard for calculation
+          // tokenSupply is scaled to 9 decimals for all tokens
           const token0LiquidityNormalized =
-            token0Supply * 10n ** (18n - BigInt(token0Decimals));
+            (token0Supply * 10n ** token0Decimals) / 10n ** 9n;
+
           const token1LiquidityNormalized =
-            token1Supply * 10n ** (18n - BigInt(token1Decimals));
+            (token1Supply * 10n ** token1Decimals) / 10n ** 9n;
 
-          // Simple geometric mean calculation (sqrt(a * b))
-          const geometricMeanSquared =
-            token0LiquidityNormalized * token1LiquidityNormalized;
-          const liquidityUSD = Number(sqrt(geometricMeanSquared) / 10n ** 18n);
+          const token0LiquidityUSD =
+            token0LiquidityNormalized / 10n ** token0Decimals;
 
-          // Log liquidity result for debugging
-          this.logger.debug(
-            `Pool ${pool.dexId} liquidity: $${liquidityUSD.toLocaleString()}`,
-          );
+          const token1LiquidityUSD =
+            token1LiquidityNormalized / 10n ** token1Decimals;
 
           // Determine connector token (the other token in the pair)
           const connectorToken =
             pool.dexKey.token0.toLowerCase() === normalizedTokenAddress
               ? {
                   address: pool.dexKey.token1,
-                  decimals: token1Decimals,
+                  decimals: Number(token1Decimals),
+                  liquidityUSD: Number(token1LiquidityUSD),
                 }
               : {
                   address: pool.dexKey.token0,
-                  decimals: token0Decimals,
+                  decimals: Number(token0Decimals),
+                  liquidityUSD: Number(token0LiquidityUSD),
                 };
 
           poolLiquidity.push({
             exchange: this.dexKey,
             address: this.dexLiteAddress,
             connectorTokens: [connectorToken],
-            liquidityUSD,
+            liquidityUSD:
+              pool.dexKey.token0.toLowerCase() === normalizedTokenAddress
+                ? Number(token0LiquidityUSD)
+                : Number(token1LiquidityUSD),
           });
         } catch (error) {
           this.logger.debug(
