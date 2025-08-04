@@ -306,6 +306,7 @@ export class FluidDexLite
     limitPools?: string[],
   ): Promise<null | ExchangePrices<FluidDexLiteData>> {
     try {
+      if (limitPools && !limitPools.length) return [];
       const pool = this.getPoolForTokens(srcToken.address, destToken.address);
       if (!pool) return null;
 
