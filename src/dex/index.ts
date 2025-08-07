@@ -87,6 +87,7 @@ import { AaveV3Stata } from './aave-v3-stata/aave-v3-stata';
 import { AaveV3StataV2 } from './aave-v3-stata-v2/aave-v3-stata-v2';
 import { OSwap } from './oswap/oswap';
 import { FluidDex } from './fluid-dex/fluid-dex';
+import { FluidDexLite } from './fluid-dex-lite/fluid-dex-lite';
 import { ConcentratorArusd } from './concentrator-arusd/concentrator-arusd';
 import { FxProtocolRusd } from './fx-protocol-rusd/fx-protocol-rusd';
 import { AaveGsm } from './aave-gsm/aave-gsm';
@@ -111,6 +112,7 @@ import { uniswapV4Merge } from './uniswap-v4/optimizer';
 import { AaveV3PtRollOver } from './aave-v3-pt-roll-over/aave-v3-pt-roll-over';
 import { RingV2 } from './uniswap-v2/ring-v2';
 import { UsdcTransmuter } from './usdc-transmuter/usdc-transmuter';
+import { BunniV2 } from './bunni-v2/bunni-v2';
 
 const LegacyDexes = [
   CurveV2,
@@ -206,6 +208,7 @@ const Dexes = [
   SkyConverter,
   Cables,
   FluidDex,
+  FluidDexLite,
   UsualMWrappedM,
   MWrappedM,
   WrappedMM,
@@ -215,6 +218,7 @@ const Dexes = [
   AaveV3PtRollOver,
   RingV2,
   UsdcTransmuter,
+  BunniV2,
 ];
 
 export type LegacyDexConstructor = new (dexHelper: IDexHelper) => IDexTxBuilder<
