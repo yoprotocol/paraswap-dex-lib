@@ -6,12 +6,12 @@ import { StatefulEventSubscriber } from '../../../stateful-event-subscriber';
 import { BlockHeader, Log } from '../../../types';
 import { PoolKey } from './utils';
 
-export interface Quote {
+export type Quote<StateAfter = undefined> = {
   consumedAmount: bigint;
   calculatedAmount: bigint;
   gasConsumed: number;
   skipAhead: number;
-}
+} & (StateAfter extends undefined ? {} : { stateAfter: StateAfter });
 
 export interface PoolKeyed {
   key: PoolKey;
@@ -20,12 +20,6 @@ export interface PoolKeyed {
 export interface IEkuboPool extends PoolKeyed {
   quote(amount: bigint, token: bigint, blockNumber: number): Quote;
 }
-
-export type QuoteFn<State> = (
-  amount: bigint,
-  isToken1: boolean,
-  state: DeepReadonly<State>,
-) => Quote;
 
 export type NamedEventHandler<State> = (
   args: Result,
@@ -73,7 +67,6 @@ export abstract class EkuboPool<State>
       string,
       AnonymousEventHandler<State>
     >,
-    private readonly quoteFn: QuoteFn<State>,
   ) {
     super(parentName, key.string_id, dexHelper, logger);
 
@@ -136,7 +129,7 @@ export abstract class EkuboPool<State>
       );
     }
 
-    const quote = this.quoteFn(amount, isToken1, state);
+    const quote = this._quote(amount, isToken1, state);
 
     if (quote.calculatedAmount !== 0n) {
       quote.gasConsumed += BASE_GAS_COST;
@@ -144,4 +137,11 @@ export abstract class EkuboPool<State>
 
     return quote;
   }
+
+  protected abstract _quote(
+    amount: bigint,
+    isToken1: boolean,
+    state: DeepReadonly<State>,
+    sqrtRatioLimit?: bigint,
+  ): Quote;
 }

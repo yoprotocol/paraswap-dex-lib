@@ -26,7 +26,6 @@ import {
 } from './types';
 import {
   convertParaSwapToEkubo,
-  hexStringTokenPair,
   NATIVE_TOKEN_ADDRESS,
   convertAndSortTokens,
   contractsFromDexParams,
@@ -45,6 +44,7 @@ import { FULL_RANGE_TICK_SPACING } from './pools/math/tick';
 import { OraclePool } from './pools/oracle';
 import { TwammPool, TwammPoolState } from './pools/twamm';
 import { PoolConfig, PoolKey } from './pools/utils';
+import { MevResistPool } from './pools/mev-resist';
 
 const FALLBACK_POOL_PARAMETERS: VanillaPoolParameters[] = [
   {
@@ -163,6 +163,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
       0n,
       BigInt(this.config.oracle),
       BigInt(this.config.twamm),
+      BigInt(this.config.mevResist),
     ];
   }
 
@@ -593,6 +594,14 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
                 pool = constructAndInitialize(
                   OraclePool,
                   FullRangePoolState.fromQuoter(data),
+                  poolKey,
+                );
+                break;
+              }
+              case BigInt(this.config.mevResist): {
+                pool = constructAndInitialize(
+                  MevResistPool,
+                  BasePoolState.fromQuoter(data),
                   poolKey,
                 );
                 break;

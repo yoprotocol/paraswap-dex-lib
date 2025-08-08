@@ -1,7 +1,7 @@
 import { DeepReadonly } from 'ts-essentials';
 import { Quote } from './iface';
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from './math/tick';
-import { quote, TwammPoolState } from './twamm';
+import { TwammPool, TwammPoolState } from './twamm';
 import { PoolConfig, PoolKey } from './utils';
 
 describe('TWAMM pool', () => {
@@ -11,9 +11,15 @@ describe('TWAMM pool', () => {
     state: DeepReadonly<TwammPoolState.Object>,
     timestamp: number,
   ): Quote {
-    return quote.bind({
-      key: new PoolKey(1n, 2n, new PoolConfig(0, 0n, 3n)),
-    })(amount, isToken1, state, timestamp);
+    return TwammPool.prototype.quoteTwamm.call(
+      {
+        key: new PoolKey(1n, 2n, new PoolConfig(0, 0n, 3n)),
+      },
+      amount,
+      isToken1,
+      state,
+      timestamp,
+    );
   }
 
   test('zero_sale_rates_quote_token0', () => {
