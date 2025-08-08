@@ -38,7 +38,7 @@ import PoolManagerABI from '../../abi/bunni-v2/PoolManager.abi.json';
 
 import { TickMath } from './lib/TickMath';
 import { _updateAmAmmWrite } from './logic/AmAmm';
-import { ZERO_BYTES_32 } from './lib/Constants';
+import { WAD, ZERO_BYTES_32 } from './lib/Constants';
 import { NULL_ADDRESS } from '../../constants';
 import { quoteSwap } from './logic/BunniQuoter';
 
@@ -410,8 +410,7 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
     }
 
     // update the total supply (always 1e18 on the first deposit)
-    newPoolState.totalSupply +=
-      newPoolState.totalSupply === 0n ? 1_000_000_000_000_000_000n : shares;
+    newPoolState.totalSupply += newPoolState.totalSupply === 0n ? WAD : shares;
 
     newState.poolStates[poolId] = newPoolState;
     return newState;

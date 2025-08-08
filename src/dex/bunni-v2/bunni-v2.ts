@@ -51,6 +51,7 @@ import {
 import ERC4626ABI from '../../abi//ERC4626.json';
 import { TickMath } from './lib/TickMath';
 import { formatUnits } from 'ethers/lib/utils';
+import { MIN_INITIAL_SHARES } from './lib/Constants';
 
 const VAULT_SHARE_PRICES_UPDATE_TTL = 1 * 60; // 1 minute
 const BUNNI_V2_GAS_COST = 400_000; // https://dashboard.tenderly.co/shared/simulation/d343cb5e-7d7c-45f8-9653-6a7f7f104eed/gas-usage
@@ -189,8 +190,9 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
       const token1 = pool.key.currency1.toLowerCase();
 
       return (
-        (matchesSrcToken(token0) && matchesDestToken(token1)) ||
-        (matchesSrcToken(token1) && matchesDestToken(token0))
+        pool.totalSupply > MIN_INITIAL_SHARES &&
+        ((matchesSrcToken(token0) && matchesDestToken(token1)) ||
+          (matchesSrcToken(token1) && matchesDestToken(token0)))
       );
     }) as PoolState[];
   }
