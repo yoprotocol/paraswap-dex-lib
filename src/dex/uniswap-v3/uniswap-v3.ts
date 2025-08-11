@@ -1454,6 +1454,7 @@ export class UniswapV3
         amounts,
         zeroForOne,
         side,
+        this.logger,
       );
 
       if (side === SwapSide.SELL) {
