@@ -20,6 +20,7 @@ import { deposit, withdraw } from './logic/BunniHubLogic';
 import {
   generateOnChainState,
   updateCuratorFees,
+  updatePoolTotalValueLocked,
   updateStateAfterDeposit,
   updateStateAfterNewBunni,
   updateStateAfterOrderFulfilled,
@@ -882,12 +883,25 @@ export class BunniV2EventPool extends StatefulEventSubscriber<ProtocolState> {
     );
   }
 
-  async _updateVaultSharePrices(): Promise<void> {
+  async _updatePoolTotalValueLocked(blockNumber?: number): Promise<void> {
+    const _blockNumber =
+      blockNumber || this.dexHelper.blockManager.getLatestBlockNumber();
+
     if (this.state !== null) {
-      await updateVaultSharePrices(
-        Object.values(this.state.vaultStates),
-        this.dexHelper,
-      );
+      const newState = _.cloneDeep(this.state) as ProtocolState;
+      await updatePoolTotalValueLocked(newState, this.dexHelper);
+      this.setState(newState, _blockNumber);
+    }
+  }
+
+  async _updateVaultSharePrices(blockNumber?: number): Promise<void> {
+    const _blockNumber =
+      blockNumber || this.dexHelper.blockManager.getLatestBlockNumber();
+
+    if (this.state !== null) {
+      const newState = _.cloneDeep(this.state) as ProtocolState;
+      await updateVaultSharePrices(newState, this.dexHelper);
+      this.setState(newState, _blockNumber);
     }
   }
 
