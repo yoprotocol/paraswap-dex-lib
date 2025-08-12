@@ -48,7 +48,7 @@ export class NamedEventHandlers<State> {
   }
 }
 
-const BASE_GAS_COST = 22_000;
+const BASE_GAS_COST = 11_700;
 
 export abstract class EkuboPool<State>
   extends StatefulEventSubscriber<State>
@@ -131,7 +131,9 @@ export abstract class EkuboPool<State>
 
     const quote = this._quote(amount, isToken1, state);
 
-    if (quote.calculatedAmount !== 0n) {
+    if (quote.calculatedAmount === 0n) {
+      quote.gasConsumed = 0;
+    } else {
       quote.gasConsumed += BASE_GAS_COST;
     }
 

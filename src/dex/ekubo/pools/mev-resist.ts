@@ -6,6 +6,8 @@ import { approximateSqrtRatioToTick } from './math/tick';
 import { BI_MAX_UINT64 } from '../../../bigint-constants';
 import { amountBeforeFee, computeFee } from './math/swap';
 
+const EXTRA_BASE_GAS_COST_OF_ONE_MEV_RESIST_SWAP = 33_500;
+
 export class MevResistPool extends BasePool {
   protected override _quote(
     amount: bigint,
@@ -62,8 +64,7 @@ export class MevResistPool extends BasePool {
       calculatedAmount += fee;
     }
 
-    // TODO Gas
-
+    quote.gasConsumed += EXTRA_BASE_GAS_COST_OF_ONE_MEV_RESIST_SWAP;
     quote.calculatedAmount = calculatedAmount;
 
     return quote;

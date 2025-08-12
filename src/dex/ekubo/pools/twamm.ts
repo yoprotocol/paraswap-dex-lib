@@ -10,11 +10,15 @@ import { floatSqrtRatioToFixed } from './math/price';
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from './math/tick';
 import { calculateNextSqrtRatio } from './math/twamm/sqrt-ratio';
 import { parseSwappedEvent, PoolKey, SwappedEvent } from './utils';
+import { GAS_COST_OF_ONE_EXTRA_BITMAP_SLOAD } from './base';
 
 const SLOT_DURATION_SECS = 12;
 
-const GAS_COST_OF_ONE_VIRTUAL_ORDER_DELTA = 25_000;
-const GAS_COST_OF_EXECUTING_VIRTUAL_ORDERS = 15_000;
+const BASE_GAS_COST_OF_ONE_TWAMM_FULL_RANGE_SWAP = 25_700;
+const GAS_COST_OF_ONE_VIRTUAL_ORDER_DELTA = 7_500;
+const GAS_COST_OF_EXECUTING_VIRTUAL_ORDERS = 13_000;
+
+const LOG_BASE_256 = Math.log(256);
 
 export class TwammPool extends EkuboPool<TwammPoolState.Object> {
   private readonly dataFetcher;
@@ -150,6 +154,7 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
     let lastExecutionTime = state.lastExecutionTime;
 
     let virtualOrderDeltaTimesCrossed = 0;
+    let swapCount = 1;
     let nextSaleRateDeltaIndex = state.virtualOrderDeltas.findIndex(
       srd => srd.time > lastExecutionTime,
     );
@@ -200,6 +205,7 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
           nextSqrtRatio,
         );
 
+        swapCount++;
         fullRangePoolState = quote.stateAfter;
       } else if (amount0 > 0n || amount1 > 0n) {
         const [amount, isToken1] =
@@ -207,6 +213,7 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
 
         const quote = quoteFullRangePool(amount, isToken1, fullRangePoolState);
 
+        swapCount++;
         fullRangePoolState = quote.stateAfter;
 
         nextSqrtRatio = quote.stateAfter.sqrtRatio;
@@ -231,10 +238,11 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
       calculatedAmount: finalQuote.calculatedAmount,
       consumedAmount: finalQuote.consumedAmount,
       gasConsumed:
-        finalQuote.gasConsumed +
+        swapCount * BASE_GAS_COST_OF_ONE_TWAMM_FULL_RANGE_SWAP +
+        GAS_COST_OF_EXECUTING_VIRTUAL_ORDERS +
         virtualOrderDeltaTimesCrossed * GAS_COST_OF_ONE_VIRTUAL_ORDER_DELTA +
-        Number(currentTime > state.lastExecutionTime) *
-          GAS_COST_OF_EXECUTING_VIRTUAL_ORDERS,
+        (Math.log(currentTime - state.lastExecutionTime) / LOG_BASE_256) *
+          GAS_COST_OF_ONE_EXTRA_BITMAP_SLOAD,
       skipAhead: finalQuote.skipAhead,
     };
   }

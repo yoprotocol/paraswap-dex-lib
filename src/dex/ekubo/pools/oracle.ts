@@ -2,7 +2,7 @@ import { DeepReadonly } from 'ts-essentials';
 import { FullRangePool, FullRangePoolState } from './full-range';
 import { Quote } from './iface';
 
-const GAS_COST_OF_UPDATING_ORACLE_SNAPSHOT = 10_000;
+const BASE_GAS_COST_OF_ONE_ORACLE_SWAP = 32_000;
 
 export class OraclePool extends FullRangePool {
   protected override _quote(
@@ -18,9 +18,7 @@ export class OraclePool extends FullRangePool {
       sqrtRatioLimit,
     );
 
-    if (fullRangeQuote.calculatedAmount !== 0n) {
-      fullRangeQuote.gasConsumed += GAS_COST_OF_UPDATING_ORACLE_SNAPSHOT;
-    }
+    fullRangeQuote.gasConsumed = BASE_GAS_COST_OF_ONE_ORACLE_SWAP;
 
     return fullRangeQuote;
   }

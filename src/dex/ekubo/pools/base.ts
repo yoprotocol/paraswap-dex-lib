@@ -14,9 +14,10 @@ import {
 } from './math/tick';
 import { parseSwappedEvent, PoolKey, SwappedEvent } from './utils';
 
-const GAS_COST_OF_ONE_CL_SWAP = 24_000;
-const GAS_COST_OF_ONE_INITIALIZED_TICK_CROSSED = 9_400;
-const GAS_COST_OF_ONE_TICK_SPACING_CROSSED = 4_000; // TODO
+const GAS_COST_OF_ONE_CL_SWAP = 24_500;
+const GAS_COST_OF_ONE_INITIALIZED_TICK_CROSSED = 13_700;
+export const GAS_COST_OF_ONE_EXTRA_BITMAP_SLOAD = 2_000;
+const GAS_COST_OF_ONE_EXTRA_MATH_ROUND = 5_750;
 
 export class BasePool extends EkuboPool<BasePoolState.Object> {
   private readonly dataFetcher;
@@ -179,8 +180,12 @@ export class BasePool extends EkuboPool<BasePoolState.Object> {
       calculatedAmount,
       gasConsumed:
         GAS_COST_OF_ONE_CL_SWAP +
-        initializedTicksCrossed * GAS_COST_OF_ONE_INITIALIZED_TICK_CROSSED +
-        tickSpacingsCrossed * GAS_COST_OF_ONE_TICK_SPACING_CROSSED,
+        initializedTicksCrossed *
+          (GAS_COST_OF_ONE_EXTRA_MATH_ROUND +
+            GAS_COST_OF_ONE_INITIALIZED_TICK_CROSSED) +
+        (tickSpacingsCrossed / 256) *
+          (GAS_COST_OF_ONE_EXTRA_MATH_ROUND +
+            GAS_COST_OF_ONE_EXTRA_BITMAP_SLOAD),
       skipAhead:
         initializedTicksCrossed === 0
           ? 0

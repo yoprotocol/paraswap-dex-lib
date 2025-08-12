@@ -9,7 +9,7 @@ import { computeStep, isPriceIncreasing } from './math/swap';
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from './math/tick';
 import { parseSwappedEvent, PoolKey, SwappedEvent } from './utils';
 
-const GAS_COST_OF_ONE_FULL_RANGE_SWAP = 20_000;
+const GAS_COST_OF_ONE_FULL_RANGE_SWAP = 20_700;
 
 export class FullRangePool extends EkuboPool<FullRangePoolState.Object> {
   private readonly dataFetcher;
