@@ -2,8 +2,10 @@ import { Network } from '../../constants';
 import { DexConfigMap } from '../../types';
 import { DexParams } from './types';
 
-export const EkuboConfig: DexConfigMap<DexParams> = {
-  Ekubo: {
+export const DEX_KEY = 'Ekubo';
+
+export const EKUBO_CONFIG: DexConfigMap<DexParams> = {
+  [DEX_KEY]: {
     [Network.MAINNET]: {
       apiUrl: 'https://eth-mainnet-api.ekubo.org',
       core: '0xe0e0e08A6A4b9Dc7bD67BCB7aadE5cF48157d444',

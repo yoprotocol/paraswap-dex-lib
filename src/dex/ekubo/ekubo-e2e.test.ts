@@ -9,15 +9,14 @@ import { generateConfig } from '../../config';
 import { ContractMethod, Network, SwapSide } from '../../constants';
 import { PoolConfig, PoolKey } from './pools/utils';
 import { BI_POWS } from '../../bigint-constants';
-import { EkuboConfig } from './config';
+import { DEX_KEY, EKUBO_CONFIG } from './config';
 
-const DEX_KEY = 'Ekubo';
 const NETWORK = Network.MAINNET;
 
 describe('Ekubo E2E', () => {
   describe('Mainnet', () => {
     const tokens = Tokens[NETWORK];
-    const config = EkuboConfig[DEX_KEY][NETWORK];
+    const config = EKUBO_CONFIG[DEX_KEY][NETWORK];
 
     const tokensToTest = [
       {

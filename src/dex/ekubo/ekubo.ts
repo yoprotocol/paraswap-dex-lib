@@ -16,7 +16,7 @@ import {
 } from '../../types';
 import { getBigIntPow, getDexKeysWithNetwork } from '../../utils';
 import { SimpleExchange } from '../simple-exchange';
-import { EkuboConfig } from './config';
+import { EKUBO_CONFIG } from './config';
 import { BasePool, BasePoolState } from './pools/base';
 import {
   BasicQuoteData,
@@ -124,7 +124,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
   public readonly isFeeOnTransferSupported = false;
 
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
-    getDexKeysWithNetwork(EkuboConfig);
+    getDexKeysWithNetwork(EKUBO_CONFIG);
 
   private poolKeys: PoolKey[] | null = [];
   private readonly pools: Map<string, IEkuboPool> = new Map();
@@ -153,7 +153,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
     super(dexHelper, dexKey);
 
     this.logger = dexHelper.getLogger(dexKey);
-    this.config = EkuboConfig[dexKey][network];
+    this.config = EKUBO_CONFIG[dexKey][network];
 
     this.contracts = contractsFromDexParams(this.config, dexHelper.provider);
     this.routerIface = new Interface(RouterABI);

@@ -16,6 +16,7 @@ import { Ekubo } from './ekubo';
 import { isPriceIncreasing } from './pools/math/swap';
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from './pools/math/tick';
 import { EkuboData } from './types';
+import { DEX_KEY } from './config';
 
 function getReaderCalldata(
   quoterAddress: string,
@@ -143,7 +144,6 @@ async function testPricingOnNetwork(
 }
 
 describe('Ekubo', function () {
-  const dexKey = 'Ekubo';
   let blockNumber: number;
   let ekubo: Ekubo;
 
@@ -186,7 +186,7 @@ describe('Ekubo', function () {
 
     beforeAll(async () => {
       blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-      ekubo = new Ekubo(network, dexKey, dexHelper);
+      ekubo = new Ekubo(network, DEX_KEY, dexHelper);
       if (ekubo.initializePricing) {
         await ekubo.initializePricing(blockNumber);
       }
@@ -196,7 +196,7 @@ describe('Ekubo', function () {
       await testPricingOnNetwork(
         ekubo,
         network,
-        dexKey,
+        DEX_KEY,
         blockNumber,
         srcTokenSymbol,
         destTokenSymbol,
@@ -209,7 +209,7 @@ describe('Ekubo', function () {
       await testPricingOnNetwork(
         ekubo,
         network,
-        dexKey,
+        DEX_KEY,
         blockNumber,
         srcTokenSymbol,
         destTokenSymbol,
@@ -221,7 +221,7 @@ describe('Ekubo', function () {
     it('getTopPoolsForToken', async function () {
       // We have to check without calling initializePricing, because
       // pool-tracker is not calling that function
-      const newEkubo = new Ekubo(network, dexKey, dexHelper);
+      const newEkubo = new Ekubo(network, DEX_KEY, dexHelper);
       if (newEkubo.updatePoolState) {
         await newEkubo.updatePoolState();
       }
@@ -235,7 +235,7 @@ describe('Ekubo', function () {
         checkPoolsLiquidity(
           poolLiquidity,
           Tokens[network][srcTokenSymbol].address,
-          dexKey,
+          DEX_KEY,
         );
       }
     });

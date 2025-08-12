@@ -5,7 +5,7 @@ dotenv.config();
 import { testEventSubscriber } from '../../../tests/utils-events';
 import { Network } from '../../constants';
 import { DummyDexHelper } from '../../dex-helper/index';
-import { EkuboConfig } from './config';
+import { DEX_KEY, EKUBO_CONFIG } from './config';
 import {
   BasePool,
   BasePoolState,
@@ -117,14 +117,12 @@ function stateCompare(actual: unknown, expected: unknown) {
   );
 }
 
-const dexKey = 'Ekubo';
-
 describe('Ekubo Mainnet', function () {
   const network = Network.MAINNET;
   const dexHelper = new DummyDexHelper(network);
-  const config = EkuboConfig[dexKey][network];
+  const config = EKUBO_CONFIG[DEX_KEY][network];
   const contracts = contractsFromDexParams(config, dexHelper.provider);
-  const logger = dexHelper.getLogger(dexKey);
+  const logger = dexHelper.getLogger(DEX_KEY);
 
   const baseEthUsdcPoolKey = new PoolKey(
     0n,
@@ -156,7 +154,7 @@ describe('Ekubo Mainnet', function () {
     new PoolConfig(1998, 18446744073709552n, BigInt(config.mevResist)),
   );
 
-  const commonArgs = [dexKey, dexHelper, logger, contracts] as const;
+  const commonArgs = [DEX_KEY, dexHelper, logger, contracts] as const;
 
   function newPool<S>(
     constructor: {
@@ -217,7 +215,7 @@ describe('Ekubo Mainnet', function () {
                 pool.addressesSubscribed,
                 async (blockNumber: number) => pool.generateState(blockNumber),
                 blockNumber,
-                `${dexKey}_${pool.key.string_id}`,
+                `${DEX_KEY}_${pool.key.string_id}`,
                 dexHelper.provider,
                 stateCompare,
               );
