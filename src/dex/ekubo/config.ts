@@ -12,7 +12,7 @@ export const EkuboConfig: DexConfigMap<DexParams> = {
       mevResist: '0x553a2EFc570c9e104942cEC6aC1c18118e54C091',
       dataFetcher: '0x91cB8a896cAF5e60b1F7C4818730543f849B408c',
       twammDataFetcher: '0x8C4C1F26A9F26372b88f418A939044773eE5dC01',
-      router: '0x9995855C00494d039aB6792f18e368e530DFf931',
+      router: '0x0c95eA31e4501B3b879Cae2232087E478D44aEAB',
     },
   },
 };
