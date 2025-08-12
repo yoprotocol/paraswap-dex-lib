@@ -16,6 +16,7 @@ import { OraclePool } from './pools/oracle';
 import { TwammPool } from './pools/twamm';
 import { PoolConfig, PoolKey } from './pools/utils';
 import { contractsFromDexParams } from './utils';
+import { MevResistPool } from './pools/mev-resist';
 
 jest.setTimeout(50 * 1000);
 
@@ -143,6 +144,18 @@ describe('Ekubo Mainnet', function () {
     new PoolConfig(0, 9223372036854775n, BigInt(config.twamm)),
   );
 
+  const mevResistEkuboEbUsdPoolKey = new PoolKey(
+    0x04c46e830bb56ce22735d5d8fc9cb90309317d0fn,
+    0x09fd37d9aa613789c517e76df1c53aece2b60df4n,
+    new PoolConfig(500, 1844674407370955n, BigInt(config.mevResist)),
+  );
+
+  const mevResistEkuboBoldPoolKey = new PoolKey(
+    0x04c46e830bb56ce22735d5d8fc9cb90309317d0fn,
+    0x6440f144b7e50d6a8439336510312d2f54beb01dn,
+    new PoolConfig(1998, 18446744073709552n, BigInt(config.mevResist)),
+  );
+
   const commonArgs = [dexKey, dexHelper, logger, contracts] as const;
 
   function newPool<S>(
@@ -164,10 +177,19 @@ describe('Ekubo Mainnet', function () {
         [newPool(OraclePool, oracleUsdcPoolKey)],
         22063200, // https://etherscan.io/tx/0xe689fb49b9627504d014a9b4663a6f0ec38ebfdc5642e261bb4bcd229d58206d
       ],
-      // Here we implicitly also test the VirtualOrdersExecuted event
       [
         [newPool(TwammPool, twammEthUsdcPoolKey)],
         22281995, // https://etherscan.io/tx/0xc3ad7616eb5c9aeef51a49e2ce9c945778387f3110f9f66916f38db4d551ac05
+      ],
+      [
+        [newPool(MevResistPool, mevResistEkuboEbUsdPoolKey)],
+        23121533, // https://etherscan.io/tx/0xeab6fdc4a5ced72796e515f340fa0399746f882dffdfac8c3c8a8a12f1292e76
+      ],
+    ],
+    PositionUpdated: [
+      [
+        [newPool(MevResistPool, mevResistEkuboBoldPoolKey)],
+        23120060, // https://etherscan.io/tx/0x9d40d6bea754800683783caf42dca60acfcc8e0e5abecd9f3658ba71f7e08935
       ],
     ],
     OrderUpdated: [
