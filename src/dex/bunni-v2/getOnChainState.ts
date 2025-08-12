@@ -637,6 +637,7 @@ export async function updatePoolTotalValueLocked(
   const pools = Object.values(poolStates);
 
   const getVaultBalance = (vaultAddress: string, reserve: bigint): bigint => {
+    if (vaultAddress === NULL_ADDRESS) return 0n;
     const vault = vaultStates[vaultAddress];
     return (reserve * vault.sharePrice) / BI_POWS[Number(vault.vaultDecimals)];
   };
