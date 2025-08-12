@@ -117,7 +117,7 @@ function stateCompare(actual: unknown, expected: unknown) {
   );
 }
 
-describe('Ekubo Mainnet', function () {
+describe('Mainnet', function () {
   const network = Network.MAINNET;
   const dexHelper = new DummyDexHelper(network);
   const config = EKUBO_CONFIG[DEX_KEY][network];
@@ -209,7 +209,7 @@ describe('Ekubo Mainnet', function () {
       for (const [pools, blockNumber] of eventDetails) {
         describe(blockNumber, () => {
           for (const pool of pools) {
-            it(`State of ${pool.key.string_id}`, async function () {
+            test(`State of ${pool.key.string_id}`, async function () {
               await testEventSubscriber(
                 pool,
                 pool.addressesSubscribed,
