@@ -669,8 +669,9 @@ export async function updatePoolTotalValueLocked(
   pools.forEach((poolState, i) => {
     const liquidity0 = poolUsdBalances[i * 2];
     const liquidity1 = poolUsdBalances[i * 2 + 1];
-    poolState.totalValueLockedUSD =
-      bigIntify(liquidity0) + bigIntify(liquidity1);
+    poolState.totalValueLockedUSD = bigIntify(
+      Math.round(liquidity0 + liquidity1),
+    );
   });
 }
 
