@@ -277,9 +277,8 @@ export async function testE2E(
     stateOverride,
   };
   // simulate the transaction with overrides
-  const simulation = await tenderlySimulator.simulateTransaction(
-    simulationRequest,
-  );
+  const { transaction, simulation } =
+    await tenderlySimulator.simulateTransaction(simulationRequest);
   // log gas estimation if testing against API
   if (useAPI) {
     const estimatedGas = Number(priceRoute.gasCost);
@@ -297,33 +296,26 @@ export async function testE2E(
   // assert simulation status
   expect(simulation.status).toEqual(true);
 
-  if (options?.assertAmounts) {
-    // fetch simulation details
-    const details = await tenderlySimulator.getSimulatedTransactionDetails(
-      simulation.id,
-    );
-    assert(details, 'Simulation details are not found!');
-    // decode method output
-    const decodedOutput = AUGUSTUS_V6_INTERFACE.decodeFunctionResult(
-      contractMethod,
-      details.transaction.transaction_info.call_trace.output,
-    );
-    // assert min difference
-    const expectedAmount = BigNumber.from(
-      swapSide === SwapSide.SELL ? priceRoute.destAmount : priceRoute.srcAmount,
-    );
-    const simulatedAmount: BigNumber =
-      swapSide === SwapSide.SELL
-        ? decodedOutput.receivedAmount
-        : decodedOutput.spentAmount;
-    const amountDiff = expectedAmount.lt(simulatedAmount)
-      ? expectedAmount.div(simulatedAmount)
-      : simulatedAmount.div(expectedAmount);
-    assert(
-      amountDiff.lte(1),
-      `"expectedAmount" differs from "simulatedAmount": "expectedAmount": ${expectedAmount.toString()}, "simulatedAmount": ${simulatedAmount.toString()}, diff: ${amountDiff.toString()}`,
-    );
-  }
+  // decode method output
+  const decodedOutput = AUGUSTUS_V6_INTERFACE.decodeFunctionResult(
+    contractMethod,
+    transaction.transaction_info.call_trace.output,
+  );
+  // assert min difference
+  const expectedAmount = BigNumber.from(
+    swapSide === SwapSide.SELL ? priceRoute.destAmount : priceRoute.srcAmount,
+  );
+  const simulatedAmount: BigNumber =
+    swapSide === SwapSide.SELL
+      ? decodedOutput.receivedAmount
+      : decodedOutput.spentAmount;
+  const amountDiff = expectedAmount.lt(simulatedAmount)
+    ? expectedAmount.div(simulatedAmount)
+    : simulatedAmount.div(expectedAmount);
+  assert(
+    amountDiff.lte(1),
+    `"expectedAmount" differs from "simulatedAmount": "expectedAmount": ${expectedAmount.toString()}, "simulatedAmount": ${simulatedAmount.toString()}, diff: ${amountDiff.toString()}`,
+  );
 }
 
 const extractAllDexsFromRoute = (bestRoute: OptimalRoute[]) => {
@@ -406,7 +398,7 @@ export async function testPriceRoute(priceRoute: OptimalRate) {
     stateOverride,
   };
   // simulate the transaction with overrides
-  const simulation = await tenderlySimulator.simulateTransaction(
+  const { simulation } = await tenderlySimulator.simulateTransaction(
     simulationRequest,
   );
   // release
@@ -543,7 +535,7 @@ export async function newTestE2E({
       stateOverride,
     };
     // simulate the transaction with overrides
-    const simulation = await tenderlySimulator.simulateTransaction(
+    const { simulation } = await tenderlySimulator.simulateTransaction(
       simulationRequest,
     );
     // log gas estimation
@@ -683,7 +675,7 @@ export const testGasEstimation = async (
     stateOverride,
   };
   // simulate the transaction with overrides
-  const simulation = await tenderlySimulator.simulateTransaction(
+  const { simulation } = await tenderlySimulator.simulateTransaction(
     simulationRequest,
   );
   // compare and assert
