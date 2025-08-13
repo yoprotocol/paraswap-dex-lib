@@ -3,7 +3,7 @@ dotenv.config();
 import _ from 'lodash';
 
 /* eslint-disable no-console */
-import { Provider, StaticJsonRpcProvider } from '@ethersproject/providers';
+import { Provider } from '@ethersproject/providers';
 import {
   IParaSwapSDK,
   LocalParaswapSDK,
@@ -24,7 +24,6 @@ import {
   TransferFeeParams,
   Config,
 } from '../src/types';
-import { generateConfig } from '../src/config';
 import {
   DummyDexHelper,
   DummyLimitOrderProvider,
@@ -37,12 +36,16 @@ import {
 } from '@paraswap/sdk';
 import { OptimalRoute, ParaSwapVersion } from '@paraswap/core';
 import axios from 'axios';
-import { Holders, Tokens } from './constants-e2e';
 import { sleep } from './utils';
 import { assert } from 'ts-essentials';
 import { GenericSwapTransactionBuilder } from '../src/generic-swap-transaction-builder';
 import { DexAdapterService, PricingHelper } from '../src';
 import { v4 as uuid } from 'uuid';
+import AUGUSTUS_V6_ABI from '../src/abi/augustus-v6/ABI.json';
+import { Interface } from '@ethersproject/abi';
+import { BigNumber } from 'ethers';
+
+const AUGUSTUS_V6_INTERFACE = new Interface(AUGUSTUS_V6_ABI);
 
 export const testingEndpoint = process.env.E2E_TEST_ENDPOINT;
 
@@ -163,6 +166,10 @@ class APIParaswapSDK implements IParaSwapSDK {
   }
 }
 
+type TestE2EOptions = {
+  assertAmounts?: boolean;
+};
+
 export async function testE2E(
   srcToken: Token,
   destToken: Token,
@@ -182,6 +189,7 @@ export async function testE2E(
   // could be used for networks without tenderly support
   replaceTenderlyWithEstimateGas?: boolean,
   forceRoute?: AddressOrSymbol[],
+  options?: TestE2EOptions,
 ) {
   const useAPI = testingEndpoint && !poolIdentifiers;
   // The API currently doesn't allow for specifying poolIdentifiers
@@ -288,6 +296,34 @@ export async function testE2E(
   }
   // assert simulation status
   expect(simulation.status).toEqual(true);
+
+  if (options?.assertAmounts) {
+    // fetch simulation details
+    const details = await tenderlySimulator.getSimulatedTransactionDetails(
+      simulation.id,
+    );
+    assert(details, 'Simulation details are not found!');
+    // decode method output
+    const decodedOutput = AUGUSTUS_V6_INTERFACE.decodeFunctionResult(
+      contractMethod,
+      details.transaction.transaction_info.call_trace.output,
+    );
+    // assert min difference
+    const expectedAmount = BigNumber.from(
+      swapSide === SwapSide.SELL ? priceRoute.destAmount : priceRoute.srcAmount,
+    );
+    const simulatedAmount: BigNumber =
+      swapSide === SwapSide.SELL
+        ? decodedOutput.receivedAmount
+        : decodedOutput.spentAmount;
+    const amountDiff = expectedAmount.lt(simulatedAmount)
+      ? expectedAmount.div(simulatedAmount)
+      : simulatedAmount.div(expectedAmount);
+    assert(
+      amountDiff.lte(1),
+      `"expectedAmount" differs from "simulatedAmount": "expectedAmount": ${expectedAmount.toString()}, "simulatedAmount": ${simulatedAmount.toString()}, diff: ${amountDiff.toString()}`,
+    );
+  }
 }
 
 const extractAllDexsFromRoute = (bestRoute: OptimalRoute[]) => {

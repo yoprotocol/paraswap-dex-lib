@@ -74,6 +74,7 @@ interface SimulatedTransactionCall {
   intrinsic_gas: number;
   storage_address: string;
   input: string;
+  output: string;
   storage_slot: string[] | undefined;
   calls: SimulatedTransactionCall[] | null;
 }
