@@ -1,10 +1,9 @@
-import _ from 'lodash';
 import { DeepReadonly, DeepWritable } from 'ts-essentials';
 import { IDexHelper } from '../../../dex-helper/idex-helper';
 import { Logger } from '../../../types';
 import { BasicQuoteData, EkuboContracts } from '../types';
-import { EkuboPool, NamedEventHandlers, PoolKeyed, Quote } from './iface';
-import { floatSqrtRatioToFixed } from './math/price';
+import { EkuboPool, NamedEventHandlers, PoolKeyed, Quote } from './pool';
+import { floatSqrtRatioToFixed } from './math/sqrt-ratio';
 import { computeStep, isPriceIncreasing } from './math/swap';
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from './math/tick';
 import { parseSwappedEvent, PoolKey, SwappedEvent } from './utils';
@@ -141,7 +140,9 @@ export namespace FullRangePoolState {
       return null;
     }
 
-    const clonedState = _.cloneDeep(oldState) as DeepWritable<typeof oldState>;
+    const clonedState = structuredClone(oldState) as DeepWritable<
+      typeof oldState
+    >;
 
     clonedState.liquidity += liquidityDelta;
 

@@ -1,10 +1,9 @@
-import _ from 'lodash';
 import { DeepReadonly, DeepWritable } from 'ts-essentials';
 import { IDexHelper } from '../../../dex-helper/idex-helper';
 import { Logger } from '../../../types';
 import { BasicQuoteData, EkuboContracts } from '../types';
-import { EkuboPool, NamedEventHandlers, PoolKeyed, Quote } from './iface';
-import { floatSqrtRatioToFixed } from './math/price';
+import { EkuboPool, NamedEventHandlers, PoolKeyed, Quote } from './pool';
+import { floatSqrtRatioToFixed } from './math/sqrt-ratio';
 import { computeStep, isPriceIncreasing } from './math/swap';
 import {
   approximateNumberOfTickSpacingsCrossed,
@@ -278,7 +277,7 @@ export namespace BasePoolState {
   ): Object {
     const sortedTicks = oldState.sortedTicks;
 
-    const clonedTicks = _.cloneDeep(sortedTicks) as DeepWritable<
+    const clonedTicks = structuredClone(sortedTicks) as DeepWritable<
       typeof sortedTicks
     >;
 
@@ -304,7 +303,9 @@ export namespace BasePoolState {
       return null;
     }
 
-    const clonedState = _.cloneDeep(oldState) as DeepWritable<typeof oldState>;
+    const clonedState = structuredClone(oldState) as DeepWritable<
+      typeof oldState
+    >;
 
     updateTick(clonedState, lowTick, liquidityDelta, false, false);
     updateTick(clonedState, highTick, liquidityDelta, true, false);
@@ -351,7 +352,7 @@ export namespace BasePoolState {
 
     state.activeTickIndex = activeTickIndex;
 
-    BasePoolState.updateTick(
+    updateTick(
       state,
       state.checkedTicksBounds[0],
       liquidityDeltaMin,
@@ -359,7 +360,7 @@ export namespace BasePoolState {
       true,
     );
 
-    BasePoolState.updateTick(
+    updateTick(
       state,
       state.checkedTicksBounds[1],
       currentLiquidity,
@@ -368,7 +369,7 @@ export namespace BasePoolState {
     );
   }
 
-  export function updateTick(
+  function updateTick(
     state: Object,
     updatedTickNumber: number,
     liquidityDelta: bigint,

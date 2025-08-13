@@ -1,6 +1,6 @@
 import { DeepReadonly } from 'ts-essentials';
 import { FullRangePool, FullRangePoolState } from './full-range';
-import { Quote } from './iface';
+import { PoolKeyed, Quote } from './pool';
 
 const BASE_GAS_COST_OF_ONE_ORACLE_SWAP = 32_000;
 
@@ -11,7 +11,18 @@ export class OraclePool extends FullRangePool {
     state: DeepReadonly<FullRangePoolState.Object>,
     sqrtRatioLimit?: bigint,
   ): Quote {
-    const fullRangeQuote = super._quote(
+    return this.quoteOracle(amount, isToken1, state, sqrtRatioLimit);
+  }
+
+  public quoteOracle(
+    this: PoolKeyed,
+    amount: bigint,
+    isToken1: boolean,
+    state: DeepReadonly<FullRangePoolState.Object>,
+    sqrtRatioLimit?: bigint,
+  ): Quote {
+    const fullRangeQuote = FullRangePool.prototype.quoteFullRange.call(
+      this,
       amount,
       isToken1,
       state,

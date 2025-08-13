@@ -36,9 +36,12 @@ import { hexlify } from 'ethers/lib/utils';
 import { AsyncOrSync, DeepReadonly } from 'ts-essentials';
 import RouterABI from '../../abi/ekubo/router.json';
 import { FullRangePool, FullRangePoolState } from './pools/full-range';
-import { EkuboPool, IEkuboPool } from './pools/iface';
+import { EkuboPool, IEkuboPool } from './pools/pool';
 import { MIN_I256 } from './pools/math/constants';
-import { MAX_SQRT_RATIO_FLOAT, MIN_SQRT_RATIO_FLOAT } from './pools/math/price';
+import {
+  MAX_SQRT_RATIO_FLOAT,
+  MIN_SQRT_RATIO_FLOAT,
+} from './pools/math/sqrt-ratio';
 import { isPriceIncreasing } from './pools/math/swap';
 import { FULL_RANGE_TICK_SPACING } from './pools/math/tick';
 import { OraclePool } from './pools/oracle';

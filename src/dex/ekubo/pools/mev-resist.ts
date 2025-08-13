@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import { DeepReadonly } from 'ts-essentials';
-import { PoolKeyed, Quote } from './iface';
+import { PoolKeyed, Quote } from './pool';
 import { BasePool, BasePoolState } from './base';
 import { approximateSqrtRatioToTick } from './math/tick';
 import { BI_MAX_UINT64 } from '../../../bigint-constants';

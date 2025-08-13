@@ -3,7 +3,9 @@ import { hexZeroPad, hexlify } from 'ethers/lib/utils';
 import { keccak256 } from 'web3-utils';
 import { AbiPoolKey } from '../types';
 import { hexStringTokenPair } from '../utils';
-import { floatSqrtRatioToFixed } from './math/price';
+import { floatSqrtRatioToFixed } from './math/sqrt-ratio';
+
+// TODO Binary search
 
 export class PoolKey {
   private _string_id?: string;

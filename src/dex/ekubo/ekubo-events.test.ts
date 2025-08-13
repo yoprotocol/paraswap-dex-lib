@@ -11,7 +11,7 @@ import {
   BasePoolState,
   findNearestInitializedTickIndex,
 } from './pools/base';
-import { EkuboPool } from './pools/iface';
+import { EkuboPool } from './pools/pool';
 import { OraclePool } from './pools/oracle';
 import { TwammPool } from './pools/twamm';
 import { PoolConfig, PoolKey } from './pools/utils';
@@ -48,9 +48,9 @@ function stateCompare(actual: unknown, expected: unknown) {
     return;
   }
 
-  expect(actual.sqrtRatio).toStrictEqual(expected.sqrtRatio);
-  expect(actual.activeTick).toStrictEqual(expected.activeTick);
-  expect(actual.liquidity).toStrictEqual(expected.liquidity);
+  expect(actual.sqrtRatio).toBe(expected.sqrtRatio);
+  expect(actual.activeTick).toBe(expected.activeTick);
+  expect(actual.liquidity).toBe(expected.liquidity);
 
   /**
    * The checked tick ranges differ between the two states at this point.

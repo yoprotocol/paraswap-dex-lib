@@ -1,12 +1,11 @@
-import _ from 'lodash';
 import { Logger } from 'log4js';
 import { DeepReadonly, DeepWritable } from 'ts-essentials';
 import { IDexHelper } from '../../../dex-helper/idex-helper';
 import { EkuboContracts, TwammQuoteData } from '../types';
 import { FullRangePool, FullRangePoolState } from './full-range';
-import { EkuboPool, NamedEventHandlers, Quote } from './iface';
+import { EkuboPool, NamedEventHandlers, Quote } from './pool';
 import { MAX_U32 } from './math/constants';
-import { floatSqrtRatioToFixed } from './math/price';
+import { floatSqrtRatioToFixed } from './math/sqrt-ratio';
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from './math/tick';
 import { calculateNextSqrtRatio } from './math/twamm/sqrt-ratio';
 import { parseSwappedEvent, PoolKey, SwappedEvent } from './utils';
@@ -310,6 +309,20 @@ export namespace TwammPoolState {
     };
   }
 
+  export function fromSwappedEvent(
+    oldState: DeepReadonly<Object>,
+    ev: SwappedEvent,
+  ): Object {
+    const clonedState = structuredClone(oldState) as DeepWritable<
+      typeof oldState
+    >;
+
+    clonedState.fullRangePoolState.liquidity = ev.liquidityAfter;
+    clonedState.fullRangePoolState.sqrtRatio = ev.sqrtRatioAfter;
+
+    return clonedState;
+  }
+
   export function fromPositionUpdatedEvent(
     oldState: DeepReadonly<Object>,
     liquidityDelta: bigint,
@@ -318,21 +331,11 @@ export namespace TwammPoolState {
       return null;
     }
 
-    const clonedState = _.cloneDeep(oldState) as DeepWritable<typeof oldState>;
+    const clonedState = structuredClone(oldState) as DeepWritable<
+      typeof oldState
+    >;
 
     clonedState.fullRangePoolState.liquidity += liquidityDelta;
-
-    return clonedState;
-  }
-
-  export function fromSwappedEvent(
-    oldState: DeepReadonly<Object>,
-    ev: SwappedEvent,
-  ): Object {
-    const clonedState = _.cloneDeep(oldState) as DeepWritable<typeof oldState>;
-
-    clonedState.fullRangePoolState.liquidity = ev.liquidityAfter;
-    clonedState.fullRangePoolState.sqrtRatio = ev.sqrtRatioAfter;
 
     return clonedState;
   }
@@ -342,7 +345,9 @@ export namespace TwammPoolState {
     ev: VirtualOrdersExecutedEvent,
     timestamp: number,
   ): Object {
-    const clonedState = _.cloneDeep(oldState) as DeepWritable<typeof oldState>;
+    const clonedState = structuredClone(oldState) as DeepWritable<
+      typeof oldState
+    >;
 
     clonedState.lastExecutionTime = timestamp;
     clonedState.token0SaleRate = ev.token0SaleRate;
@@ -371,7 +376,9 @@ export namespace TwammPoolState {
     orderSaleRateDelta: bigint,
     isToken1: boolean,
   ): Object {
-    const clonedState = _.cloneDeep(oldState) as DeepWritable<typeof oldState>;
+    const clonedState = structuredClone(oldState) as DeepWritable<
+      typeof oldState
+    >;
 
     const virtualOrderDeltas = clonedState.virtualOrderDeltas;
     let startIndex = 0;
