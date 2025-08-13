@@ -51,7 +51,7 @@ import { MIN_INITIAL_SHARES } from './lib/Constants';
 
 const POOL_TOTAL_VALUE_LOCKED_UPDATE_TTL = 5 * 60; // 5 minutes
 const VAULT_SHARE_PRICES_UPDATE_TTL = 1 * 60; // 1 minute
-const MIN_TVL_FOR_PRICING = 1_000n; // $1000
+const MIN_USD_TVL_FOR_PRICING = 1_000n; // $1000
 const BUNNI_V2_GAS_COST = 400_000; // https://dashboard.tenderly.co/shared/simulation/d343cb5e-7d7c-45f8-9653-6a7f7f104eed/gas-usage
 
 export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
@@ -97,7 +97,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
   async initializePricing(blockNumber: number) {
     await this.eventPools.initialize(blockNumber);
 
-    if (!this.updateVaultSharePricesTimer) {
+    if (!this.updateVaultSharePricesTimer && this.dexHelper.config.isSlave) {
       try {
         await this.updateVaultSharePrices(blockNumber);
       } catch (error) {
@@ -107,21 +107,22 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         );
       }
 
-      if (this.dexHelper.config.isSlave === true) {
-        this.updateVaultSharePricesTimer = setInterval(async () => {
-          try {
-            await this.updateVaultSharePrices();
-          } catch (error) {
-            this.logger.error(
-              `${this.dexKey}: Failed to update vault share prices:`,
-              error,
-            );
-          }
-        }, VAULT_SHARE_PRICES_UPDATE_TTL * 1000);
-      }
+      this.updateVaultSharePricesTimer = setInterval(async () => {
+        try {
+          await this.updateVaultSharePrices();
+        } catch (error) {
+          this.logger.error(
+            `${this.dexKey}: Failed to update vault share prices:`,
+            error,
+          );
+        }
+      }, VAULT_SHARE_PRICES_UPDATE_TTL * 1000);
     }
 
-    if (!this.updatePoolTotalValueLockedTimer) {
+    if (
+      !this.updatePoolTotalValueLockedTimer &&
+      this.dexHelper.config.isSlave
+    ) {
       try {
         await this.updatePoolTotalValueLocked(blockNumber);
       } catch (error) {
@@ -131,18 +132,16 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
         );
       }
 
-      if (this.dexHelper.config.isSlave === true) {
-        this.updatePoolTotalValueLockedTimer = setInterval(async () => {
-          try {
-            await this.updatePoolTotalValueLocked();
-          } catch (error) {
-            this.logger.error(
-              `${this.dexKey}: Failed to update pool total value locked:`,
-              error,
-            );
-          }
-        }, POOL_TOTAL_VALUE_LOCKED_UPDATE_TTL * 1000);
-      }
+      this.updatePoolTotalValueLockedTimer = setInterval(async () => {
+        try {
+          await this.updatePoolTotalValueLocked();
+        } catch (error) {
+          this.logger.error(
+            `${this.dexKey}: Failed to update pool total value locked:`,
+            error,
+          );
+        }
+      }, POOL_TOTAL_VALUE_LOCKED_UPDATE_TTL * 1000);
     }
   }
 
@@ -214,7 +213,7 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
 
       return (
         pool.totalSupply > MIN_INITIAL_SHARES &&
-        pool.totalValueLockedUSD >= MIN_TVL_FOR_PRICING &&
+        pool.totalValueLockedUSD >= MIN_USD_TVL_FOR_PRICING &&
         ((matchesSrcToken(token0) && matchesDestToken(token1)) ||
           (matchesSrcToken(token1) && matchesDestToken(token0)))
       );
