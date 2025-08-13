@@ -77,9 +77,13 @@ async function testForIntegration(
       checkPoolPrices(poolPrices!, tokenBAmounts, SwapSide.BUY, dexKey);
     });
 
-    it.only('getTopPoolsForToken', async function () {
+    it('getTopPoolsForToken', async function () {
       const dexHelper = new DummyDexHelper(network);
       const idleDao = new IdleDao(network, dexKey, dexHelper);
+
+      if (idleDao.updatePoolState) {
+        await idleDao.updatePoolState();
+      }
 
       const poolLiquidity = await idleDao.getTopPoolsForToken(
         TokenA.address,

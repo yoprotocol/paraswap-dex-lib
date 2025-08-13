@@ -1,4 +1,4 @@
-import { assert } from 'ts-essentials';
+import { assert, AsyncOrSync } from 'ts-essentials';
 import { Interface } from '@ethersproject/abi';
 import {
   Token,
@@ -11,7 +11,12 @@ import {
   NumberAsString,
   DexExchangeParam,
 } from '../../types';
-import { SwapSide, Network, NULL_ADDRESS } from '../../constants';
+import {
+  SwapSide,
+  Network,
+  NULL_ADDRESS,
+  UNLIMITED_USD_LIQUIDITY,
+} from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import { getDexKeysWithNetwork, getBigIntPow } from '../../utils';
 import { Context, IDex } from '../../dex/idex';
@@ -354,26 +359,45 @@ export class IdleDao extends SimpleExchange implements IDex<IdleDaoData> {
     };
   }
 
+  async updatePoolState(): Promise<void> {
+    await this.initializeTokens();
+  }
+
   async getTopPoolsForToken(
     tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
-    await this.initializeTokens();
     const idleTokens: IdleToken[] = getPoolsByTokenAddress(
       this.network,
       tokenAddress,
     );
 
     if (idleTokens.length > 0) {
-      return idleTokens
-        .map((idleToken: IdleToken) => ({
-          // liquidity is infinite, tokens are minted when swapping for idle tokens
-          liquidityUSD: 1e8,
-          exchange: this.dexKey,
-          address: idleToken.cdoAddress,
-          connectorTokens: [getTokenFromIdleToken(idleToken)],
-        }))
-        .slice(0, limit);
+      const poolMap: Record<string, PoolLiquidity> = {};
+
+      idleTokens.forEach((idleToken: IdleToken) => {
+        const cdoAddress = idleToken.cdoAddress;
+        const token = getTokenFromIdleToken(idleToken);
+
+        if (!poolMap[cdoAddress]) {
+          poolMap[cdoAddress] = {
+            exchange: this.dexKey,
+            address: cdoAddress,
+            connectorTokens: [token],
+            liquidityUSD: UNLIMITED_USD_LIQUIDITY,
+          };
+        } else {
+          if (
+            !poolMap[cdoAddress].connectorTokens.some(
+              t => t.address.toLowerCase() === token.address.toLowerCase(),
+            )
+          ) {
+            poolMap[cdoAddress].connectorTokens.push(token);
+          }
+        }
+      });
+
+      return Object.values(poolMap);
     }
 
     const idleToken = getIdleTokenByAddress(
@@ -384,7 +408,6 @@ export class IdleDao extends SimpleExchange implements IDex<IdleDaoData> {
     if (idleToken) {
       return [
         {
-          liquidityUSD: 1e9,
           exchange: this.dexKey,
           address: idleToken.cdoAddress,
           connectorTokens: [
@@ -393,6 +416,7 @@ export class IdleDao extends SimpleExchange implements IDex<IdleDaoData> {
               decimals: idleToken.decimals,
             },
           ],
+          liquidityUSD: UNLIMITED_USD_LIQUIDITY,
         },
       ];
     }
