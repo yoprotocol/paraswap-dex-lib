@@ -1,6 +1,4 @@
 import { Interface } from '@ethersproject/abi';
-import { DeepReadonly } from 'ts-essentials';
-import { Contract } from 'web3-eth-contract';
 import {
   Token,
   Address,
@@ -16,9 +14,8 @@ import {
   ExchangeTxInfo,
   PreprocessTransactionOptions,
 } from '../../types';
-import { SwapSide, Network, NULL_ADDRESS } from '../../constants';
+import { SwapSide, Network } from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
-import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import {
   getDexKeysWithNetwork,
   getBigIntPow,
@@ -46,167 +43,13 @@ import {
   ParaSwapVersion,
 } from '@paraswap/core';
 import { BigNumber } from 'ethers';
+import { MakerPsmEventPool } from './maker-psm-event-pool';
+import { AsyncOrSync } from 'ts-essentials';
 
-const vatInterface = new Interface(VatABI);
 const psmInterface = new Interface(PsmABI);
 const WAD = BI_POWS[18];
 
-const bigIntify = (b: any) => BigInt(b.toString());
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
-
-async function getOnChainState(
-  multiContract: Contract,
-  poolConfigs: PoolConfig[],
-  vatAddress: Address,
-  blockNumber: number | 'latest',
-): Promise<PoolState[]> {
-  const callData = poolConfigs
-    .map(c => [
-      {
-        target: c.psmAddress,
-        callData: psmInterface.encodeFunctionData('tin', []),
-      },
-      {
-        target: c.psmAddress,
-        callData: psmInterface.encodeFunctionData('tout', []),
-      },
-      {
-        target: vatAddress,
-        callData: vatInterface.encodeFunctionData('ilks', [c.identifier]),
-      },
-    ])
-    .flat();
-
-  const res = await multiContract.methods
-    .aggregate(callData)
-    .call({}, blockNumber);
-
-  let i = 0;
-  return poolConfigs.map(c => {
-    const tin = bigIntify(
-      psmInterface.decodeFunctionResult('tin', res.returnData[i++])[0],
-    );
-    const tout = bigIntify(
-      psmInterface.decodeFunctionResult('tout', res.returnData[i++])[0],
-    );
-    const ilks = vatInterface.decodeFunctionResult('ilks', res.returnData[i++]);
-    const Art = bigIntify(ilks.Art);
-    const line = bigIntify(ilks.line);
-    const rate = bigIntify(ilks.rate);
-    return {
-      tin,
-      tout,
-      Art,
-      line,
-      rate,
-    };
-  });
-}
-
-export class MakerPsmEventPool extends StatefulEventSubscriber<PoolState> {
-  handlers: {
-    [event: string]: (event: any, pool: PoolState, log: Log) => PoolState;
-  } = {};
-
-  logDecoder: (log: Log) => any;
-
-  to18ConversionFactor: bigint;
-  bytes32Tout =
-    '0x746f757400000000000000000000000000000000000000000000000000000000'; // bytes32('tout')
-  bytes32Tin =
-    '0x74696e0000000000000000000000000000000000000000000000000000000000'; // bytes32('tin')
-
-  constructor(
-    parentName: string,
-    protected network: number,
-    protected dexHelper: IDexHelper,
-    logger: Logger,
-    public poolConfig: PoolConfig,
-    protected vatAddress: Address,
-  ) {
-    super(parentName, poolConfig.identifier, dexHelper, logger);
-
-    this.logDecoder = (log: Log) => psmInterface.parseLog(log);
-    this.addressesSubscribed = [poolConfig.psmAddress];
-    this.to18ConversionFactor = getBigIntPow(18 - poolConfig.gem.decimals);
-
-    // Add handlers
-    this.handlers['File'] = this.handleFile.bind(this);
-    this.handlers['SellGem'] = this.handleSellGem.bind(this);
-    this.handlers['BuyGem'] = this.handleBuyGem.bind(this);
-  }
-
-  handleFile(event: any, pool: PoolState, log: Log): PoolState {
-    if (event.args.what === this.bytes32Tin) {
-      pool.tin = bigIntify(event.args.data);
-    } else if (event.args.what === this.bytes32Tout) {
-      pool.tout = bigIntify(event.args.data);
-    }
-    return pool;
-  }
-
-  handleSellGem(event: any, pool: PoolState, log: Log): PoolState {
-    pool.Art += bigIntify(event.args.value) * this.to18ConversionFactor;
-    return pool;
-  }
-
-  handleBuyGem(event: any, pool: PoolState, log: Log): PoolState {
-    pool.Art -= bigIntify(event.args.value) * this.to18ConversionFactor;
-    return pool;
-  }
-
-  getIdentifier(): string {
-    return `${this.parentName}_${this.poolConfig.psmAddress}`.toLowerCase();
-  }
-
-  /**
-   * The function is called every time any of the subscribed
-   * addresses release log. The function accepts the current
-   * state, updates the state according to the log, and returns
-   * the updated state.
-   * @param state - Current state of event subscriber
-   * @param log - Log released by one of the subscribed addresses
-   * @returns Updates state of the event subscriber after the log
-   */
-  protected processLog(
-    state: DeepReadonly<PoolState>,
-    log: Readonly<Log>,
-  ): DeepReadonly<PoolState> | null {
-    try {
-      const event = this.logDecoder(log);
-      if (event.name in this.handlers) {
-        return this.handlers[event.name](event, state, log);
-      }
-      return state;
-    } catch (e) {
-      this.logger.error(
-        `Error_${this.parentName}_processLog could not parse the log with topic ${log.topics}:`,
-        e,
-      );
-      return null;
-    }
-  }
-
-  /**
-   * The function generates state using on-chain calls. This
-   * function is called to regenerate state if the event based
-   * system fails to fetch events and the local state is no
-   * more correct.
-   * @param blockNumber - Blocknumber for which the state should
-   * should be generated
-   * @returns state of the event subscriber at blocknumber
-   */
-  async generateState(blockNumber: number): Promise<Readonly<PoolState>> {
-    return (
-      await getOnChainState(
-        this.dexHelper.multiContract,
-        [this.poolConfig],
-        this.vatAddress,
-        blockNumber,
-      )
-    )[0];
-  }
-}
 
 export class MakerPsm
   extends SimpleExchange
@@ -253,18 +96,21 @@ export class MakerPsm
   }
 
   async initializePricing(blockNumber: number) {
-    const poolStates = await getOnChainState(
-      this.dexHelper.multiContract,
-      this.poolConfigs,
-      this.vatAddress,
-      blockNumber,
-    );
+    await this.initializeEventPools(blockNumber);
+  }
+
+  private async initializeEventPools(
+    blockNumber: number,
+    subscribe = true,
+  ): Promise<void> {
     await Promise.all(
-      this.poolConfigs.map(async (p, i) => {
-        const eventPool = this.eventPools[p.gem.address.toLowerCase()];
-        await eventPool.initialize(blockNumber, {
-          state: poolStates[i],
-        });
+      Object.values(this.eventPools).map(async eventPool => {
+        if (subscribe) {
+          await eventPool.initialize(blockNumber);
+        } else {
+          const state = await eventPool.generateState(blockNumber);
+          eventPool.setState(state, blockNumber);
+        }
       }),
     );
   }
@@ -674,19 +520,29 @@ export class MakerPsm
     return { params: payload, encoder, networkFee: '0' };
   }
 
+  async updatePoolState(): Promise<void> {
+    const blockNumber = await this.dexHelper.web3Provider.eth.getBlockNumber();
+
+    await this.initializeEventPools(blockNumber, false);
+  }
+
   // Returns list of top pools based on liquidity. Max
   // limit number pools should be returned.
   async getTopPoolsForToken(
     tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
-    const _tokenAddress = tokenAddress.toLowerCase();
+    const token = tokenAddress.toLowerCase();
+
+    const isDAI = this.dai.address.toLowerCase() === token;
+
     // Liquidity depends on the swapping side hence we simply use the min
     // Its always in terms of stable coin hence liquidityUSD = liquidity
-    const minLiq = (poolState: PoolState) => {
+    const minLiq = (poolState: PoolState): number => {
       const buyLimit = poolState.Art;
       const sellLimit =
         (poolState.line - poolState.Art * poolState.rate) / poolState.rate;
+
       return (
         2 *
         parseInt(
@@ -697,26 +553,29 @@ export class MakerPsm
       );
     };
 
-    const isDai = _tokenAddress === this.dai.address;
-
-    const validPoolConfigs = isDai
+    const validPoolConfigs = isDAI
       ? this.poolConfigs
-      : this.eventPools[_tokenAddress]
-      ? [this.eventPools[_tokenAddress].poolConfig]
+      : this.eventPools[token]
+      ? [this.eventPools[token].poolConfig]
       : [];
+
     if (!validPoolConfigs.length) return [];
 
-    const poolStates = await getOnChainState(
-      this.dexHelper.multiContract,
-      validPoolConfigs,
-      this.vatAddress,
-      'latest',
-    );
-    return validPoolConfigs.map((p, i) => ({
-      exchange: this.dexKey,
-      address: p.psmAddress,
-      liquidityUSD: minLiq(poolStates[i]),
-      connectorTokens: [isDai ? p.gem : this.dai],
-    }));
+    const pools = validPoolConfigs.map(config => {
+      const eventPoolKey = config.gem.address.toLowerCase();
+      const eventPool = this.eventPools[eventPoolKey];
+      const state = eventPool?.getStaleState();
+
+      if (!state) return null;
+
+      return {
+        exchange: this.dexKey,
+        address: config.psmAddress,
+        liquidityUSD: minLiq(state),
+        connectorTokens: [isDAI ? config.gem : this.dai],
+      };
+    });
+
+    return pools.filter(p => !!p).slice(0, limit);
   }
 }

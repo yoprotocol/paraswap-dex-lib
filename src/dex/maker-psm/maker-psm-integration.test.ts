@@ -88,6 +88,10 @@ describe('MakerPsm', function () {
     const dexHelper = new DummyDexHelper(network);
     const makerPsm = new MakerPsm(network, dexKey, dexHelper);
 
+    if (makerPsm.updatePoolState) {
+      await makerPsm.updatePoolState();
+    }
+
     const poolLiquidity = await makerPsm.getTopPoolsForToken(
       TokenA.address,
       10,
