@@ -231,6 +231,8 @@ export type PoolPrices<T> = {
   poolAddresses?: Array<Address>;
 };
 
+export type ConnectorToken = Token & { liquidityUSD?: number };
+
 export type PoolLiquidity = {
   poolIdentifier?: string;
   exchange: string;
@@ -239,7 +241,7 @@ export type PoolLiquidity = {
   // but in case available liquidity is different,
   // then PoolLiquidity.liquidityUSD is the liquidity for token => connectorToken swaps
   // and PoolLiquidity.connectorTokens.liquidityUSD is the liquidity for connectorToken => token swaps
-  connectorTokens: (Token & { liquidityUSD?: number })[];
+  connectorTokens: ConnectorToken[];
   liquidityUSD: number;
 };
 
