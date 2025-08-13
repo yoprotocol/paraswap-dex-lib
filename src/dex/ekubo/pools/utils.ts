@@ -5,8 +5,6 @@ import { AbiPoolKey } from '../types';
 import { hexStringTokenPair } from '../utils';
 import { floatSqrtRatioToFixed } from './math/sqrt-ratio';
 
-// TODO Binary search
-
 export class PoolKey {
   private _string_id?: string;
   private _num_id?: bigint;

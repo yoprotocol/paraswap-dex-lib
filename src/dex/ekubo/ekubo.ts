@@ -276,9 +276,9 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
             blockNumber,
           );
 
-          if (isExactOut && quote.consumedAmount !== inputAmount) {
+          if (quote.consumedAmount !== inputAmount) {
             this.logger.debug(
-              `Pool ${poolId} doesn't have enough liquidity to support exact-out swap of ${amount} ${
+              `Pool ${poolId} doesn't have enough liquidity to support swap of ${amount} ${
                 amountToken.symbol ?? amountToken.address
               }`,
             );

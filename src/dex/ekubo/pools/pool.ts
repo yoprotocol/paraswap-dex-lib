@@ -131,8 +131,6 @@ export abstract class EkuboPool<State>
 
     const quote = this._quote(amount, isToken1, state);
 
-    // TODO Check consumed amount
-
     if (quote.calculatedAmount === 0n) {
       quote.gasConsumed = 0;
     } else {
