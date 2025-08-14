@@ -295,26 +295,25 @@ export async function testE2E(
   }
   // assert simulation status
   expect(simulation.status).toEqual(true);
-  if (options?.assertAmounts) {
-    // decode method output
-    const decodedOutput = AUGUSTUS_V6_INTERFACE.decodeFunctionResult(
-      contractMethod,
-      transaction.transaction_info.call_trace.output,
-    );
-    // assert min difference
-    const expectedAmount = BigNumber.from(
-      swapSide === SwapSide.SELL ? priceRoute.destAmount : priceRoute.srcAmount,
-    );
-    const simulatedAmount: BigNumber =
-      swapSide === SwapSide.SELL
-        ? decodedOutput.receivedAmount
-        : decodedOutput.spentAmount;
-    const amountDiff = expectedAmount.lt(simulatedAmount)
-      ? expectedAmount.div(simulatedAmount)
-      : simulatedAmount.div(expectedAmount);
 
-    expect(amountDiff.toNumber()).toBeLessThanOrEqual(1);
-  }
+  // decode method output
+  const decodedOutput = AUGUSTUS_V6_INTERFACE.decodeFunctionResult(
+    contractMethod,
+    transaction.transaction_info.call_trace.output,
+  );
+  // assert min difference
+  const expectedAmount = BigNumber.from(
+    swapSide === SwapSide.SELL ? priceRoute.destAmount : priceRoute.srcAmount,
+  );
+  const simulatedAmount: BigNumber =
+    swapSide === SwapSide.SELL
+      ? decodedOutput.receivedAmount
+      : decodedOutput.spentAmount;
+  const amountDiff = expectedAmount.lt(simulatedAmount)
+    ? expectedAmount.div(simulatedAmount)
+    : simulatedAmount.div(expectedAmount);
+
+  expect(amountDiff.toNumber()).toBeLessThanOrEqual(1);
 }
 
 const extractAllDexsFromRoute = (bestRoute: OptimalRoute[]) => {
