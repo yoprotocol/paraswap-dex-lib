@@ -28,7 +28,6 @@ import { IDexHelper } from '../dex-helper';
 import { SwapSide } from '../constants';
 import { Adapters } from '../types';
 import { Lido } from './lido/lido';
-import { Excalibur } from './uniswap-v2/excalibur';
 import { MakerPsm } from './maker-psm/maker-psm';
 import { KyberDmm } from './kyberdmm/kyberdmm';
 import { GMX } from './gmx/gmx';
@@ -74,7 +73,6 @@ import { PancakeswapV3 } from './pancakeswap-v3/pancakeswap-v3';
 import { Algebra } from './algebra/algebra';
 import { AngleTransmuter } from './angle-transmuter/angle-transmuter';
 import { AngleStakedStable } from './angle-staked-stable/angle-staked-stable';
-import { QuickPerps } from './quick-perps/quick-perps';
 import { NomiswapV2 } from './uniswap-v2/nomiswap-v2';
 import { Dexalot } from './dexalot/dexalot';
 import { Bebop } from './bebop/bebop';
@@ -89,6 +87,7 @@ import { AaveV3Stata } from './aave-v3-stata/aave-v3-stata';
 import { AaveV3StataV2 } from './aave-v3-stata-v2/aave-v3-stata-v2';
 import { OSwap } from './oswap/oswap';
 import { FluidDex } from './fluid-dex/fluid-dex';
+import { FluidDexLite } from './fluid-dex-lite/fluid-dex-lite';
 import { ConcentratorArusd } from './concentrator-arusd/concentrator-arusd';
 import { FxProtocolRusd } from './fx-protocol-rusd/fx-protocol-rusd';
 import { AaveGsm } from './aave-gsm/aave-gsm';
@@ -105,12 +104,16 @@ import { UsualMUsd0 } from './usual/usual-m-usd0';
 import { MWrappedM } from './usual/m-wrapped-m';
 import { WrappedMM } from './usual/wrapped-m-m';
 import { UsualPP } from './usual-pp/usual-pp';
+import { AlgebraIntegral } from './algebra-integral/algebra-integral';
 import { Ekubo } from './ekubo/ekubo';
 import { UniswapV4 } from './uniswap-v4/uniswap-v4';
 import { PancakeSwapV2 } from './uniswap-v2/pancake-swap-v2';
 import { uniswapV4Merge } from './uniswap-v4/optimizer';
 import { MiroMigrator } from './miro-migrator/miro-migrator';
+import { AaveV3PtRollOver } from './aave-v3-pt-roll-over/aave-v3-pt-roll-over';
 import { RingV2 } from './uniswap-v2/ring-v2';
+import { UsdcTransmuter } from './usdc-transmuter/usdc-transmuter';
+import { BunniV2 } from './bunni-v2/bunni-v2';
 
 const LegacyDexes = [
   CurveV2,
@@ -143,13 +146,13 @@ const Dexes = [
   UniswapV3,
   UniswapV4,
   Algebra,
+  AlgebraIntegral,
   PancakeSwapV2,
   PancakeswapV3,
   VelodromeSlipstream,
   BiSwap,
   MDEX,
   Dfyn,
-  Excalibur,
   AaveV2,
   AaveV3,
   IdleDao,
@@ -187,7 +190,6 @@ const Dexes = [
   SwaapV2,
   AngleTransmuter,
   AngleStakedStable,
-  QuickPerps,
   NomiswapV2,
   SolidlyV3,
   Wombat,
@@ -207,6 +209,7 @@ const Dexes = [
   SkyConverter,
   Cables,
   FluidDex,
+  FluidDexLite,
   UsualMWrappedM,
   MWrappedM,
   WrappedMM,
@@ -214,7 +217,10 @@ const Dexes = [
   UsualPP,
   Ekubo,
   MiroMigrator,
+  AaveV3PtRollOver,
   RingV2,
+  UsdcTransmuter,
+  BunniV2,
 ];
 
 export type LegacyDexConstructor = new (dexHelper: IDexHelper) => IDexTxBuilder<
