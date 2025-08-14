@@ -57,14 +57,11 @@ export class MiroMigratorEventPool extends StatefulEventSubscriber<PoolState> {
   async generateState(
     blockNumber: number | 'latest' = 'latest',
   ): Promise<DeepReadonly<PoolState>> {
-    // TEMP: return mock balacne for testing purposes while MiroMigrator has no VLR token
-    return { balance: 1000000000000000000000000n };
+    const balance = await this.vlrContract.balanceOf(this.migratorAddress, {
+      blockTag: blockNumber,
+    });
 
-    // const balance = await this.vlrContract.balanceOf(this.migratorAddress, {
-    //   blockTag: blockNumber,
-    // });
-
-    // return { balance: balance.toBigInt() };
+    return { balance: balance.toBigInt() };
   }
 
   async getOrGenerateState(blockNumber: number): Promise<PoolState> {
