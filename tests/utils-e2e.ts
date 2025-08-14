@@ -22,7 +22,6 @@ import {
   Address,
   Token,
   TransferFeeParams,
-  Config,
 } from '../src/types';
 import {
   DummyDexHelper,
@@ -312,8 +311,10 @@ export async function testE2E(
   const amountDiff = expectedAmount.lt(simulatedAmount)
     ? expectedAmount.div(simulatedAmount)
     : simulatedAmount.div(expectedAmount);
+  const paraswapShare = decodedOutput.paraswapShare?.toNumber() ?? 0;
 
   expect(amountDiff.toNumber()).toBeLessThanOrEqual(1);
+  expect(paraswapShare).toEqual(0);
 }
 
 const extractAllDexsFromRoute = (bestRoute: OptimalRoute[]) => {
