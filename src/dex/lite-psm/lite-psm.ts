@@ -516,14 +516,10 @@ export class LitePsm
       const buyLimit = poolState.gemBalance * getBigIntPow(18 - decimals);
       const sellLimit = poolState.daiBalance;
 
-      return (
-        2 *
-        parseInt(
-          (
-            (buyLimit > sellLimit ? sellLimit : buyLimit) / BI_POWS[18]
-          ).toString(),
-        )
-      );
+      const minLimit = buyLimit < sellLimit ? buyLimit : sellLimit;
+
+      const liquidity = Number(minLimit) / Number(BI_POWS[18]);
+      return liquidity > 0 ? 2 * liquidity : 0;
     };
 
     const validPoolConfigs: PoolConfig[] = isDAIorUSDS

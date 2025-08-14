@@ -543,14 +543,10 @@ export class MakerPsm
       const sellLimit =
         (poolState.line - poolState.Art * poolState.rate) / poolState.rate;
 
-      return (
-        2 *
-        parseInt(
-          (
-            (buyLimit > sellLimit ? sellLimit : buyLimit) / BI_POWS[18]
-          ).toString(),
-        )
-      );
+      const minLimit = buyLimit < sellLimit ? buyLimit : sellLimit;
+
+      const liquidity = Number(minLimit) / Number(BI_POWS[18]);
+      return liquidity > 0 ? 2 * liquidity : 0;
     };
 
     const validPoolConfigs = isDAI
