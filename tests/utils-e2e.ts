@@ -242,22 +242,6 @@ export async function testE2E(
       amountToFund,
     );
   }
-  // TEMP: add VLR token override for MiroMigrator contract
-  if (
-    destToken.address.toLowerCase() ===
-    '0x4e107a0000db66f0e9fd2039288bf811dd1f9c74'
-  ) {
-    await tenderlySimulator.addTokenBalanceOverride(
-      stateOverride,
-      network,
-      destToken.address,
-      network === Network.MAINNET
-        ? '0x4aBD869acbF927048434d137A3331D006Db54416'
-        : '0xb6208dE484dFb4Fd54148b1B9a745E9dF29519Ee',
-      1000000000000000000000000n,
-    );
-  }
-
   // build swap transaction
   const _slippage = slippage !== undefined ? BigInt(slippage) : 100n;
   const minMaxAmount =
