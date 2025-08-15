@@ -239,20 +239,17 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     // pricing logic requires block timestamp
     let blockTimestamp: bigint | undefined;
 
-    // if block is the chain head, use the chain head timestamp
-    if (blockNumber === this.dexHelper.blockManager.getLatestBlockNumber()) {
-      const activeChainHead = this.dexHelper.blockManager.getActiveChainHead();
-      if (activeChainHead)
-        blockTimestamp = bigIntify(activeChainHead.timestamp);
-    }
+    const latestBlockNumber =
+      this.dexHelper.blockManager.getLatestBlockNumber();
+    const activeChainHead = this.dexHelper.blockManager.getActiveChainHead();
 
-    // otherwise, get the block timestamp via RPC call
-    if (blockTimestamp === undefined) {
+    if (activeChainHead && blockNumber === latestBlockNumber) {
+      blockTimestamp = bigIntify(activeChainHead.timestamp);
+    } else {
       this.logger.warn(
-        `${this.dexKey}-${this.network}: falling back to RPC for block timestamp for ${blockNumber}`,
+        `${this.dexKey}-${this.network}: pricing block number ${blockNumber} differs from latest block number ${latestBlockNumber}`,
       );
-      const block = await this.dexHelper.provider.getBlock(blockNumber);
-      blockTimestamp = bigIntify(block.timestamp);
+      blockTimestamp = bigIntify(Math.floor(Date.now() / 1000));
     }
 
     let pricesPromises;
