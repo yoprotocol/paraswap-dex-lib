@@ -246,9 +246,6 @@ export class BunniV2 extends SimpleExchange implements IDex<BunniV2Data> {
     if (activeChainHead && blockNumber === latestBlockNumber) {
       blockTimestamp = bigIntify(activeChainHead.timestamp);
     } else {
-      this.logger.warn(
-        `${this.dexKey}-${this.network}: pricing block number ${blockNumber} differs from latest block number ${latestBlockNumber}`,
-      );
       blockTimestamp = bigIntify(Math.floor(Date.now() / 1000));
     }
 
