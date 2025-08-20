@@ -52,6 +52,7 @@ export function balancerV1Merge(or: UnoptimizedRate): UnoptimizedRate {
           maxPrice: MAX_UINT,
         });
         newBalancer.poolAddresses!.push(s.poolAddresses![0]);
+        newBalancer.poolIdentifiers!.push(s.poolIdentifiers![0]);
       } else {
         optimizedSwap.push(_s);
       }

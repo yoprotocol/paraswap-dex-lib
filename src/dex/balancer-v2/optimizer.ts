@@ -48,6 +48,7 @@ export function balancerV2Merge(or: UnoptimizedRate): UnoptimizedRate {
           amount: side === SwapSide.SELL ? s.srcAmount : s.destAmount,
         });
         newBalancers[exchangeKey].poolAddresses!.push(s.poolAddresses![0]);
+        newBalancers[exchangeKey].poolIdentifiers!.push(s.poolIdentifiers![0]);
       } else {
         optimizedSwap.push(s);
       }
