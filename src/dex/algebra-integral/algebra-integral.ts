@@ -51,10 +51,11 @@ import {
 } from '../../lib/tokens/types';
 import { extractReturnAmountPosition } from '../../executor/utils';
 import { AlgebraIntegralFactory } from './algebra-integral-factory';
-
-const ALGEBRA_QUOTE_GASLIMIT = 2_000_000;
-const ALGEBRA_GAS_COST = 180_000;
-const ALGEBRA_EFFICIENCY_FACTOR = 3;
+import {
+  ALGEBRA_GAS_COST,
+  ALGEBRA_QUOTE_GASLIMIT,
+  ALGEBRA_EFFICIENCY_FACTOR,
+} from './constants';
 
 export class AlgebraIntegral
   extends SimpleExchange
@@ -71,7 +72,7 @@ export class AlgebraIntegral
 
   logger: Logger;
 
-  private uniswapMulti: Contract;
+  uniswapMulti: Contract;
 
   constructor(
     readonly network: Network,
