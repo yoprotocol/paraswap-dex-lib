@@ -24,6 +24,7 @@ export function balancerV1Merge(or: UnoptimizedRate): UnoptimizedRate {
       destAmount: '0',
       percent: 0,
       poolAddresses: [],
+      poolIdentifiers: [],
       data: {
         swaps: new Array<BalancerSwap>(),
         gasUSD: '0',
