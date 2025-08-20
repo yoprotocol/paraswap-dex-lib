@@ -254,17 +254,68 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     });
 
     const prices = await Promise.all(pricesPromises);
-    // this.logger.info(
-    //   `getPricesVolume_${from.address}_${to.address}_${reqId}: ${
-    //     Date.now() - getPricesVolumeStart
-    //   } ms`,
-    // );
     return prices.filter(res => res !== null);
   }
 
   // Returns estimated gas cost of calldata for this DEX in multiSwap
   getCalldataGasCost(poolPrices: PoolPrices<UniswapV4Data>): number | number[] {
-    return CALLDATA_GAS_COST.DEX_NO_PAYLOAD;
+    if (poolPrices.data.path.length === 1) {
+      return (
+        CALLDATA_GAS_COST.DEX_OVERHEAD +
+        // poolKey -> currency0
+        CALLDATA_GAS_COST.ADDRESS +
+        // poolKey -> currency1
+        CALLDATA_GAS_COST.ADDRESS +
+        // poolKey -> fee
+        CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+        // poolKey -> tickSpacing
+        CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+        //poolKey -> hooks
+        CALLDATA_GAS_COST.ADDRESS +
+        // zeroForOne
+        CALLDATA_GAS_COST.BOOL +
+        // amountIn
+        CALLDATA_GAS_COST.AMOUNT +
+        // amountOutMinimum
+        CALLDATA_GAS_COST.AMOUNT +
+        // hookData
+        CALLDATA_GAS_COST.ZERO_BYTE
+      );
+    } else {
+      return (
+        CALLDATA_GAS_COST.DEX_OVERHEAD +
+        // currency
+        CALLDATA_GAS_COST.ADDRESS +
+        // amount
+        CALLDATA_GAS_COST.AMOUNT +
+        // minAmount
+        CALLDATA_GAS_COST.AMOUNT +
+        //
+        poolPrices.data.path.reduce(step => {
+          return (
+            CALLDATA_GAS_COST.DEX_OVERHEAD +
+            // poolKey -> currency0
+            CALLDATA_GAS_COST.ADDRESS +
+            // poolKey -> currency1
+            CALLDATA_GAS_COST.ADDRESS +
+            // poolKey -> fee
+            CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+            // poolKey -> tickSpacing
+            CALLDATA_GAS_COST.wordNonZeroBytes(3) +
+            //poolKey -> hooks
+            CALLDATA_GAS_COST.ADDRESS +
+            // zeroForOne
+            CALLDATA_GAS_COST.BOOL +
+            // amountIn
+            CALLDATA_GAS_COST.AMOUNT +
+            // amountOutMinimum
+            CALLDATA_GAS_COST.AMOUNT +
+            // hookData
+            CALLDATA_GAS_COST.ZERO_BYTE
+          );
+        }, 0)
+      );
+    }
   }
 
   getAdapters(side: SwapSide): { name: string; index: number }[] | null {
