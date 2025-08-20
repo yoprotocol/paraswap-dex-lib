@@ -624,12 +624,14 @@ export class UniswapV3
             ],
             exchange: pool.poolAddress,
           },
-          poolIdentifier: this.getPoolIdentifier(
-            pool.token0,
-            pool.token1,
-            pool.feeCode,
-            pool.tickSpacing,
-          ),
+          poolIdentifiers: [
+            this.getPoolIdentifier(
+              pool.token0,
+              pool.token1,
+              pool.feeCode,
+              pool.tickSpacing,
+            ),
+          ],
           exchange: this.dexKey,
           gasCost: prices.map(p => (p === 0n ? 0 : UNISWAPV3_QUOTE_GASLIMIT)),
           poolAddresses: [pool.poolAddress],

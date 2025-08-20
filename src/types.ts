@@ -229,6 +229,7 @@ export type PoolPrices<T> = {
   gasCostL2?: number | number[];
   calldataGasCost?: number | number[];
   poolAddresses?: Array<Address>;
+  poolIdentifiers?: Array<string>;
 };
 
 export type PoolLiquidity = {
