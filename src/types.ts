@@ -223,7 +223,6 @@ export type PoolPrices<T> = {
   prices: bigint[];
   unit: bigint;
   data: T;
-  poolIdentifier?: string;
   exchange: string;
   gasCost: number | number[];
   gasCostL2?: number | number[];
