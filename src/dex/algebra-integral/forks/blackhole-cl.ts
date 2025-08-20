@@ -7,6 +7,7 @@ import {
   SRC_TOKEN_DEX_TRANSFERS,
 } from '../../../constants';
 import { BytesLike, Interface } from 'ethers/lib/utils';
+import { BigNumber } from 'ethers';
 import {
   BalanceRequest,
   getBalances,
@@ -32,6 +33,8 @@ import {
 } from '../../../lib/tokens/types';
 import { AlgebraIntegral } from '../algebra-integral';
 import { ALGEBRA_GAS_COST, ALGEBRA_QUOTE_GASLIMIT } from '../constants';
+import { MultiResult } from '../../../lib/multi-wrapper';
+import { generalDecoder } from '../../../lib/decoders';
 
 export class BlackholeCL extends AlgebraIntegral {
   constructor(
@@ -109,12 +112,6 @@ export class BlackholeCL extends AlgebraIntegral {
         : poolAmounts,
     );
 
-    const quoteFunctionName = isSELL
-      ? 'quoteExactInputSingle'
-      : 'quoteExactOutputSingle';
-    const amountField = isSELL ? 'amountIn' : 'amount';
-    const decodeField = isSELL ? 'amountOut' : 'amountIn';
-
     const calldata = pools.flatMap((pool, poolIndex) => {
       const amountsForPool = amountsWithFeePerPool[poolIndex];
 
@@ -123,41 +120,34 @@ export class BlackholeCL extends AlgebraIntegral {
         .map(amount => ({
           target: this.config.quoter,
           gasLimit: ALGEBRA_QUOTE_GASLIMIT,
-          callData: this.quoterIface.encodeFunctionData(quoteFunctionName, [
-            {
-              tokenIn: from.address,
-              tokenOut: to.address,
-              deployer: pool.deployer,
-              [amountField]: amount.toString(),
-              limitSqrtPrice: 0,
-            },
-          ]),
+          callData: this.quoterIface.encodeFunctionData(
+            isSELL ? 'quoteExactInputSingle' : 'quoteExactOutputSingle',
+            [[from.address, to.address, pool.deployer, amount.toString(), 0]],
+          ),
+          decodeFunction: (result: MultiResult<BytesLike> | BytesLike) => {
+            const parsed = generalDecoder(
+              result,
+              ['uint256', 'uint256'], // amountOut, amountIn
+              [0n, 0n],
+              result => result.map((amount: BigNumber) => amount.toBigInt()),
+            );
+
+            return isSELL ? parsed[0] : parsed[1];
+          },
         }));
     });
 
-    const data = await this.uniswapMulti.methods.multicall(calldata).call();
-
-    let totalGasCost = 0;
-    let totalSuccessFullSwaps = 0;
-
-    const decode = (j: number): bigint => {
-      const { success, gasUsed, returnData } = data.returnData[j];
-      if (!success) return 0n;
-
-      const decoded = this.quoterIface.decodeFunctionResult(
-        quoteFunctionName,
-        returnData,
-      );
-      totalGasCost += +gasUsed;
-      totalSuccessFullSwaps++;
-
-      return BigInt(decoded[decodeField].toString());
-    };
+    const data = await this.dexHelper.multiWrapper.tryAggregate(
+      false,
+      calldata,
+    );
 
     let i = 0;
     const result = pools.map((pool, poolIndex) => {
       const amountsForPool = amountsWithFeePerPool[poolIndex];
-      const _rates = amountsForPool.map(a => (a === 0n ? 0n : decode(i++)));
+      const _rates = amountsForPool.map(a =>
+        a === 0n ? 0n : (data[i++].returnData as bigint),
+      );
 
       const _ratesWithFee = _isDestTokenTransferFeeToBeExchanged
         ? applyTransferFee(
