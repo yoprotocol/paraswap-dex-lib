@@ -100,6 +100,22 @@ function testForNetwork(
                 transferFees as any,
               );
             });
+            it(`${tokenBSymbol} -> ${tokenASymbol}`, async () => {
+              await testE2E(
+                tokens[tokenBSymbol],
+                tokens[tokenASymbol],
+                holders[tokenBSymbol],
+                side === SwapSide.SELL ? tokenBAmount : tokenAAmount,
+                side,
+                dexKey,
+                contractMethod,
+                network,
+                provider,
+                undefined,
+                undefined,
+                transferFees as any,
+              );
+            });
           });
         });
       }),
@@ -188,25 +204,6 @@ describe('BlackholeCL E2E', () => {
   describe('Avalanche', () => {
     const network = Network.AVALANCHE;
 
-    describe('WAVAX -> USDC', () => {
-      const tokenASymbol: string = 'WAVAX';
-      const tokenBSymbol: string = 'USDC';
-
-      const tokenAAmount: string = '1000000000000000000';
-      const tokenBAmount: string = '1000000';
-      const nativeTokenAmount = '1000000000000000000';
-
-      testForNetwork(
-        network,
-        dexKey,
-        tokenASymbol,
-        tokenBSymbol,
-        tokenAAmount,
-        tokenBAmount,
-        nativeTokenAmount,
-      );
-    });
-
     describe('USDC -> WAVAX', () => {
       const tokenASymbol: string = 'USDC';
       const tokenBSymbol: string = 'WAVAX';
@@ -230,7 +227,7 @@ describe('BlackholeCL E2E', () => {
       const tokenASymbol: string = 'BTCb';
       const tokenBSymbol: string = 'WAVAX';
 
-      const tokenAAmount: string = '1000000';
+      const tokenAAmount: string = '100000000';
       const tokenBAmount: string = '1000000000000000000';
       const nativeTokenAmount = '1000000000000000000';
 
