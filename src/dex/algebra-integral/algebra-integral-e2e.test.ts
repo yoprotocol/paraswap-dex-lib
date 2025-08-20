@@ -230,7 +230,7 @@ describe('BlackholeCL E2E', () => {
       const tokenASymbol: string = 'BTCb';
       const tokenBSymbol: string = 'WAVAX';
 
-      const tokenAAmount: string = '3000000000000000000';
+      const tokenAAmount: string = '1000000';
       const tokenBAmount: string = '1000000000000000000';
       const nativeTokenAmount = '1000000000000000000';
 

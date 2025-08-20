@@ -3,16 +3,16 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { Interface, Result } from '@ethersproject/abi';
-import { DummyDexHelper } from '../../dex-helper/index';
-import { Network, SwapSide } from '../../constants';
-import { BI_POWS } from '../../bigint-constants';
-import { AlgebraIntegral } from './algebra-integral';
+import { DummyDexHelper } from '../../../dex-helper/index';
+import { Network, SwapSide } from '../../../constants';
+import { BI_POWS } from '../../../bigint-constants';
+import { BlackholeCL } from '.././forks/blackhole-cl';
 import {
   checkPoolPrices,
   checkPoolsLiquidity,
   checkConstantPoolPrices,
-} from '../../../tests/utils';
-import { Tokens } from '../../../tests/constants-e2e';
+} from '../../../../tests/utils';
+import { Tokens } from '../../../../tests/constants-e2e';
 import { Address } from '@paraswap/core';
 
 function getReaderCalldata(
@@ -23,15 +23,18 @@ function getReaderCalldata(
   tokenIn: Address,
   tokenOut: Address,
   deployer: Address,
+  side: SwapSide,
 ) {
   return amounts.map(amount => ({
     target: exchangeAddress,
     callData: readerIface.encodeFunctionData(funcName, [
-      tokenIn,
-      tokenOut,
-      deployer,
-      amount,
-      0n,
+      {
+        tokenIn,
+        tokenOut,
+        deployer,
+        [side === SwapSide.SELL ? 'amountIn' : 'amount']: amount,
+        limitSqrtPrice: 0n,
+      },
     ]),
   }));
 }
@@ -48,7 +51,7 @@ function decodeReaderResult(
 }
 
 async function checkOnChainPricing(
-  algebraIntegral: AlgebraIntegral,
+  blackholeCL: BlackholeCL,
   funcName: string,
   blockNumber: number,
   prices: bigint[],
@@ -56,10 +59,11 @@ async function checkOnChainPricing(
   tokenOut: Address,
   deployer: Address,
   amounts: bigint[],
+  side: SwapSide,
 ) {
-  const exchangeAddress = algebraIntegral.config.quoter;
+  const exchangeAddress = blackholeCL.config.quoter;
 
-  const readerIface = algebraIntegral.quoterIface;
+  const readerIface = blackholeCL.quoterIface;
 
   const readerCallData = getReaderCalldata(
     exchangeAddress,
@@ -69,9 +73,10 @@ async function checkOnChainPricing(
     tokenIn,
     tokenOut,
     deployer,
+    side,
   );
   const readerResult = (
-    await algebraIntegral.dexHelper.multiContract.methods
+    await blackholeCL.dexHelper.multiContract.methods
       .aggregate(readerCallData)
       .call({}, blockNumber)
   ).returnData;
@@ -84,7 +89,7 @@ async function checkOnChainPricing(
 }
 
 async function testPricingOnNetwork(
-  algebraIntegral: AlgebraIntegral,
+  blackholeCL: BlackholeCL,
   network: Network,
   dexKey: string,
   blockNumber: number,
@@ -96,7 +101,7 @@ async function testPricingOnNetwork(
 ) {
   const networkTokens = Tokens[network];
 
-  const pools = await algebraIntegral.getPoolIdentifiers(
+  const pools = await blackholeCL.getPoolIdentifiers(
     networkTokens[srcTokenSymbol],
     networkTokens[destTokenSymbol],
     side,
@@ -109,7 +114,7 @@ async function testPricingOnNetwork(
   console.log('POOLS', pools);
   expect(pools.length).toBeGreaterThan(0);
 
-  const poolPrices = await algebraIntegral.getPricesVolume(
+  const poolPrices = await blackholeCL.getPricesVolume(
     networkTokens[srcTokenSymbol],
     networkTokens[destTokenSymbol],
     amounts,
@@ -123,7 +128,7 @@ async function testPricingOnNetwork(
   );
 
   expect(poolPrices).not.toBeNull();
-  if (algebraIntegral.hasConstantPriceLargeAmounts) {
+  if (blackholeCL.hasConstantPriceLargeAmounts) {
     checkConstantPoolPrices(poolPrices!, amounts, dexKey);
   } else {
     checkPoolPrices(poolPrices!, amounts, side, dexKey);
@@ -133,7 +138,7 @@ async function testPricingOnNetwork(
 
   // Check if onchain pricing equals to calculated ones
   await checkOnChainPricing(
-    algebraIntegral,
+    blackholeCL,
     funcNameToCheck,
     blockNumber,
     poolPrices![0].prices,
@@ -141,22 +146,23 @@ async function testPricingOnNetwork(
     networkTokens[destTokenSymbol].address,
     '0x0000000000000000000000000000000000000000',
     amounts,
+    side,
   );
 }
 
-describe('QuickSwapV4', function () {
-  const dexKey = 'QuickSwapV4';
+describe('BlackholeCL', function () {
+  const dexKey = 'BlackholeCL';
   let blockNumber: number;
-  let algebra: AlgebraIntegral;
+  let blackholeCL: BlackholeCL;
 
-  describe('Polygon', () => {
-    const network = Network.POLYGON;
+  describe('Avalanche', () => {
+    const network = Network.AVALANCHE;
     const dexHelper = new DummyDexHelper(network);
 
     const tokens = Tokens[network];
 
-    const srcTokenSymbol = 'USDCn';
-    const destTokenSymbol = 'WMATIC';
+    const srcTokenSymbol = 'WAVAX';
+    const destTokenSymbol = 'USDC';
 
     const amountsForSell = [
       0n,
@@ -168,8 +174,8 @@ describe('QuickSwapV4', function () {
       6n * BI_POWS[tokens[srcTokenSymbol].decimals],
       7n * BI_POWS[tokens[srcTokenSymbol].decimals],
       8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      8n * BI_POWS[tokens[srcTokenSymbol].decimals],
+      9n * BI_POWS[tokens[srcTokenSymbol].decimals],
+      10n * BI_POWS[tokens[srcTokenSymbol].decimals],
     ];
 
     const amountsForBuy = [
@@ -188,15 +194,15 @@ describe('QuickSwapV4', function () {
 
     beforeAll(async () => {
       blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-      algebra = new AlgebraIntegral(network, dexKey, dexHelper);
-      if (algebra.initializePricing) {
-        await algebra.initializePricing(blockNumber);
+      blackholeCL = new BlackholeCL(network, dexKey, dexHelper);
+      if (blackholeCL.initializePricing) {
+        await blackholeCL.initializePricing(blockNumber);
       }
     });
 
     it('getPoolIdentifiers and getPricesVolume SELL', async function () {
       await testPricingOnNetwork(
-        algebra,
+        blackholeCL,
         network,
         dexKey,
         blockNumber,
@@ -210,7 +216,7 @@ describe('QuickSwapV4', function () {
 
     it('getPoolIdentifiers and getPricesVolume BUY', async function () {
       await testPricingOnNetwork(
-        algebra,
+        blackholeCL,
         network,
         dexKey,
         blockNumber,
@@ -223,109 +229,14 @@ describe('QuickSwapV4', function () {
     });
 
     it('getTopPoolsForToken', async function () {
-      // We have to check without calling initializePricing, because
-      // pool-tracker is not calling that function
-      const newAlgebra = new AlgebraIntegral(network, dexKey, dexHelper);
-      const poolLiquidity = await newAlgebra.getTopPoolsForToken(
+      const newBlackholeCL = new BlackholeCL(network, dexKey, dexHelper);
+      const poolLiquidity = await newBlackholeCL.getTopPoolsForToken(
         tokens[srcTokenSymbol].address,
         10,
       );
       console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
 
-      if (!newAlgebra.hasConstantPriceLargeAmounts) {
-        checkPoolsLiquidity(
-          poolLiquidity,
-          Tokens[network][srcTokenSymbol].address,
-          dexKey,
-        );
-      }
-    });
-  });
-
-  describe('Base', () => {
-    const network = Network.BASE;
-    const dexHelper = new DummyDexHelper(network);
-
-    const tokens = Tokens[network];
-
-    const srcTokenSymbol = 'USDC';
-    const destTokenSymbol = 'WETH';
-
-    const amountsForSell = [
-      0n,
-      1n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      2n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      3n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      4n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      5n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      6n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      7n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      8n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      9n * BI_POWS[tokens[srcTokenSymbol].decimals],
-      10n * BI_POWS[tokens[srcTokenSymbol].decimals],
-    ];
-
-    const amountsForBuy = [
-      0n,
-      (1n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (2n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (3n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (4n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (5n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (6n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (7n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (8n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (9n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-      (10n * BI_POWS[tokens[destTokenSymbol].decimals]) / 100n,
-    ];
-
-    beforeAll(async () => {
-      blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-      algebra = new AlgebraIntegral(network, dexKey, dexHelper);
-      if (algebra.initializePricing) {
-        await algebra.initializePricing(blockNumber);
-      }
-    });
-
-    it('getPoolIdentifiers and getPricesVolume SELL', async function () {
-      await testPricingOnNetwork(
-        algebra,
-        network,
-        dexKey,
-        blockNumber,
-        srcTokenSymbol,
-        destTokenSymbol,
-        SwapSide.SELL,
-        amountsForSell,
-        'quoteExactInputSingle',
-      );
-    });
-
-    it('getPoolIdentifiers and getPricesVolume BUY', async function () {
-      await testPricingOnNetwork(
-        algebra,
-        network,
-        dexKey,
-        blockNumber,
-        srcTokenSymbol,
-        destTokenSymbol,
-        SwapSide.BUY,
-        amountsForBuy,
-        'quoteExactOutputSingle',
-      );
-    });
-
-    it('getTopPoolsForToken', async function () {
-      // We have to check without calling initializePricing, because
-      // pool-tracker is not calling that function
-      const newAlgebra = new AlgebraIntegral(network, dexKey, dexHelper);
-      const poolLiquidity = await newAlgebra.getTopPoolsForToken(
-        tokens[srcTokenSymbol].address,
-        10,
-      );
-      console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
-
-      if (!newAlgebra.hasConstantPriceLargeAmounts) {
+      if (!newBlackholeCL.hasConstantPriceLargeAmounts) {
         checkPoolsLiquidity(
           poolLiquidity,
           Tokens[network][srcTokenSymbol].address,
