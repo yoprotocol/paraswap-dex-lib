@@ -43,10 +43,13 @@ function decodeReaderResult(
   results: Result,
   readerIface: Interface,
   funcName: string,
+  side: SwapSide,
 ) {
   return results.map(result => {
     const parsed = readerIface.decodeFunctionResult(funcName, result);
-    return BigInt(parsed[0]._hex);
+    return side === SwapSide.SELL
+      ? BigInt(parsed.amountOut)
+      : BigInt(parsed.amountIn);
   });
 }
 
@@ -82,7 +85,7 @@ async function checkOnChainPricing(
   ).returnData;
 
   const expectedPrices = [0n].concat(
-    decodeReaderResult(readerResult, readerIface, funcName),
+    decodeReaderResult(readerResult, readerIface, funcName, side),
   );
 
   expect(prices).toEqual(expectedPrices);
@@ -120,7 +123,7 @@ async function testPricingOnNetwork(
     amounts,
     side,
     blockNumber,
-    pools,
+    pools.slice(0, 1),
   );
   console.log(
     `${srcTokenSymbol} <> ${destTokenSymbol} Pool Prices: `,
@@ -144,7 +147,7 @@ async function testPricingOnNetwork(
     poolPrices![0].prices,
     networkTokens[srcTokenSymbol].address,
     networkTokens[destTokenSymbol].address,
-    '0x0000000000000000000000000000000000000000',
+    poolPrices![0].data.path[0].deployer,
     amounts,
     side,
   );
