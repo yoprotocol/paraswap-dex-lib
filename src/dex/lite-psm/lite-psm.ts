@@ -253,7 +253,7 @@ export class LitePsm
         poolAddresses: [psm],
         exchange: this.dexKey,
         gasCost: 50000,
-        poolIdentifier,
+        poolIdentifiers: [poolIdentifier],
       },
     ];
   }

@@ -137,7 +137,7 @@ export class StkGHO extends SimpleExchange implements IDex<StkGHOData> {
         poolAddresses: [this.config.stkGHO],
         exchange: this.dexKey,
         gasCost: 100_000,
-        poolIdentifier: `${this.dexKey}`,
+        poolIdentifiers: [`${this.dexKey}`],
       },
     ];
   }

@@ -1032,7 +1032,9 @@ export class CurveV1Factory
               unit: side === SwapSide.SELL ? outputs[0] : 0n,
               data: poolData,
               exchange: this.dexKey,
-              poolIdentifier: pool.poolIdentifier,
+              poolIdentifiers: [
+                this.getPoolIdentifier(pool.address, pool.isMetaPool),
+              ],
               gasCost: POOL_EXCHANGE_GAS_COST,
               poolAddresses: [pool.address],
             };

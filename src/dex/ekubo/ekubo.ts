@@ -274,7 +274,8 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
 
           if (isExactOut && quote.consumedAmount !== inputAmount) {
             this.logger.debug(
-              `Pool ${poolId} doesn't have enough liquidity to support exact-out swap of ${amount} ${amountToken.symbol ?? amountToken.address
+              `Pool ${poolId} doesn't have enough liquidity to support exact-out swap of ${amount} ${
+                amountToken.symbol ?? amountToken.address
               }`,
             );
 
@@ -297,7 +298,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
             isToken1: amountTokenAddress === token1,
             skipAhead: skipAheadMap,
           },
-          poolIdentifier: poolId,
+          poolIdentifiers: [poolId],
           exchange: this.dexKey,
           gasCost: otherQuotes.map(quote => quote.gasConsumed),
         });
@@ -333,7 +334,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
     };
   }
 
-  public async updatePoolState(): Promise<void> { }
+  public async updatePoolState(): Promise<void> {}
 
   public async getTopPoolsForToken(
     tokenAddress: Address,
@@ -461,28 +462,25 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
     tokenB: Token,
     limitPools: string[] | undefined,
   ): IEkuboPool[] {
-    if (typeof limitPools === 'undefined') {
-      const [token0, token1] = convertAndSortTokens(tokenA, tokenB);
+    const [token0, token1] = convertAndSortTokens(tokenA, tokenB);
 
-      return Array.from(
-        this.pools
-          .values()
-          .filter(
-            pool => pool.key.token0 === token0 && pool.key.token1 === token1,
-          ),
-      );
-    }
+    const unfilteredPools =
+      typeof limitPools === 'undefined'
+        ? Array.from(this.pools.values())
+        : limitPools.flatMap(poolId => {
+            const pool = this.pools.get(poolId);
 
-    return limitPools.flatMap(poolId => {
-      const pool = this.pools.get(poolId);
+            if (typeof pool === 'undefined') {
+              this.logger.warn(`Pool ${poolId} requested but not found`);
+              return [];
+            }
 
-      if (typeof pool === 'undefined') {
-        this.logger.warn(`Pool ${poolId} requested but not found`);
-        return [];
-      }
+            return [pool];
+          });
 
-      return [pool];
-    });
+    return unfilteredPools.filter(
+      pool => pool.key.token0 === token0 && pool.key.token1 === token1,
+    );
   }
 
   private async updatePoolMap(blockNumber: number) {
@@ -536,7 +534,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
     ] as const;
 
     function constructAndInitialize<S, P extends EkuboPool<S>>(
-      constructor: { new(...args: [...typeof commonArgs, PoolKey]): P },
+      constructor: { new (...args: [...typeof commonArgs, PoolKey]): P },
       initialState: DeepReadonly<S>,
       poolKey: PoolKey,
     ): P {
@@ -668,7 +666,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
         res =>
           this.supportedExtensions.includes(BigInt(res.extension)) &&
           BigInt(res.core_address) ===
-          BigInt(this.contracts.core.contract.address),
+            BigInt(this.contracts.core.contract.address),
       )
       .map(
         info =>

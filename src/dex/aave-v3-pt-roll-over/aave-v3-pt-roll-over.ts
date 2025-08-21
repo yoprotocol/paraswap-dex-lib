@@ -323,7 +323,7 @@ export class AaveV3PtRollOver
         poolAddresses: [srcMarket.address],
         exchange: this.dexKey,
         gasCost: AAVE_V3_PT_ROLL_OVER_GAS_COST,
-        poolIdentifier: this.getPoolIdentifier(srcToken, destToken),
+        poolIdentifiers: [this.getPoolIdentifier(srcToken, destToken)],
       },
     ];
   }
