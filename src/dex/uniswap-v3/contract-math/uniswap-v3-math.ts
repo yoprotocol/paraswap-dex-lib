@@ -123,15 +123,6 @@ function _priceComputationCycles(
         e instanceof Error &&
         e.message.endsWith(OUT_OF_RANGE_ERROR_POSTFIX)
       ) {
-        logger?.warn(
-          `INVALID_TICK_BIT_MAP_RANGES for ${poolState.pool}, tick: ${
-            state.tick
-          }, ticks: ${Object.keys(poolState.ticks).join(
-            ',',
-          )}, tickBitmap: ${Object.keys(poolState.tickBitmap).join(',')}, ${
-            e.message
-          }`,
-        );
         state.amountSpecifiedRemaining = 0n;
         state.amountCalculated = 0n;
         break;

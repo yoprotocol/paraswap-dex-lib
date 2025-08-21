@@ -177,7 +177,7 @@ export class WstETH extends SimpleExchange implements IDex<WstETHData> {
         poolAddresses: [this.config.wstETHAddress],
         exchange: this.dexKey,
         gasCost: wrap ? 60000 : 70000,
-        poolIdentifier: this.dexKey,
+        poolIdentifiers: [this.dexKey],
       },
     ];
   }
