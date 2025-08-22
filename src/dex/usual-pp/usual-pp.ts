@@ -134,7 +134,7 @@ export class UsualPP extends SimpleExchange implements IDex<UsualPPData> {
         poolAddresses: [this.config.USD0.address],
         exchange: this.dexKey,
         gasCost: 70000,
-        poolIdentifier: this.dexKey,
+        poolIdentifiers: [`${this.dexKey}_${this.config.USD0.address}`],
       },
     ];
   }

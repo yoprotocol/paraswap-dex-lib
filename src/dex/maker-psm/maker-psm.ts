@@ -398,7 +398,7 @@ export class MakerPsm
         poolAddresses: [eventPool.poolConfig.psmAddress],
         exchange: this.dexKey,
         gasCost: 200 * 1000,
-        poolIdentifier,
+        poolIdentifiers: [poolIdentifier],
       },
     ];
   }
