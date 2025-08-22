@@ -761,40 +761,26 @@ describe('Solidly E2E', () => {
         nativeTokenAmount,
       );
     });
+
     describe('Blackhole', () => {
       const dexKey = 'Blackhole';
 
-      describe('simpleSwap', () => {
-        it('TOKEN -> TOKEN', async () => {
-          await testE2E(
-            tokens.BTCb,
-            tokens.WAVAX,
-            holders.WAVAX,
-            '3000000000000000000',
-            SwapSide.SELL,
-            dexKey,
-            ContractMethod.simpleSwap,
+      const tokenASymbol: string = 'BTCb';
+      const tokenBSymbol: string = 'WAVAX';
 
-            network,
-            provider,
-          );
-        });
-      });
-      describe('multiSwap', () => {
-        it('TOKEN -> TOKEN', async () => {
-          await testE2E(
-            tokens.BTCb,
-            tokens.WAVAX,
-            holders.WAVAX,
-            '3000000000000000000',
-            SwapSide.SELL,
-            dexKey,
-            ContractMethod.multiSwap,
-            network,
-            provider,
-          );
-        });
-      });
+      const tokenAAmount: string = '100000000';
+      const tokenBAmount: string = '100000000000000000';
+      const nativeTokenAmount = '100000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+        nativeTokenAmount,
+      );
     });
   });
 
