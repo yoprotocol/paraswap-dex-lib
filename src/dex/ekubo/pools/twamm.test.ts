@@ -16,7 +16,7 @@ describe(TwammPool.prototype.quoteTwamm, () => {
   ): Quote {
     return TwammPool.prototype.quoteTwamm.call(
       {
-        key: new PoolKey(1n, 2n, new PoolConfig(0, 0n, 3n)),
+        key: new PoolKey(1n, 2n, new PoolConfig(3n, 0n, 0)),
       },
       amount,
       isToken1,

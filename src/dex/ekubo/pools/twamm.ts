@@ -47,7 +47,7 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
       {
         [coreAddress]: new NamedEventHandlers(coreIface, {
           PositionUpdated: (args, oldState) => {
-            if (key.num_id !== BigInt(args.poolId)) {
+            if (key.numId !== BigInt(args.poolId)) {
               return null;
             }
 
@@ -87,7 +87,7 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
         [coreAddress]: (data, oldState) => {
           const ev = parseSwappedEvent(data);
 
-          if (key.num_id !== ev.poolId) {
+          if (key.numId !== ev.poolId) {
             return null;
           }
 
@@ -96,7 +96,7 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
         [twammAddress]: (data, oldState, blockHeader) => {
           const ev = parseVirtualOrdersExecutedEvent(data);
 
-          if (key.num_id !== ev.poolId) {
+          if (key.numId !== ev.poolId) {
             return null;
           }
 
@@ -244,6 +244,10 @@ export class TwammPool extends EkuboPool<TwammPoolState.Object> {
           GAS_COST_OF_ONE_EXTRA_BITMAP_SLOAD,
       skipAhead: finalQuote.skipAhead,
     };
+  }
+
+  protected _computeTvl(state: TwammPoolState.Object): [bigint, bigint] {
+    return FullRangePoolState.computeTvl(state.fullRangePoolState);
   }
 }
 

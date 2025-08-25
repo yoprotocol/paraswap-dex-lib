@@ -54,7 +54,7 @@ describe(BasePool.prototype.quoteBase, () => {
   ) {
     return BasePool.prototype.quoteBase.call(
       {
-        key: new PoolKey(0n, 1n, new PoolConfig(tickSpacing, fee, 0n)),
+        key: new PoolKey(0n, 1n, new PoolConfig(0n, fee, tickSpacing)),
       },
       amount,
       isToken1,

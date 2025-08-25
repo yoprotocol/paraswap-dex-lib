@@ -16,7 +16,7 @@ describe(FullRangePool.prototype.quoteFullRange, () => {
   ): Quote {
     return FullRangePool.prototype.quoteFullRange.call(
       {
-        key: new PoolKey(1n, 2n, new PoolConfig(0, fee, 0n)),
+        key: new PoolKey(1n, 2n, new PoolConfig(0n, fee, 0)),
       },
       amount,
       isToken1,
@@ -130,7 +130,7 @@ describe(FullRangePoolState.fromPositionUpdatedEvent, () => {
         },
         1n,
       ),
-    ).toStrictEqual({
+    ).toEqual({
       liquidity: 1n,
       sqrtRatio: TWO_POW_128,
     });

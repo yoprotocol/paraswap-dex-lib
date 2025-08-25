@@ -7,6 +7,7 @@ import { floatSqrtRatioToFixed } from './math/sqrt-ratio';
 import { computeStep, isPriceIncreasing } from './math/swap';
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from './math/tick';
 import { parseSwappedEvent, PoolKey, SwappedEvent } from './utils';
+import { amount0Delta, amount1Delta } from './math/delta';
 
 const GAS_COST_OF_ONE_FULL_RANGE_SWAP = 20_700;
 
@@ -34,7 +35,7 @@ export class FullRangePool extends EkuboPool<FullRangePoolState.Object> {
       {
         [address]: new NamedEventHandlers(iface, {
           PositionUpdated: (args, oldState) => {
-            if (key.num_id !== BigInt(args.poolId)) {
+            if (key.numId !== BigInt(args.poolId)) {
               return null;
             }
 
@@ -49,7 +50,7 @@ export class FullRangePool extends EkuboPool<FullRangePoolState.Object> {
         [address]: data => {
           const ev = parseSwappedEvent(data);
 
-          if (key.num_id !== ev.poolId) {
+          if (key.numId !== ev.poolId) {
             return null;
           }
 
@@ -113,6 +114,10 @@ export class FullRangePool extends EkuboPool<FullRangePoolState.Object> {
       },
     };
   }
+
+  protected _computeTvl(state: FullRangePoolState.Object): [bigint, bigint] {
+    return FullRangePoolState.computeTvl(state);
+  }
 }
 
 export namespace FullRangePoolState {
@@ -154,5 +159,14 @@ export namespace FullRangePoolState {
       liquidity: ev.liquidityAfter,
       sqrtRatio: ev.sqrtRatioAfter,
     };
+  }
+
+  export function computeTvl(state: Object): [bigint, bigint] {
+    const { sqrtRatio, liquidity } = state;
+
+    return [
+      amount0Delta(sqrtRatio, MAX_SQRT_RATIO, liquidity, false),
+      amount1Delta(MIN_SQRT_RATIO, sqrtRatio, liquidity, false),
+    ];
   }
 }

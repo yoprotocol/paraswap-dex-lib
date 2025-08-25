@@ -128,61 +128,61 @@ describe('Mainnet', function () {
   const baseEthUsdcPoolKey = new PoolKey(
     0n,
     0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
-    new PoolConfig(5982, 55340232221128654n, 0n),
+    new PoolConfig(0n, 55340232221128654n, 5982),
   );
 
   const baseUsdeUsdcPoolKey = new PoolKey(
     0x4c9edd5852cd905f086c759e8383e09bff1e68b3n,
     0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
-    new PoolConfig(100, 922337203685478n, 0n),
+    new PoolConfig(0n, 922337203685478n, 100),
   );
 
   const fullRangeUsdcPepePoolKey = new PoolKey(
     0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
     0xd663ce0c9f55968b42837954348eafeb5b9e5d82n,
-    new PoolConfig(0, 55340232221128654n, 0n),
+    new PoolConfig(0n, 55340232221128654n, 0),
   );
 
   const fullRangeEthSuccinctPoolKey = new PoolKey(
     0n,
     0x6bef15d938d4e72056ac92ea4bdd0d76b1c4ad29n,
-    new PoolConfig(0, 55340232221128655n, 0n),
+    new PoolConfig(0n, 55340232221128655n, 0),
   );
 
   const oracleUsdcPoolKey = new PoolKey(
     0n,
     0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
-    new PoolConfig(0, 0n, BigInt(config.oracle)),
+    new PoolConfig(BigInt(config.oracle), 0n, 0),
   );
 
   const oracleEkuboPoolKey = new PoolKey(
     0n,
     0x04c46e830bb56ce22735d5d8fc9cb90309317d0fn,
-    new PoolConfig(0, 0n, BigInt(config.oracle)),
+    new PoolConfig(BigInt(config.oracle), 0n, 0),
   );
 
   const twammEthUsdcPoolKey = new PoolKey(
     0n,
     0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
-    new PoolConfig(0, 9223372036854775n, BigInt(config.twamm)),
+    new PoolConfig(BigInt(config.twamm), 9223372036854775n, 0),
   );
 
   const twammEkuboUsdcPoolKey = new PoolKey(
     0x04c46e830bb56ce22735d5d8fc9cb90309317d0fn,
     0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
-    new PoolConfig(0, 18446744073709551n, BigInt(config.twamm)),
+    new PoolConfig(BigInt(config.twamm), 18446744073709551n, 0),
   );
 
   const mevResistEkuboEbUsdPoolKey = new PoolKey(
     0x04c46e830bb56ce22735d5d8fc9cb90309317d0fn,
     0x09fd37d9aa613789c517e76df1c53aece2b60df4n,
-    new PoolConfig(500, 1844674407370955n, BigInt(config.mevResist)),
+    new PoolConfig(BigInt(config.mevResist), 1844674407370955n, 500),
   );
 
   const mevResistEkuboBoldPoolKey = new PoolKey(
     0x04c46e830bb56ce22735d5d8fc9cb90309317d0fn,
     0x6440f144b7e50d6a8439336510312d2f54beb01dn,
-    new PoolConfig(1998, 18446744073709552n, BigInt(config.mevResist)),
+    new PoolConfig(BigInt(config.mevResist), 18446744073709552n, 1998),
   );
 
   const commonArgs = [DEX_KEY, dexHelper, logger, contracts] as const;
@@ -258,13 +258,13 @@ describe('Mainnet', function () {
   Object.entries(eventsToTest).forEach(([eventName, eventDetails]) => {
     describe(eventName, () => {
       for (const [pool, blockNumber] of eventDetails) {
-        test(`State of ${pool.key.string_id} at block ${blockNumber}`, async function () {
+        test(`State of ${pool.key.stringId} at block ${blockNumber}`, async function () {
           await testEventSubscriber(
             pool,
             pool.addressesSubscribed,
             async (blockNumber: number) => pool.generateState(blockNumber),
             blockNumber,
-            `${DEX_KEY}_${pool.key.string_id}`,
+            `${DEX_KEY}_${pool.key.stringId}`,
             dexHelper.provider,
             stateCompare,
           );

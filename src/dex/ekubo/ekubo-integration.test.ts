@@ -2,6 +2,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import util from 'node:util';
+
 import { Interface, Result } from '@ethersproject/abi';
 import { Tokens } from '../../../tests/constants-e2e';
 import {
@@ -218,24 +220,22 @@ describe('Mainnet', () => {
   });
 
   it('getTopPoolsForToken', async function () {
-    // We have to check without calling initializePricing, because
-    // pool-tracker is not calling that function
-    const newEkubo = new Ekubo(network, DEX_KEY, dexHelper);
-    if (newEkubo.updatePoolState) {
-      await newEkubo.updatePoolState();
-    }
-    const poolLiquidity = await newEkubo.getTopPoolsForToken(
+    const ekubo = new Ekubo(network, DEX_KEY, dexHelper);
+    await ekubo.updatePoolState();
+
+    const poolLiquidity = await ekubo.getTopPoolsForToken(
       tokens[srcTokenSymbol].address,
       10,
     );
-    console.log(`${srcTokenSymbol} Top Pools:`, poolLiquidity);
+    console.log(
+      `${srcTokenSymbol} Top Pools:`,
+      util.inspect(poolLiquidity, { depth: null }),
+    );
 
-    if (!newEkubo.hasConstantPriceLargeAmounts) {
-      checkPoolsLiquidity(
-        poolLiquidity,
-        Tokens[network][srcTokenSymbol].address,
-        DEX_KEY,
-      );
-    }
+    checkPoolsLiquidity(
+      poolLiquidity,
+      Tokens[network][srcTokenSymbol].address,
+      DEX_KEY,
+    );
   });
 });

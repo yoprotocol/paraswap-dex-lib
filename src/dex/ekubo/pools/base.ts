@@ -12,6 +12,7 @@ import {
   toSqrtRatio,
 } from './math/tick';
 import { parseSwappedEvent, PoolKey, SwappedEvent } from './utils';
+import { amount0Delta, amount1Delta } from './math/delta';
 
 const GAS_COST_OF_ONE_CL_SWAP = 24_500;
 const GAS_COST_OF_ONE_INITIALIZED_TICK_CROSSED = 13_700;
@@ -42,7 +43,7 @@ export class BasePool extends EkuboPool<BasePoolState.Object> {
       {
         [address]: new NamedEventHandlers(iface, {
           PositionUpdated: (args, oldState) => {
-            if (key.num_id !== BigInt(args.poolId)) {
+            if (key.numId !== BigInt(args.poolId)) {
               return null;
             }
 
@@ -60,7 +61,7 @@ export class BasePool extends EkuboPool<BasePoolState.Object> {
         [address]: (data, oldState) => {
           const ev = parseSwappedEvent(data);
 
-          if (key.num_id !== ev.poolId) {
+          if (key.numId !== ev.poolId) {
             return null;
           }
 
@@ -195,6 +196,12 @@ export class BasePool extends EkuboPool<BasePoolState.Object> {
         activeTickIndex,
       },
     };
+  }
+
+  protected override _computeTvl(
+    state: BasePoolState.Object,
+  ): [bigint, bigint] {
+    return BasePoolState.computeTvl(state);
   }
 }
 
@@ -429,7 +436,7 @@ export namespace BasePoolState {
     }
   }
 
-  /*export function computeTvl(state: DeepReadonly<Object>): [bigint, bigint] {
+  export function computeTvl(state: DeepReadonly<Object>): [bigint, bigint] {
     const stateSqrtRatio = state.sqrtRatio;
 
     let [tvl0, tvl1] = [0n, 0n];
@@ -462,5 +469,5 @@ export namespace BasePoolState {
     }
 
     return [tvl0, tvl1];
-  }*/
+  }
 }

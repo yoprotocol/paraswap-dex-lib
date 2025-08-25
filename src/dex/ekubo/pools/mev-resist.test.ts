@@ -8,7 +8,7 @@ import { PoolConfig, PoolKey } from './utils';
 describe(MevResistPool.prototype.quoteMevResist, () => {
   function quoteFn(tickSpacing: number, fee: bigint) {
     return MevResistPool.prototype.quoteMevResist.bind({
-      key: new PoolKey(1n, 2n, new PoolConfig(tickSpacing, fee, 1n)),
+      key: new PoolKey(1n, 2n, new PoolConfig(1n, fee, tickSpacing)),
     });
   }
 

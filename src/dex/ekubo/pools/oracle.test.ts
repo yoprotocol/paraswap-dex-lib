@@ -13,7 +13,7 @@ describe(OraclePool.prototype.quoteOracle, () => {
   ): Quote {
     return OraclePool.prototype.quoteOracle.call(
       {
-        key: new PoolKey(0n, 1n, new PoolConfig(0, 0n, 1n)),
+        key: new PoolKey(0n, 1n, new PoolConfig(1n, 0n, 0)),
       },
       amount,
       isToken1,

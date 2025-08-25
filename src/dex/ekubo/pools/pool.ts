@@ -19,6 +19,8 @@ export interface PoolKeyed {
 
 export interface IEkuboPool extends PoolKeyed {
   quote(amount: bigint, token: bigint, blockNumber: number): Quote;
+  updateState(blockNumber: number): Promise<void>;
+  computeTvl(): [bigint, bigint];
 }
 
 export type NamedEventHandler<State> = (
@@ -68,7 +70,7 @@ export abstract class EkuboPool<State>
       AnonymousEventHandler<State>
     >,
   ) {
-    super(parentName, key.string_id, dexHelper, logger);
+    super(parentName, key.stringId, dexHelper, logger);
 
     this.addressesSubscribed = [
       ...new Set(
@@ -77,6 +79,10 @@ export abstract class EkuboPool<State>
         ),
       ),
     ];
+  }
+
+  public async updateState(blockNumber: number): Promise<void> {
+    this.setState(await this.generateState(blockNumber), blockNumber);
   }
 
   /**
@@ -146,4 +152,15 @@ export abstract class EkuboPool<State>
     state: DeepReadonly<State>,
     sqrtRatioLimit?: bigint,
   ): Quote;
+
+  public computeTvl(): [bigint, bigint] {
+    const state = this.getStaleState();
+    if (state === null) {
+      throw new Error('pool has no state');
+    }
+
+    return this._computeTvl(state);
+  }
+
+  protected abstract _computeTvl(state: DeepReadonly<State>): [bigint, bigint];
 }

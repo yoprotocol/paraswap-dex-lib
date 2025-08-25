@@ -45,12 +45,8 @@ describe('Mainnet', () => {
         new PoolKey(
           0n,
           0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48n,
-          new PoolConfig(
-            0,
-            9223372036854775n,
-            0xd4279c050da1f5c5b2830558c7a08e57e12b54ecn,
-          ),
-        ).string_id,
+          new PoolConfig(BigInt(config.twamm), 9223372036854775n, 0),
+        ).stringId,
       ],
     },
     {
@@ -68,8 +64,8 @@ describe('Mainnet', () => {
         new PoolKey(
           BigInt(tokens['EKUBO'].address),
           BigInt(tokens['ebUSD'].address),
-          new PoolConfig(500, 1844674407370955n, BigInt(config.mevResist)),
-        ).string_id,
+          new PoolConfig(BigInt(config.mevResist), 1844674407370955n, 500),
+        ).stringId,
       ],
     },
   ];
