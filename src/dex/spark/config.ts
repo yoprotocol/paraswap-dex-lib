@@ -2,7 +2,7 @@ import { SparkParams, SparkSDaiFunctions, SparkSUSDSFunctions } from './types';
 import { DexConfigMap } from '../../types';
 import { Network } from '../../constants';
 import { SwapSide } from '@paraswap/core';
-import PotAbi from '../../abi/maker-psm/pot.json';
+import PotAbi from '../../abi/lite-psm/pot.json';
 import SavingsUSDSAbi from '../../abi/sdai/SavingsUSDS.abi.json';
 import SavingsDaiAbi from '../../abi/sdai/SavingsDai.abi.json';
 import { Interface } from '@ethersproject/abi';
