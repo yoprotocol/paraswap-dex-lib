@@ -541,7 +541,7 @@ export class LitePsm
         exchange: this.dexKey,
         address: config.psmAddress,
         liquidityUSD: minLiq(state, config.gem.decimals),
-        connectorTokens: isDAI ? [config.gem] : [this.dai, this.usds],
+        connectorTokens: isDAIorUSDS ? [config.gem] : [this.dai, this.usds],
       };
     });
 

@@ -27,7 +27,6 @@ import {
   RETURN_AMOUNT_POS_0,
   RETURN_AMOUNT_POS_32,
 } from '../../executor/constants';
-import { AsyncOrSync } from 'ts-essentials';
 
 export class AaveGsm extends SimpleExchange implements IDex<AaveGsmData> {
   static readonly gsmInterface = new Interface(GSM_ABI);
@@ -101,7 +100,7 @@ export class AaveGsm extends SimpleExchange implements IDex<AaveGsmData> {
     await Promise.all(
       Object.values(this.eventPools).map(async pool => {
         if (subscribe) {
-          pool.initialize(blockNumber);
+          await pool.initialize(blockNumber);
         } else {
           const state = await pool.generateState(blockNumber);
           pool.setState(state, blockNumber);

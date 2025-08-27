@@ -44,7 +44,6 @@ import {
 } from '@paraswap/core';
 import { BigNumber } from 'ethers';
 import { MakerPsmEventPool } from './maker-psm-event-pool';
-import { AsyncOrSync } from 'ts-essentials';
 
 const psmInterface = new Interface(PsmABI);
 const WAD = BI_POWS[18];
