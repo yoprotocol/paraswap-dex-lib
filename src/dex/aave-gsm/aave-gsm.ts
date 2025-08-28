@@ -332,7 +332,7 @@ export class AaveGsm extends SimpleExchange implements IDex<AaveGsmData> {
         poolAddresses: [target],
         exchange: this.dexKey,
         gasCost: gas,
-        poolIdentifier: `${this.dexKey}_${target}`,
+        poolIdentifiers: [`${this.dexKey}_${target}`],
       },
     ];
   }
