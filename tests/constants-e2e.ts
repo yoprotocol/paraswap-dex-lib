@@ -1,10 +1,6 @@
 import { Address, Token } from '../src/types';
 import { ETHER_ADDRESS, Network } from '../src/constants';
 
-export const GIFTER_ADDRESS = '0xb22fC4eC94D555A5049593ca4552c810Fb8a6d00';
-export const GENERIC_ADDR1 = '0xbe9317f6711e2da074fe1f168fd9c402bc0a9d1b';
-export const GENERIC_ADDR2 = '0x230a1ac45690b9ae1176389434610b9526d2f21b';
-
 export const Tokens: {
   [network: number]: { [symbol: string]: Token };
 } = {
@@ -625,6 +621,10 @@ export const Tokens: {
     },
     USR: {
       address: '0x66a1e37c9b0eaddca17d3662d6c05f4decf3e110',
+      decimals: 18,
+    },
+    USDP: {
+      address: '0x8e870d67f660d95d5be530380d0ec0bd388289e1',
       decimals: 18,
     },
   },
@@ -1412,6 +1412,10 @@ export const Tokens: {
       address: '0x4ecf61a6c2FaB8A047CEB3B3B263B401763e9D49',
       decimals: 18,
     },
+    SILO: {
+      address: '0x0341c0c0ec423328621788d4854119b97f44e391',
+      decimals: 18,
+    },
   },
   [Network.OPTIMISM]: {
     DAI: {
@@ -1621,6 +1625,10 @@ export const Tokens: {
     },
     SWPR: {
       address: '0x532801ED6f82FFfD2DAB70A19fC2d7B2772C4f4b',
+      decimals: 18,
+    },
+    BREAD: {
+      address: '0xa555d5344f6FB6c65da19e403Cb4c1eC4a1a5Ee3',
       decimals: 18,
     },
   },
