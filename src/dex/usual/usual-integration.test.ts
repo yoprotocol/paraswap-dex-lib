@@ -23,7 +23,7 @@ import { Usual } from './usual';
 import { UsualBond } from './usual-bond';
 import { WrappedMM } from './wrapped-m-m';
 import { MWrappedM } from './m-wrapped-m';
-import { UsdcUusdc } from './usdc-usual-usdc';
+import { UsdcUsualUSDC } from './usdc-usual-usdc';
 import { UsualUSDCUsd0 } from './usual-usdc-usd0';
 
 async function testPricingOnNetwork(
@@ -532,9 +532,9 @@ describe('M<>WrappedM', function () {
 });
 
 describe('USDC<>UsualUSDC', function () {
-  const dexKey = 'UsdcUusdc';
+  const dexKey = 'UsdcUsualUSDC';
   let blockNumber: number;
-  let usdcUusdc: UsdcUusdc;
+  let usdcUusdc: UsdcUsualUSDC;
 
   describe('Mainnet', () => {
     const network = Network.MAINNET;
@@ -556,7 +556,7 @@ describe('USDC<>UsualUSDC', function () {
 
     beforeAll(async () => {
       blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-      usdcUusdc = new UsdcUusdc(network, dexKey, dexHelper);
+      usdcUusdc = new UsdcUsualUSDC(network, dexKey, dexHelper);
       if (usdcUusdc.initializePricing) {
         await usdcUusdc.initializePricing(blockNumber);
       }
@@ -580,7 +580,7 @@ describe('USDC<>UsualUSDC', function () {
       const tokenA = Tokens[network]['USDC'];
       const tokenB = Tokens[network]['UsualUSDC'];
       const dexHelper = new DummyDexHelper(network);
-      const usdcUusdc = new UsdcUusdc(network, dexKey, dexHelper);
+      const usdcUusdc = new UsdcUsualUSDC(network, dexKey, dexHelper);
 
       const poolLiquidityA = await usdcUusdc.getTopPoolsForToken(
         tokenA.address,
@@ -606,7 +606,7 @@ describe('USDC<>UsualUSDC', function () {
     it('getTopPoolsForToken: UsualUSDC', async function () {
       const tokenA = Tokens[network]['UsualUSDC'];
       const dexHelper = new DummyDexHelper(network);
-      const usdcUusdc = new UsdcUusdc(network, dexKey, dexHelper);
+      const usdcUusdc = new UsdcUsualUSDC(network, dexKey, dexHelper);
 
       const poolLiquidity = await usdcUusdc.getTopPoolsForToken(
         tokenA.address,
@@ -661,7 +661,7 @@ describe('UsualUSDC<>USD0', function () {
         network,
         dexKey,
         blockNumber,
-        'UsualM',
+        'UsualUSDC',
         'USD0',
         SwapSide.SELL,
         amountsForSell,
@@ -689,7 +689,7 @@ describe('UsualUSDC<>USD0', function () {
     it('getTopPoolsForToken: USD0', async function () {
       const tokenA = Tokens[network]['USD0'];
       const dexHelper = new DummyDexHelper(network);
-      const usualMUsd0 = new UsualMUsd0(network, dexKey, dexHelper);
+      const usualMUsd0 = new UsualUSDCUsd0(network, dexKey, dexHelper);
 
       const poolLiquidity = await usualMUsd0.getTopPoolsForToken(
         tokenA.address,
