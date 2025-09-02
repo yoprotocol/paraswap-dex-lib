@@ -76,8 +76,8 @@ describe('UsualBond E2E', () => {
   });
 });
 
-describe('UsdcUusdc E2E', () => {
-  const dexKey = 'UsdcUusdc';
+describe('UsdcUsualUSDC E2E', () => {
+  const dexKey = 'UsdcUsualUSDC';
 
   describe('Mainnet', () => {
     const network = Network.MAINNET;
@@ -85,8 +85,8 @@ describe('UsdcUusdc E2E', () => {
     const tokenASymbol: string = 'USDC';
     const tokenBSymbol: string = 'UsualUSDC';
 
-    const tokenAAmount: string = '1000000000';
-    const tokenBAmount: string = '1000000000';
+    const tokenAAmount: string = '100000';
+    const tokenBAmount: string = '100000';
 
     testForNetwork(
       network,
@@ -99,8 +99,8 @@ describe('UsdcUusdc E2E', () => {
   });
 });
 
-describe('Uusdc<>Usd0 E2E', () => {
-  const dexKey = 'UusdcUsd0';
+describe('UsualUSDC<>Usd0 E2E', () => {
+  const dexKey = 'UsualUSDCUsd0';
 
   describe('Mainnet', () => {
     const network = Network.MAINNET;
@@ -109,7 +109,7 @@ describe('Uusdc<>Usd0 E2E', () => {
     const tokenBSymbol: string = 'USD0';
 
     const tokenAAmount: string = '1000000';
-    const tokenBAmount: string = '1000000';
+    const tokenBAmount: string = '1000000000000000000';
 
     testForNetwork(
       network,

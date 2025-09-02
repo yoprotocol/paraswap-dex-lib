@@ -14,7 +14,7 @@ import USUAL_DAO_COLLATERAL_ABI from '../../abi/usual-m-usd0/usualCollateralDao.
 
 const Config: DexConfigMap<DexParams & { usualDaoCollateralAddress: Address }> =
   {
-    UusdcUsd0: {
+    UsualUSDCUsd0: {
       [Network.MAINNET]: {
         usualDaoCollateralAddress: '0xde6e1F680C4816446C8D515989E2358636A38b04',
         fromToken: {
@@ -29,7 +29,7 @@ const Config: DexConfigMap<DexParams & { usualDaoCollateralAddress: Address }> =
     },
   };
 
-export class UusdcUsd0 extends Usual {
+export class UsualUSDCUsd0 extends Usual {
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(Config);
 

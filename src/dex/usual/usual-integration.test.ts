@@ -23,8 +23,8 @@ import { Usual } from './usual';
 import { UsualBond } from './usual-bond';
 import { WrappedMM } from './wrapped-m-m';
 import { MWrappedM } from './m-wrapped-m';
-import { UsdcUusdc } from './usdc-uusdc';
-import { UusdcUsd0 } from './uusdc-usd0';
+import { UsdcUusdc } from './usdc-usual-usdc';
+import { UsualUSDCUsd0 } from './usual-usdc-usd0';
 
 async function testPricingOnNetwork(
   usual: Usual,
@@ -623,9 +623,9 @@ describe('USDC<>UsualUSDC', function () {
 });
 
 describe('UsualUSDC<>USD0', function () {
-  const dexKey = 'UusdcUsd0';
+  const dexKey = 'UsualUSDCUsd0';
   let blockNumber: number;
-  let uusdcUsd0: UusdcUsd0;
+  let uusdcUsd0: UsualUSDCUsd0;
 
   describe('Mainnet', () => {
     const network = Network.MAINNET;
@@ -649,7 +649,7 @@ describe('UsualUSDC<>USD0', function () {
 
     beforeAll(async () => {
       blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
-      uusdcUsd0 = new UusdcUsd0(network, dexKey, dexHelper);
+      uusdcUsd0 = new UsualUSDCUsd0(network, dexKey, dexHelper);
       if (uusdcUsd0.initializePricing) {
         await uusdcUsd0.initializePricing(blockNumber);
       }
@@ -672,7 +672,7 @@ describe('UsualUSDC<>USD0', function () {
     it('getTopPoolsForToken: UsualUSDC', async function () {
       const tokenA = Tokens[network]['UsualUSDC'];
       const dexHelper = new DummyDexHelper(network);
-      const uusdcUsd0 = new UusdcUsd0(network, dexKey, dexHelper);
+      const uusdcUsd0 = new UsualUSDCUsd0(network, dexKey, dexHelper);
 
       const poolLiquidity = await uusdcUsd0.getTopPoolsForToken(
         tokenA.address,

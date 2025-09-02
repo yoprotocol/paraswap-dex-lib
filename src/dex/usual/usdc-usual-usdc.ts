@@ -13,7 +13,7 @@ import { getDexKeysWithNetwork } from '../../utils';
 import USUAL_USDC_ABI from '../../abi/usual-usual-usdc/abi.json';
 
 const Config: DexConfigMap<DexParams> = {
-  UsdcUusdc: {
+  UsdcUsualUSDC: {
     [Network.MAINNET]: {
       fromToken: {
         address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
@@ -27,7 +27,7 @@ const Config: DexConfigMap<DexParams> = {
   },
 };
 
-export class UsdcUusdc extends Usual {
+export class UsdcUsualUSDC extends Usual {
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(Config);
 

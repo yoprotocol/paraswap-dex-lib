@@ -52,8 +52,8 @@ describe('Usual Gas Estimation', () => {
     });
   });
 
-  describe('UusdcUsd0', () => {
-    const dexKey = 'UusdcUsd0';
+  describe('UsualUSDCUsd0', () => {
+    const dexKey = 'UsualUSDCUsd0';
 
     describe('swapExactAmountIn', () => {
       const UsualUSDC = Tokens[network]['UsualUSDC'];
