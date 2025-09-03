@@ -20,7 +20,6 @@ import {
 } from '../../constants';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import { Interface } from 'ethers/lib/utils';
-import { BalanceRequest, getBalances } from '../../lib/tokens/balancer-fetcher';
 import SwapRouter from '../../abi/algebra-integral/SwapRouter.abi.json';
 import AlgebraQuoterABI from '../../abi/algebra-integral/Quoter.abi.json';
 import {
@@ -40,11 +39,6 @@ import {
 } from '../simple-exchange';
 import { applyTransferFee } from '../../lib/token-transfer-fee';
 import { AlgebraIntegralConfig } from './config';
-import {
-  AssetType,
-  DEFAULT_ID_ERC20,
-  DEFAULT_ID_ERC20_AS_STRING,
-} from '../../lib/tokens/types';
 import { extractReturnAmountPosition } from '../../executor/utils';
 import { AlgebraIntegralFactory } from './algebra-integral-factory';
 import {
@@ -53,6 +47,7 @@ import {
   ALGEBRA_EFFICIENCY_FACTOR,
 } from './constants';
 import { uint256ToBigInt } from '../../lib/decoders';
+import { getBalanceERC20 } from '../../lib/tokens/utils';
 
 export class AlgebraIntegral
   extends SimpleExchange
@@ -140,6 +135,24 @@ export class AlgebraIntegral
     );
   }
 
+  getMultiCallData(
+    from: string,
+    to: string,
+    deployer: string,
+    amount: bigint,
+    isSELL = true,
+  ) {
+    return {
+      target: this.config.quoter,
+      gasLimit: ALGEBRA_QUOTE_GASLIMIT,
+      callData: this.quoterIface.encodeFunctionData(
+        isSELL ? 'quoteExactInputSingle' : 'quoteExactOutputSingle',
+        [from, to, deployer, amount.toString(), 0],
+      ),
+      decodeFunction: uint256ToBigInt,
+    };
+  }
+
   async getPricingFromRpc(
     from: Token,
     to: Token,
@@ -161,15 +174,6 @@ export class AlgebraIntegral
 
     const isSELL = side === SwapSide.SELL;
 
-    const requests = pools.map<BalanceRequest>(pool => ({
-      owner: pool.poolAddress,
-      asset: isSELL ? from.address : to.address,
-      assetType: AssetType.ERC20,
-      ids: [{ id: DEFAULT_ID_ERC20, spenders: [] }],
-    }));
-
-    const balances = await getBalances(this.dexHelper.multiWrapper, requests);
-
     const _isSrcTokenTransferFeeToBeExchanged =
       isSrcTokenTransferFeeToBeExchanged(transferFees);
     const _isDestTokenTransferFeeToBeExchanged =
@@ -185,49 +189,56 @@ export class AlgebraIntegral
       ),
     );
 
-    const availableAmountsPerPool = pools.map((pool, index) => {
-      const balance = balances[index].amounts[DEFAULT_ID_ERC20_AS_STRING];
-      return chunkedAmounts.map(amount => (balance >= amount ? amount : 0n));
-    });
+    const balanceCalls = pools.map(pool => ({
+      target: isSELL ? from.address : to.address,
+      callData: getBalanceERC20(pool.poolAddress),
+      decodeFunction: uint256ToBigInt,
+    }));
 
-    const amountsWithFeePerPool = availableAmountsPerPool.map(poolAmounts =>
-      _isSrcTokenTransferFeeToBeExchanged
-        ? applyTransferFee(
-            poolAmounts,
-            side,
-            transferFees.srcDexFee,
-            SRC_TOKEN_DEX_TRANSFERS,
-          )
-        : poolAmounts,
+    const amountsForQuote = _isSrcTokenTransferFeeToBeExchanged
+      ? applyTransferFee(
+          chunkedAmounts,
+          side,
+          transferFees.srcDexFee,
+          SRC_TOKEN_DEX_TRANSFERS,
+        )
+      : chunkedAmounts;
+
+    const quoteCalls = pools.flatMap(pool =>
+      amountsForQuote.map(amount =>
+        this.getMultiCallData(
+          from.address,
+          to.address,
+          pool.deployer,
+          amount,
+          isSELL,
+        ),
+      ),
     );
 
-    const calldata = pools.flatMap((pool, poolIndex) => {
-      const amountsForPool = amountsWithFeePerPool[poolIndex];
+    const results = await this.dexHelper.multiWrapper.tryAggregate(false, [
+      ...balanceCalls,
+      ...quoteCalls,
+    ]);
 
-      return amountsForPool
-        .filter(amount => amount !== 0n)
-        .map(amount => ({
-          target: this.config.quoter,
-          gasLimit: ALGEBRA_QUOTE_GASLIMIT,
-          callData: this.quoterIface.encodeFunctionData(
-            isSELL ? 'quoteExactInputSingle' : 'quoteExactOutputSingle',
-            [from.address, to.address, pool.deployer, amount.toString(), 0],
-          ),
-          decodeFunction: uint256ToBigInt,
-        }));
-    });
+    const balances = results
+      .slice(0, pools.length)
+      .map(res => (res.success ? (res.returnData as bigint) : 0n));
 
-    const data = await this.dexHelper.multiWrapper.tryAggregate(
-      false,
-      calldata,
-    );
-
-    let i = 0;
+    let offset = pools.length;
     const result = pools.map((pool, poolIndex) => {
-      const amountsForPool = amountsWithFeePerPool[poolIndex];
-      const _rates = amountsForPool.map(a =>
-        a === 0n ? 0n : (data[i++].returnData as bigint),
+      const balance = balances[poolIndex];
+
+      const quotesForPool = results.slice(
+        offset + poolIndex * amountsForQuote.length,
+        offset + (poolIndex + 1) * amountsForQuote.length,
       );
+
+      const _rates = chunkedAmounts.map((amount, idx) => {
+        if (balance < amount) return 0n;
+        const res = quotesForPool[idx];
+        return res.success ? (res.returnData as bigint) ?? 0n : 0n;
+      });
 
       const _ratesWithFee = _isDestTokenTransferFeeToBeExchanged
         ? applyTransferFee(
