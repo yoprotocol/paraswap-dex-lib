@@ -47,7 +47,6 @@ import {
   ALGEBRA_EFFICIENCY_FACTOR,
 } from './constants';
 import { uint256ToBigInt } from '../../lib/decoders';
-import { getBalanceERC20 } from '../../lib/tokens/utils';
 
 export class AlgebraIntegral
   extends SimpleExchange
@@ -189,12 +188,6 @@ export class AlgebraIntegral
       ),
     );
 
-    const balanceCalls = pools.map(pool => ({
-      target: isSELL ? to.address : from.address,
-      callData: getBalanceERC20(pool.poolAddress),
-      decodeFunction: uint256ToBigInt,
-    }));
-
     const amountsForQuote = _isSrcTokenTransferFeeToBeExchanged
       ? applyTransferFee(
           chunkedAmounts,
@@ -204,7 +197,7 @@ export class AlgebraIntegral
         )
       : chunkedAmounts;
 
-    const quoteCalls = pools.flatMap(pool =>
+    const calldata = pools.flatMap(pool =>
       amountsForQuote.map(amount =>
         this.getMultiCallData(
           from.address,
@@ -216,28 +209,17 @@ export class AlgebraIntegral
       ),
     );
 
-    const results = await this.dexHelper.multiWrapper.tryAggregate(false, [
-      ...balanceCalls,
-      ...quoteCalls,
-    ]);
+    const results = await this.dexHelper.multiWrapper.tryAggregate(
+      false,
+      calldata,
+    );
 
-    const balances = results
-      .slice(0, pools.length)
-      .map(res => (res.success ? (res.returnData as bigint) : 0n));
-
-    let offset = pools.length;
     const result = pools.map((pool, poolIndex) => {
-      const balance = balances[poolIndex];
+      const offset = poolIndex * amountsForQuote.length;
 
-      const quotesForPool = results.slice(
-        offset + poolIndex * amountsForQuote.length,
-        offset + (poolIndex + 1) * amountsForQuote.length,
-      );
-
-      const _rates = chunkedAmounts.map((amount, idx) => {
-        if (balance < amount) return 0n;
-        const res = quotesForPool[idx];
-        return res.success ? (res.returnData as bigint) ?? 0n : 0n;
+      const _rates = chunkedAmounts.map((_, i) => {
+        const res = results[offset + i];
+        return res.success ? res.returnData : 0n;
       });
 
       const _ratesWithFee = _isDestTokenTransferFeeToBeExchanged
