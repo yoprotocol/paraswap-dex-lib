@@ -190,7 +190,7 @@ export class AlgebraIntegral
     );
 
     const balanceCalls = pools.map(pool => ({
-      target: isSELL ? from.address : to.address,
+      target: isSELL ? to.address : from.address,
       callData: getBalanceERC20(pool.poolAddress),
       decodeFunction: uint256ToBigInt,
     }));
