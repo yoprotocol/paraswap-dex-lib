@@ -1,4 +1,3 @@
-import { AsyncOrSync } from 'ts-essentials';
 import {
   Token,
   Address,
@@ -282,7 +281,7 @@ export class ERC4626
     );
   }
 
-  getDexParam(
+  async getDexParam(
     srcToken: Address,
     destToken: Address,
     srcAmount: NumberAsString,
@@ -292,7 +291,7 @@ export class ERC4626
     side: SwapSide,
     _: Context,
     executorAddress: Address,
-  ): DexExchangeParam {
+  ): Promise<DexExchangeParam> {
     const isSell = side === SwapSide.SELL;
     const { exchange } = data;
 
