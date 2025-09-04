@@ -619,6 +619,10 @@ export const Tokens: {
       address: '0x66a1e37c9b0eaddca17d3662d6c05f4decf3e110',
       decimals: 18,
     },
+    USDP: {
+      address: '0x8e870d67f660d95d5be530380d0ec0bd388289e1',
+      decimals: 18,
+    },
   },
   [Network.POLYGON]: {
     jGBP: {
@@ -1404,6 +1408,10 @@ export const Tokens: {
       address: '0x4ecf61a6c2FaB8A047CEB3B3B263B401763e9D49',
       decimals: 18,
     },
+    SILO: {
+      address: '0x0341c0c0ec423328621788d4854119b97f44e391',
+      decimals: 18,
+    },
   },
   [Network.OPTIMISM]: {
     DAI: {
@@ -1613,6 +1621,10 @@ export const Tokens: {
     },
     SWPR: {
       address: '0x532801ED6f82FFfD2DAB70A19fC2d7B2772C4f4b',
+      decimals: 18,
+    },
+    BREAD: {
+      address: '0xa555d5344f6FB6c65da19e403Cb4c1eC4a1a5Ee3',
       decimals: 18,
     },
   },
