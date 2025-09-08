@@ -52,19 +52,19 @@ describe('Mainnet', () => {
     {
       pair: [
         {
-          symbol: 'EKUBO',
-          amount: BI_POWS[18],
+          symbol: 'ETH',
+          amount: BI_POWS[16],
         },
         {
-          symbol: 'ebUSD',
-          amount: BI_POWS[19],
+          symbol: 'wstETH',
+          amount: BI_POWS[16],
         },
       ],
       limitPools: [
         new PoolKey(
-          BigInt(tokens['EKUBO'].address),
-          BigInt(tokens['ebUSD'].address),
-          new PoolConfig(BigInt(config.mevResist), 1844674407370955n, 500),
+          0n,
+          BigInt(tokens['wstETH'].address),
+          new PoolConfig(BigInt(config.mevResist), 184467440737096n, 10),
         ).stringId,
       ],
     },
