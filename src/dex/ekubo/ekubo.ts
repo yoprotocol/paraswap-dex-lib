@@ -520,65 +520,84 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
     tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
-    const poolLiquidities: PoolLiquidity[] = [];
+    const poolsTokenTvls = (
+      await Promise.all(
+        this.pools.values().map(async pool => {
+          try {
+            const tokenPair = [
+              convertEkuboToParaSwap(pool.key.token0),
+              convertEkuboToParaSwap(pool.key.token1),
+            ];
 
-    await Promise.all(
-      this.pools.values().map(async pool => {
-        try {
-          const tokenPair = [
-            convertEkuboToParaSwap(pool.key.token0),
-            convertEkuboToParaSwap(pool.key.token1),
-          ];
+            if (!tokenPair.includes(tokenAddress)) {
+              return null;
+            }
 
-          if (!tokenPair.includes(tokenAddress)) {
+            const tvls = pool.computeTvl();
+
+            const [token0Tvl, token1Tvl] = await Promise.all(
+              tokenPair.map(async (tokenAddress, i) => {
+                const decimals = await this.getDecimals(tokenAddress);
+                if (decimals === null) {
+                  return null;
+                }
+
+                return {
+                  tvl: tvls[i],
+                  address: tokenAddress,
+                  decimals,
+                };
+              }),
+            );
+
+            if (token0Tvl === null || token1Tvl === null) {
+              return null;
+            }
+
+            return {
+              pool,
+              token0Tvl,
+              token1Tvl,
+            };
+          } catch (err) {
+            this.logger.error(
+              `TVL computation for pool ${pool.key.stringId} failed: ${err}`,
+            );
             return null;
           }
+        }),
+      )
+    ).filter(res => res !== null);
 
-          const tvls = pool.computeTvl();
+    const usdTvls = await this.dexHelper.getUsdTokenAmounts(
+      poolsTokenTvls.flatMap(({ token0Tvl, token1Tvl }) => [
+        [token0Tvl.address, token0Tvl.tvl],
+        [token1Tvl.address, token1Tvl.tvl],
+      ]),
+    );
 
-          const [info0, info1] = await Promise.all(
-            tokenPair.map(async (tokenAddress, i) => {
-              const decimals = await this.getDecimals(tokenAddress);
-              if (decimals === null) {
-                return null;
-              }
+    const poolLiquidities: PoolLiquidity[] = poolsTokenTvls.map(
+      ({ token0Tvl, token1Tvl }, i) => {
+        const [token0UsdTvl, token1UsdTvl] = usdTvls.slice(i * 2, i * 2 + 2);
 
-              const token = {
-                address: tokenAddress,
-                decimals,
-              };
+        const [connector, thisLiquidityUSD, connectorLiquidityUsd] =
+          token0Tvl.address === tokenAddress
+            ? [token1Tvl, token0UsdTvl, token1UsdTvl]
+            : [token0Tvl, token1UsdTvl, token0UsdTvl];
 
-              return {
-                ...token,
-                liquidityUSD: await this.dexHelper.getTokenUSDPrice(
-                  token,
-                  tvls[i],
-                ),
-              };
-            }),
-          );
-
-          if (info0 === null || info1 === null) {
-            return null;
-          }
-
-          const [connectorToken, liquidityUSD] =
-            tokenPair[0] === tokenAddress
-              ? [info1, info0.liquidityUSD]
-              : [info0, info1.liquidityUSD];
-
-          poolLiquidities.push({
-            exchange: this.dexKey,
-            address: this.config.core,
-            connectorTokens: [connectorToken],
-            liquidityUSD,
-          });
-        } catch (err) {
-          this.logger.error(
-            `TVL computation for pool ${pool.key.stringId} failed: ${err}`,
-          );
-        }
-      }),
+        return {
+          exchange: this.dexKey,
+          address: this.config.core,
+          connectorTokens: [
+            {
+              address: connector.address,
+              decimals: connector.decimals,
+              liquidityUSD: connectorLiquidityUsd,
+            },
+          ],
+          liquidityUSD: thisLiquidityUSD,
+        };
+      },
     );
 
     poolLiquidities
