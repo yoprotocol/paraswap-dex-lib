@@ -69,7 +69,12 @@ async function testPricingOnNetwork(
 
   expect(poolPrices).not.toBeNull();
   if (usual.hasConstantPriceLargeAmounts) {
-    checkConstantPoolPrices(poolPrices!, amounts, dexKey);
+    const fromDec = networkTokens[srcTokenSymbol].decimals;
+    const toDec = networkTokens[destTokenSymbol].decimals;
+    const expectedOut = amounts.map(
+      a => (a * BI_POWS[toDec]) / BI_POWS[fromDec],
+    );
+    checkConstantPoolPrices(poolPrices!, expectedOut, dexKey);
   } else {
     checkPoolPrices(poolPrices!, amounts, side, dexKey);
   }
@@ -208,7 +213,7 @@ describe('WrappedM<>UsualM', function () {
       );
     });
 
-    it.only('getTopPoolsForToken: WrappedM', async function () {
+    it('getTopPoolsForToken: WrappedM', async function () {
       const tokenA = Tokens[network]['WrappedM'];
       const tokenB = Tokens[network]['UsualM'];
       const dexHelper = new DummyDexHelper(network);
@@ -540,6 +545,9 @@ describe('USDC<>UsualUSDC', function () {
     const network = Network.MAINNET;
     const dexHelper = new DummyDexHelper(network);
 
+    const srcTokenSymbol = 'USDC';
+    const destTokenSymbol = 'UsualUSDC';
+
     const amountsForSell = [
       0n,
       1n * BI_POWS[18],
@@ -568,43 +576,30 @@ describe('USDC<>UsualUSDC', function () {
         network,
         dexKey,
         blockNumber,
-        'WrappedM',
-        'UsualM',
+        srcTokenSymbol,
+        destTokenSymbol,
         SwapSide.SELL,
         amountsForSell,
         '',
       );
     });
 
-    it.only('getTopPoolsForToken: WrappedM', async function () {
-      const tokenA = Tokens[network]['USDC'];
-      const tokenB = Tokens[network]['UsualUSDC'];
-      const dexHelper = new DummyDexHelper(network);
-      const usdcUusdc = new UsdcUsualUSDC(network, dexKey, dexHelper);
-
-      const poolLiquidityA = await usdcUusdc.getTopPoolsForToken(
-        tokenA.address,
-        10,
+    it('getPoolIdentifiers and getPricesVolume BUY', async function () {
+      await testPricingOnNetwork(
+        usdcUusdc,
+        network,
+        dexKey,
+        blockNumber,
+        srcTokenSymbol,
+        destTokenSymbol,
+        SwapSide.BUY,
+        amountsForSell,
+        '',
       );
-
-      const poolLiquidityB = await usdcUusdc.getTopPoolsForToken(
-        tokenB.address,
-        10,
-      );
-      console.log(
-        `${tokenA.symbol} Top Pools:`,
-        JSON.stringify(poolLiquidityA, null, 2),
-      );
-
-      // swap is available only from USDC to Usual USDC
-      expect(poolLiquidityA[0].liquidityUSD).toBe(UNLIMITED_USD_LIQUIDITY);
-      expect(poolLiquidityB[0].liquidityUSD).toBe(NO_USD_LIQUIDITY);
-
-      checkPoolsLiquidity(poolLiquidityA, tokenA.address, dexKey);
     });
 
-    it('getTopPoolsForToken: UsualUSDC', async function () {
-      const tokenA = Tokens[network]['UsualUSDC'];
+    it(`getTopPoolsForToken: ${srcTokenSymbol}`, async function () {
+      const tokenA = Tokens[network][srcTokenSymbol];
       const dexHelper = new DummyDexHelper(network);
       const usdcUusdc = new UsdcUsualUSDC(network, dexKey, dexHelper);
 
@@ -617,7 +612,26 @@ describe('USDC<>UsualUSDC', function () {
         JSON.stringify(poolLiquidity, null, 2),
       );
 
+      expect(poolLiquidity[0].liquidityUSD).toBe(UNLIMITED_USD_LIQUIDITY);
+
       checkPoolsLiquidity(poolLiquidity, tokenA.address, dexKey);
+    });
+
+    it(`getTopPoolsForToken: ${destTokenSymbol}`, async function () {
+      const tokenA = Tokens[network][destTokenSymbol];
+      const dexHelper = new DummyDexHelper(network);
+      const usdcUusdc = new UsdcUsualUSDC(network, dexKey, dexHelper);
+
+      const poolLiquidity = await usdcUusdc.getTopPoolsForToken(
+        tokenA.address,
+        10,
+      );
+      console.log(
+        `${tokenA.symbol} Top Pools:`,
+        JSON.stringify(poolLiquidity, null, 2),
+      );
+
+      expect(poolLiquidity[0].liquidityUSD).toBe(NO_USD_LIQUIDITY);
     });
   });
 });
@@ -631,7 +645,8 @@ describe('UsualUSDC<>USD0', function () {
     const network = Network.MAINNET;
     const dexHelper = new DummyDexHelper(network);
 
-    // Don't forget to update relevant tokens in constant-e2e.ts
+    const srcTokenSymbol = 'UsualUSDC';
+    const destTokenSymbol = 'USD0';
 
     const amountsForSell = [
       0n,
@@ -655,22 +670,36 @@ describe('UsualUSDC<>USD0', function () {
       }
     });
 
-    it('getPoolIdentifiers and getPricesVolume SELL', async function () {
+    it(`getPoolIdentifiers and getPricesVolume SELL`, async function () {
       await testPricingOnNetwork(
         uusdcUsd0,
         network,
         dexKey,
         blockNumber,
-        'UsualUSDC',
-        'USD0',
+        srcTokenSymbol,
+        destTokenSymbol,
         SwapSide.SELL,
         amountsForSell,
         '',
       );
     });
 
-    it('getTopPoolsForToken: UsualUSDC', async function () {
-      const tokenA = Tokens[network]['UsualUSDC'];
+    it(`getPoolIdentifiers and getPricesVolume BUY`, async function () {
+      await testPricingOnNetwork(
+        uusdcUsd0,
+        network,
+        dexKey,
+        blockNumber,
+        srcTokenSymbol,
+        destTokenSymbol,
+        SwapSide.BUY,
+        amountsForSell,
+        '',
+      );
+    });
+
+    it(`getTopPoolsForToken: ${srcTokenSymbol}`, async function () {
+      const tokenA = Tokens[network][srcTokenSymbol];
       const dexHelper = new DummyDexHelper(network);
       const uusdcUsd0 = new UsualUSDCUsd0(network, dexKey, dexHelper);
 
@@ -683,15 +712,17 @@ describe('UsualUSDC<>USD0', function () {
         JSON.stringify(poolLiquidity, null, 2),
       );
 
+      expect(poolLiquidity[0].liquidityUSD).toBe(UNLIMITED_USD_LIQUIDITY);
+
       checkPoolsLiquidity(poolLiquidity, tokenA.address, dexKey);
     });
 
-    it('getTopPoolsForToken: USD0', async function () {
-      const tokenA = Tokens[network]['USD0'];
+    it(`getTopPoolsForToken: ${destTokenSymbol}`, async function () {
+      const tokenA = Tokens[network][destTokenSymbol];
       const dexHelper = new DummyDexHelper(network);
-      const usualMUsd0 = new UsualUSDCUsd0(network, dexKey, dexHelper);
+      const uusdcUsd0 = new UsualUSDCUsd0(network, dexKey, dexHelper);
 
-      const poolLiquidity = await usualMUsd0.getTopPoolsForToken(
+      const poolLiquidity = await uusdcUsd0.getTopPoolsForToken(
         tokenA.address,
         10,
       );
@@ -700,7 +731,7 @@ describe('UsualUSDC<>USD0', function () {
         JSON.stringify(poolLiquidity, null, 2),
       );
 
-      checkPoolsLiquidity(poolLiquidity, tokenA.address, dexKey);
+      expect(poolLiquidity[0].liquidityUSD).toBe(NO_USD_LIQUIDITY);
     });
   });
 });
