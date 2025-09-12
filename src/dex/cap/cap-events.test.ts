@@ -33,9 +33,12 @@ describe('Cap Vault Mainnet', function () {
   // poolAddress -> EventMappings
   const eventsToTest: Record<Address, EventMappings> = {
     '0xcccc62962d17b8914c62d74ffb843d73b2a3cccc': {
-      SetFeeData: [22880873, 23140818],
-      Mint: [22880881, 22911367, 23340292],
-      Burn: [22880897, 23339794, 23339756],
+      // there is no SetFeeData event after 23348622
+      // the block at which "getFeeData" becomes available
+      // https://etherscan.io/tx/0xaa25bab1db09ce63b734016cf36fc89322dcc9c2b00f43659851564c0b8423fb
+      // SetFeeData: [22880873, 23140818],
+      Mint: [23348816, 23348762],
+      Burn: [23348769, 23349973],
     },
   };
 

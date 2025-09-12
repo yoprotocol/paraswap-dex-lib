@@ -38,10 +38,8 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     protected capIface = new Interface(CapTokenAbi),
     protected oracleIface = new Interface(PriceOracleAbi),
   ) {
-    // TODO: Add pool name
     super(parentName, 'cap', dexHelper, logger);
 
-    // TODO: make logDecoder decode logs that
     this.logDecoder = (log: Log) => this.capIface.parseLog(log);
     this.addressesSubscribed = [
       ...Object.values(this.configs).map(config => config.vault.address),
@@ -110,34 +108,35 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
       } as VaultState;
 
       const vault = config.vault;
+      const vaultAddress = vault.address.toLowerCase();
       const priceOracle = config.priceOracle;
       const assets = Object.values(config.assets);
 
       const multicall = [
         {
-          target: vault.address,
+          target: vaultAddress,
           callData: this.capIface.encodeFunctionData('totalSupply'),
         },
         {
           target: priceOracle,
           callData: this.oracleIface.encodeFunctionData('getPrice', [
-            vault.address,
+            vaultAddress,
           ]),
         },
         ...assets.map(asset => ({
-          target: asset.address,
+          target: priceOracle,
           callData: this.oracleIface.encodeFunctionData('getPrice', [
             asset.address,
           ]),
         })),
         ...assets.map(asset => ({
-          target: asset.address,
+          target: vaultAddress,
           callData: this.capIface.encodeFunctionData('totalSupplies', [
             asset.address,
           ]),
         })),
         ...assets.map(asset => ({
-          target: asset.address,
+          target: vaultAddress,
           callData: this.capIface.encodeFunctionData('getFeeData', [
             asset.address,
           ]),
@@ -174,35 +173,36 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
 
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
-        vaultState.assetPrice[asset.address.toLowerCase()] = bigIntify(
+        const assetAddress = asset.address.toLowerCase();
+        vaultState.assetPrice[assetAddress] = bigIntify(
           this.oracleIface.decodeFunctionResult(
             'getPrice',
             assetPriceRes[i],
           )[0],
         );
 
-        vaultState.assetSupply[asset.address.toLowerCase()] = bigIntify(
-          this.oracleIface.decodeFunctionResult(
+        vaultState.assetSupply[assetAddress] = bigIntify(
+          this.capIface.decodeFunctionResult(
             'totalSupplies',
             assetSupplyRes[i],
           )[0],
         );
 
-        const feeData = this.oracleIface.decodeFunctionResult(
+        const { feeData } = this.capIface.decodeFunctionResult(
           'getFeeData',
           assetFeeConfigRes[i],
         );
-        vaultState.assetFeeConfig[asset.address.toLowerCase()] = {
-          minMintFee: bigIntify(feeData[0]),
-          slope0: bigIntify(feeData[1]),
-          slope1: bigIntify(feeData[2]),
-          mintKinkRatio: bigIntify(feeData[3]),
-          optimalRatio: bigIntify(feeData[4]),
-          burnKinkRatio: bigIntify(feeData[5]),
+        vaultState.assetFeeConfig[assetAddress] = {
+          minMintFee: bigIntify(feeData.minMintFee),
+          slope0: bigIntify(feeData.slope0),
+          slope1: bigIntify(feeData.slope1),
+          mintKinkRatio: bigIntify(feeData.mintKinkRatio),
+          optimalRatio: bigIntify(feeData.optimalRatio),
+          burnKinkRatio: bigIntify(feeData.burnKinkRatio),
         };
       }
 
-      vaultStates[vault.address] = vaultState;
+      vaultStates[vaultAddress] = vaultState;
     }
     return vaultStates;
   }
@@ -212,12 +212,12 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     state: DeepReadonly<VaultsStates>,
     log: Readonly<Log>,
   ): DeepReadonly<VaultsStates> | null {
-    const vaultAddress = event.address.toLowerCase();
+    const vaultAddress = log.address.toLowerCase();
     const asset = event.args.asset.toLowerCase();
     const feeData = event.args.feeData;
 
     const newState = _.cloneDeep(state) as VaultsStates;
-    newState[vaultAddress].assetFeeConfig[asset] = {
+    newState[vaultAddress].assetFeeConfig[asset.toLowerCase()] = {
       minMintFee: bigIntify(feeData[0]),
       slope0: bigIntify(feeData[1]),
       slope1: bigIntify(feeData[2]),
@@ -234,7 +234,7 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     state: DeepReadonly<VaultsStates>,
     log: Readonly<Log>,
   ): DeepReadonly<VaultsStates> | null {
-    const vaultAddress = event.address.toLowerCase();
+    const vaultAddress = log.address.toLowerCase();
     const asset = event.args.asset.toLowerCase();
     const amountIn = bigIntify(event.args.amountIn);
     const amountOut = bigIntify(event.args.amountOut);
@@ -243,6 +243,7 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     const newState = _.cloneDeep(state) as VaultsStates;
     newState[vaultAddress].assetSupply[asset] += amountIn;
     newState[vaultAddress].totalSupply += amountOut;
+    newState[vaultAddress].totalSupply += fee;
 
     return newState;
   }
@@ -252,7 +253,7 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     state: DeepReadonly<VaultsStates>,
     log: Readonly<Log>,
   ): DeepReadonly<VaultsStates> | null {
-    const vaultAddress = event.address.toLowerCase();
+    const vaultAddress = log.address.toLowerCase();
     const asset = event.args.asset.toLowerCase();
     const amountIn = bigIntify(event.args.amountIn);
     const amountOut = bigIntify(event.args.amountOut);
@@ -261,6 +262,7 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     const newState = _.cloneDeep(state) as VaultsStates;
     newState[vaultAddress].assetSupply[asset] -= amountOut;
     newState[vaultAddress].totalSupply -= amountIn;
+    newState[vaultAddress].totalSupply -= fee;
 
     return newState;
   }
@@ -359,7 +361,8 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     if (!state) {
       return { amount: params.amount, fee: 0n };
     }
-    const vaultState = state[config.vault.address.toLowerCase()];
+    const vaultAddress = config.vault.address.toLowerCase();
+    const vaultState = state[vaultAddress];
     if (!vaultState) {
       return { amount: params.amount, fee: 0n };
     }
@@ -371,8 +374,8 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     const { amount, fee } = this._applyFeeSlopes(vaultState, {
       asset: params.asset,
       mint: params.mint,
-      amountOutBeforeFee,
-      newRatio,
+      amount: amountOutBeforeFee,
+      ratio: newRatio,
     });
     return { amount, fee };
   }
@@ -382,18 +385,18 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     config: VaultConfig,
     params: { mint: boolean; asset: Address; amount: bigint },
   ): { amountOutBeforeFee: bigint; newRatio: bigint } {
-    const assetPrice = state.assetPrice[params.asset.toLowerCase()];
+    const assetAddress = params.asset.toLowerCase();
+    const assetPrice = state.assetPrice[assetAddress];
     const capPrice = state.capPrice;
 
     const assetDecimalsPow =
-      10n ** BigInt(config.assets[params.asset.toLowerCase()].decimals);
+      10n ** BigInt(config.assets[assetAddress].decimals);
     const capDecimalsPow = 10n ** BigInt(config.vault.decimals);
 
     const capSupply = state.totalSupply;
     const capValue = (capSupply * state.capPrice) / capDecimalsPow;
     const allocationValue =
-      (state.assetSupply[params.asset.toLowerCase()] * assetPrice) /
-      assetDecimalsPow;
+      (state.assetSupply[assetAddress] * assetPrice) / assetDecimalsPow;
 
     let amount = 0n;
     let newRatio = 0n;
@@ -432,44 +435,45 @@ export class CapPools extends StatefulEventSubscriber<VaultsStates> {
     params: {
       asset: Address;
       mint: boolean;
-      amountOutBeforeFee: bigint;
-      newRatio: bigint;
+      amount: bigint;
+      ratio: bigint;
     },
   ): { amount: bigint; fee: bigint } {
-    const fees = state.assetFeeConfig[params.asset.toLowerCase()];
+    const assetAddress = params.asset.toLowerCase();
+    const fees = state.assetFeeConfig[assetAddress];
 
     let rate: bigint = 0n;
     if (params.mint) {
       rate = fees.minMintFee;
-      if (params.newRatio > fees.optimalRatio) {
-        if (params.newRatio > fees.mintKinkRatio) {
-          const excessRatio = params.newRatio - fees.mintKinkRatio;
+      if (params.ratio > fees.optimalRatio) {
+        if (params.ratio > fees.mintKinkRatio) {
+          const excessRatio = params.ratio - fees.mintKinkRatio;
           rate +=
             fees.slope0 +
             (fees.slope1 * excessRatio) /
               (this.RAY_PRECISION - fees.mintKinkRatio);
         } else {
           rate +=
-            (fees.slope0 * (params.newRatio - fees.optimalRatio)) /
+            (fees.slope0 * (params.ratio - fees.optimalRatio)) /
             (fees.mintKinkRatio - fees.optimalRatio);
         }
       }
     } else {
-      if (params.newRatio < fees.optimalRatio) {
-        if (params.newRatio < fees.burnKinkRatio) {
-          const excessRatio = fees.burnKinkRatio - params.newRatio;
+      if (params.ratio < fees.optimalRatio) {
+        if (params.ratio < fees.burnKinkRatio) {
+          const excessRatio = fees.burnKinkRatio - params.ratio;
           rate = fees.slope0 + (fees.slope1 * excessRatio) / fees.burnKinkRatio;
         } else {
           rate =
-            (fees.slope0 * (fees.optimalRatio - params.newRatio)) /
+            (fees.slope0 * (fees.optimalRatio - params.ratio)) /
             (fees.optimalRatio - fees.burnKinkRatio);
         }
       }
     }
 
     if (rate > this.RAY_PRECISION) rate = this.RAY_PRECISION;
-    const fee = (params.amountOutBeforeFee * rate) / this.RAY_PRECISION;
-    const amount = params.amountOutBeforeFee - fee;
+    const fee = (params.amount * rate) / this.RAY_PRECISION;
+    const amount = params.amount - fee;
     return { amount, fee };
   }
 }

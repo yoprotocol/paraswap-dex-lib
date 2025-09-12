@@ -81,13 +81,9 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
     _side: SwapSide,
     _blockNumber: number,
   ): Promise<string[]> {
-    const mint = this._detectMint(srcToken, destToken, _side);
-    if (mint) {
-      return [this._poolKey(mint)];
-    }
-    const burn = this._detectBurn(srcToken, destToken, _side);
-    if (burn) {
-      return [this._poolKey(burn)];
+    const detect = this._detectMintBurn(srcToken, destToken, _side);
+    if (detect) {
+      return [this._poolKey(detect)];
     }
     return [];
   }
@@ -104,60 +100,62 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
     blockNumber: number,
     limitPools?: string[],
   ): Promise<null | ExchangePrices<VaultConfig>> {
-    const mint = this._detectMint(srcToken, destToken, side);
-    const burn = this._detectBurn(srcToken, destToken, side);
-    const poolKey = this._poolKey(mint ?? burn);
+    const detect = this._detectMintBurn(srcToken, destToken, side);
+    if (!detect) {
+      return null;
+    }
+
+    const poolKey = this._poolKey(detect);
     const excludePoolKey = limitPools && !limitPools.includes(poolKey);
 
-    // TODO:
-    // - account for fees
-    // - account for decimals
+    const { type, vault, asset } = detect;
 
-    if (mint && !excludePoolKey) {
-      const vaultConfig = this.configs[mint.vault.address.toLowerCase()];
+    if (type === 'mint' && !excludePoolKey) {
+      const vaultConfig = this.configs[vault.address.toLowerCase()];
       return [
         {
           unit: BI_POWS[18],
-          prices: amounts.map(
-            amount =>
-              this.eventPools.getAmountOut(
-                vaultConfig,
-                { mint: true, asset: mint.asset.address, amount },
-                blockNumber,
-              ).amount,
-          ),
+          prices: amounts.map(amount => {
+            const { amount: amountOut, fee } = this.eventPools.getAmountOut(
+              vaultConfig,
+              { mint: true, asset: asset.address, amount },
+              blockNumber,
+            );
+
+            return amountOut;
+          }),
           gasCost: 250_000,
-          data: this.configs[mint.vault.address.toLowerCase()],
-          poolAddresses: [mint.vault.address.toLowerCase()],
+          data: this.configs[vault.address.toLowerCase()],
+          poolAddresses: [vault.address.toLowerCase()],
           poolIdentifiers: [poolKey],
           exchange: this.dexKey,
         },
       ];
     }
 
-    if (burn && !excludePoolKey) {
-      const vaultConfig = this.configs[burn.vault.address.toLowerCase()];
+    if (type === 'burn' && !excludePoolKey) {
+      const vaultConfig = this.configs[vault.address.toLowerCase()];
       return [
         {
           unit: BI_POWS[18],
-          prices: amounts.map(
-            amount =>
-              this.eventPools.getAmountOut(
-                vaultConfig,
-                { mint: false, asset: burn.asset.address, amount },
-                blockNumber,
-              ).amount,
-          ),
+          prices: amounts.map(amount => {
+            const { amount: amountOut, fee } = this.eventPools.getAmountOut(
+              vaultConfig,
+              { mint: false, asset: asset.address, amount },
+              blockNumber,
+            );
+
+            return amountOut;
+          }),
           gasCost: 240_000,
-          data: this.configs[burn.vault.address.toLowerCase()],
-          poolAddresses: [burn.vault.address.toLowerCase()],
+          data: this.configs[vault.address.toLowerCase()],
+          poolAddresses: [vault.address.toLowerCase()],
           poolIdentifiers: [poolKey],
           exchange: this.dexKey,
         },
       ];
     }
 
-    // TODO: complete me!
     return null;
   }
 
@@ -194,35 +192,34 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
     data: VaultConfig,
     side: SwapSide,
   ): DexExchangeParam {
-    const mint = this._detectMint(srcToken, destToken, side);
-    if (mint) {
+    const detect = this._detectMintBurn(srcToken, destToken, side);
+    if (detect && detect.type === 'mint') {
       return {
         needWrapNative: this.needWrapNative,
         dexFuncHasRecipient: true,
         exchangeData: this.capIface.encodeFunctionData('mint', [
-          mint.asset.address,
+          detect.asset.address,
           srcAmount,
           destAmount,
           recipient,
           getLocalDeadlineAsFriendlyPlaceholder(),
         ]),
-        targetExchange: mint.vault.address,
+        targetExchange: detect.vault.address,
       };
     }
 
-    const burn = this._detectBurn(srcToken, destToken, side);
-    if (burn) {
+    if (detect && detect.type === 'burn') {
       return {
         needWrapNative: this.needWrapNative,
         dexFuncHasRecipient: true,
         exchangeData: this.capIface.encodeFunctionData('burn', [
-          burn.asset.address,
+          detect.asset.address,
           srcAmount,
           destAmount,
           recipient,
           getLocalDeadlineAsFriendlyPlaceholder(),
         ]),
-        targetExchange: burn.vault.address,
+        targetExchange: detect.vault.address,
       };
     }
 
@@ -287,18 +284,14 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
   // This is optional function in case if your implementation has acquired any resources
   // you need to release for graceful shutdown. For example, it may be any interval timer
   releaseResources(): AsyncOrSync<void> {
-    // TODO: complete me!
+    return;
   }
 
-  private _detectMint(
+  private _detectMintBurn(
     srcToken: Token | string,
     destToken: Token | string,
     side: SwapSide,
-  ): null | { vault: Token; asset: Token } {
-    if (side === SwapSide.SELL) {
-      return this._detectBurn(destToken, srcToken, SwapSide.BUY);
-    }
-
+  ): null | { type: 'mint' | 'burn'; vault: Token; asset: Token } {
     const _srcAddress = (
       typeof srcToken === 'string' ? srcToken : srcToken.address
     ).toLowerCase();
@@ -312,42 +305,26 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
       const srcAsset = assets.find(
         a => a.address.toLowerCase() === _srcAddress,
       );
-
-      if (_destAddress === vault.address.toLowerCase() && srcAsset) {
-        return { vault: vault, asset: srcAsset };
-      }
-    }
-
-    return null;
-  }
-
-  private _detectBurn(
-    srcToken: Token | string,
-    destToken: Token | string,
-    side: SwapSide,
-  ): null | { vault: Token; asset: Token } {
-    if (side === SwapSide.SELL) {
-      return this._detectMint(destToken, srcToken, SwapSide.BUY);
-    }
-
-    const _srcAddress = (
-      typeof srcToken === 'string' ? srcToken : srcToken.address
-    ).toLowerCase();
-    const _destAddress = (
-      typeof destToken === 'string' ? destToken : destToken.address
-    ).toLowerCase();
-    // TODO: use side
-    for (const config of Object.values(this.configs)) {
-      const vault = config.vault;
-      const assets = Object.values(config.assets);
       const destAsset = assets.find(
         a => a.address.toLowerCase() === _destAddress,
       );
 
+      if (_destAddress === vault.address.toLowerCase() && srcAsset) {
+        if (side === SwapSide.BUY) {
+          return { type: 'burn', vault: vault, asset: srcAsset };
+        } else {
+          return { type: 'mint', vault: vault, asset: srcAsset };
+        }
+      }
       if (_srcAddress === vault.address.toLowerCase() && destAsset) {
-        return { vault: vault, asset: destAsset };
+        if (side === SwapSide.BUY) {
+          return { type: 'mint', vault: vault, asset: destAsset };
+        } else {
+          return { type: 'burn', vault: vault, asset: destAsset };
+        }
       }
     }
+
     return null;
   }
 

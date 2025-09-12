@@ -36,7 +36,7 @@ async function checkOnChainPricing(
     const vault = config.vault;
     const assets = Object.values(config.assets);
 
-    // mint
+    // burn
     if (_destToken === vault.address) {
       const srcAssets = assets.find(
         asset => asset.address.toLowerCase() === _srcToken.toLowerCase(),
@@ -48,7 +48,7 @@ async function checkOnChainPricing(
       const multicall = [
         ...amounts.map(amount => ({
           target: vault.address,
-          callData: cap.capIface.encodeFunctionData('getMintAmount', [
+          callData: cap.capIface.encodeFunctionData('getBurnAmount', [
             srcAssets.address,
             amount,
           ]),
@@ -63,7 +63,7 @@ async function checkOnChainPricing(
 
       expectedPrices = returnData
         .map((result: any) =>
-          cap.capIface.decodeFunctionResult('getMintAmount', result),
+          cap.capIface.decodeFunctionResult('getBurnAmount', result),
         )
         .map((result: any) => result[0])
         .map((result: any) => BigInt(result));
@@ -71,7 +71,7 @@ async function checkOnChainPricing(
       break;
     }
 
-    // burn
+    // mint
     if (_srcToken === vault.address) {
       const destAssets = assets.find(
         asset => asset.address.toLowerCase() === _destToken.toLowerCase(),
@@ -83,7 +83,7 @@ async function checkOnChainPricing(
       const multicall = [
         ...amounts.map(amount => ({
           target: vault.address,
-          callData: cap.capIface.encodeFunctionData('getBurnAmount', [
+          callData: cap.capIface.encodeFunctionData('getMintAmount', [
             destAssets.address,
             amount,
           ]),
@@ -98,7 +98,7 @@ async function checkOnChainPricing(
 
       expectedPrices = returnData
         .map((result: any) =>
-          cap.capIface.decodeFunctionResult('getBurnAmount', result),
+          cap.capIface.decodeFunctionResult('getMintAmount', result),
         )
         .map((result: any) => result[0])
         .map((result: any) => BigInt(result));
@@ -212,7 +212,7 @@ describe('Cap', function () {
     beforeAll(async () => {
       blockNumber = await dexHelper.web3Provider.eth.getBlockNumber();
       cap = new Cap(network, dexKey, dexHelper);
-      cap.eventPools.initialize(blockNumber);
+      await cap.eventPools.initialize(blockNumber);
       if (cap.initializePricing) {
         await cap.initializePricing(blockNumber);
       }
