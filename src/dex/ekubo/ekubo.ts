@@ -298,7 +298,7 @@ export class Ekubo extends SimpleExchange implements IDex<EkuboData> {
             isToken1: amountTokenAddress === token1,
             skipAhead: skipAheadMap,
           },
-          poolIdentifier: poolId,
+          poolIdentifiers: [poolId],
           exchange: this.dexKey,
           gasCost: otherQuotes.map(quote => quote.gasConsumed),
         });

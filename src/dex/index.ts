@@ -19,7 +19,6 @@ import { Bancor } from './bancor/bancor';
 import { Compound } from './compound/compound';
 import { AaveV2 } from './aave-v2/aave-v2';
 import { AaveV3 } from './aave-v3/aave-v3';
-import { IdleDao } from './idle-dao/idle-dao';
 import { DodoV1 } from './dodo-v1/dodo-v1';
 import { DodoV2 } from './dodo-v2';
 import { Smoothy } from './smoothy/smoothy';
@@ -28,7 +27,6 @@ import { IDexHelper } from '../dex-helper';
 import { SwapSide } from '../constants';
 import { Adapters } from '../types';
 import { Lido } from './lido/lido';
-import { MakerPsm } from './maker-psm/maker-psm';
 import { KyberDmm } from './kyberdmm/kyberdmm';
 import { GMX } from './gmx/gmx';
 import { WooFiV2 } from './woo-fi-v2/woo-fi-v2';
@@ -113,6 +111,8 @@ import { MiroMigrator } from './miro-migrator/miro-migrator';
 import { AaveV3PtRollOver } from './aave-v3-pt-roll-over/aave-v3-pt-roll-over';
 import { RingV2 } from './uniswap-v2/ring-v2';
 import { UsdcTransmuter } from './usdc-transmuter/usdc-transmuter';
+import { Blackhole } from './solidly/forks-override/blackhole';
+import { BlackholeCL } from './algebra-integral/forks/blackhole-cl';
 import { BunniV2 } from './bunni-v2/bunni-v2';
 
 const LegacyDexes = [
@@ -155,11 +155,9 @@ const Dexes = [
   Dfyn,
   AaveV2,
   AaveV3,
-  IdleDao,
   KyberDmm,
   Weth,
   PolygonMigrator,
-  MakerPsm,
   Nerve,
   GMX,
   JarvisV6,
@@ -220,6 +218,8 @@ const Dexes = [
   AaveV3PtRollOver,
   RingV2,
   UsdcTransmuter,
+  Blackhole,
+  BlackholeCL,
   BunniV2,
 ];
 
