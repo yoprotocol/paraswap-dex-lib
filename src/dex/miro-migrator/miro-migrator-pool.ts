@@ -4,7 +4,7 @@ import { catchParseLogError } from '../../utils';
 import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import { IDexHelper } from '../../dex-helper/idex-helper';
 import { PoolState } from './types';
-import { erc20Iface } from '../../lib/utils-interfaces';
+import ERC20ABI from '../../abi/ERC20.abi.json';
 import { Contract } from 'ethers';
 
 export class MiroMigratorEventPool extends StatefulEventSubscriber<PoolState> {
@@ -27,7 +27,7 @@ export class MiroMigratorEventPool extends StatefulEventSubscriber<PoolState> {
     protected vlrTokenAddress: string,
     protected vlrContract: Contract = new Contract(
       vlrTokenAddress,
-      erc20Iface,
+      ERC20ABI,
       dexHelper.provider,
     ),
   ) {

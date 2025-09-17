@@ -35,7 +35,7 @@ describe('MiroMigrator EventPool', function () {
 
     const eventsToTest: Record<Address, EventMappings> = {
       [MiroMigratorConfig[dexKey][network].vlrTokenAddress]: {
-        Transfer: [22737133, 22737134, 22737135, 22737136, 22737137],
+        Transfer: [23381115, 23381111, 23381108, 23381106, 23381099],
       },
     };
 
@@ -89,7 +89,7 @@ describe('MiroMigrator EventPool', function () {
 
     const eventsToTest: Record<Address, EventMappings> = {
       [MiroMigratorConfig[dexKey][network].vlrTokenAddress]: {
-        Transfer: [137360268, 137360269, 137360270, 137360271, 137360272],
+        Transfer: [141246004, 141245961, 141245678, 141245519, 141245451],
       },
     };
 
