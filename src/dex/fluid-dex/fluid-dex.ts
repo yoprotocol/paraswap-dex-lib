@@ -306,6 +306,28 @@ export class FluidDex extends SimpleExchange implements IDex<FluidDexData> {
     };
   }
 
+  async updatePoolState() {
+    const blockNumber = await this.dexHelper.web3Provider.eth.getBlockNumber();
+
+    this.pools = await this.fetchFluidDexPools(blockNumber);
+
+    this.eventPools = await Promise.all(
+      this.pools.map(async pool => {
+        const eventPool = new FluidDexEventPool(
+          this.dexKey,
+          pool.address,
+          this.network,
+          this.dexHelper,
+          this.logger,
+        );
+        await eventPool.updatePoolState(blockNumber);
+        return eventPool;
+      }),
+    );
+
+    await this.liquidityProxy.updatePoolState(blockNumber);
+  }
+
   // Returns list of top pools based on liquidity. Max
   // limit number pools should be returned.
   async getTopPoolsForToken(
