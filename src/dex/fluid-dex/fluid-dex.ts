@@ -377,8 +377,6 @@ export class FluidDex extends SimpleExchange implements IDex<FluidDexData> {
             continue;
           }
 
-          // Calculate liquidity based on adjusted total supplies
-          // These represent the actual liquidity available in the pool
           const token0Supply =
             currentPoolReserves.dexLimits.withdrawableToken0.available;
           const token1Supply =
@@ -394,6 +392,8 @@ export class FluidDex extends SimpleExchange implements IDex<FluidDexData> {
               [pool.token0, token0Supply],
               [pool.token1, token1Supply],
             ]);
+
+          const liquidityUSD = token0LiquidityUSD + token1LiquidityUSD;
 
           // Determine connector token (the other token in the pair)
           const connectorToken =
@@ -413,10 +413,7 @@ export class FluidDex extends SimpleExchange implements IDex<FluidDexData> {
             exchange: this.dexKey,
             address: pool.address,
             connectorTokens: [connectorToken],
-            liquidityUSD:
-              pool.token0.toLowerCase() === normalizedTokenAddress
-                ? Number(token0LiquidityUSD)
-                : Number(token1LiquidityUSD),
+            liquidityUSD,
           });
         } catch (error) {
           this.logger.debug(
