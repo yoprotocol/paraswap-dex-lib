@@ -10,6 +10,7 @@ import { DexParams } from './types';
 import { Interface, JsonFragment } from '@ethersproject/abi';
 import { Usual } from './usual';
 import { getDexKeysWithNetwork } from '../../utils';
+import { extractReturnAmountPosition } from '../../executor/utils';
 import USUAL_USDC_ABI from '../../abi/usual-usual-usdc/abi.json';
 
 const Config: DexConfigMap<DexParams> = {
@@ -52,14 +53,11 @@ export class UsdcUsualUSDC extends Usual {
     side: SwapSide,
   ): Promise<DexExchangeParam> {
     if (this.isFromToken(srcToken) && this.isToToken(destToken)) {
-      const fn =
-        srcToken.toLowerCase() === this.config.fromToken.address.toLowerCase()
-          ? 'wrap(address, uint256)'
-          : 'unwrap(address, uint256)';
+      const amount = side === SwapSide.SELL ? srcAmount : destAmount;
 
-      const exchangeData = this.usualUsdcIface.encodeFunctionData(fn, [
+      const exchangeData = this.usualUsdcIface.encodeFunctionData('wrap', [
         recipient,
-        side === SwapSide.SELL ? srcAmount : destAmount,
+        amount,
       ]);
 
       return {
@@ -67,7 +65,10 @@ export class UsdcUsualUSDC extends Usual {
         dexFuncHasRecipient: true,
         exchangeData,
         targetExchange: this.config.toToken.address,
-        returnAmountPos: undefined,
+        returnAmountPos:
+          side === SwapSide.SELL
+            ? extractReturnAmountPosition(this.usualUsdcIface, 'wrap')
+            : undefined,
       };
     }
 
