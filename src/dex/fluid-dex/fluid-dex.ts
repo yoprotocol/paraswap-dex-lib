@@ -355,7 +355,7 @@ export class FluidDex extends SimpleExchange implements IDex<FluidDexData> {
 
       const poolLiquidity: PoolLiquidity[] = [];
 
-      for (const pool of relevantPools.slice(0, limit * 2)) {
+      for (const pool of relevantPools) {
         const currentPoolReserves = liquidityProxyState.poolsReserves.find(
           poolReserve => poolReserve.pool.toLowerCase() === pool.address,
         );
@@ -393,21 +393,25 @@ export class FluidDex extends SimpleExchange implements IDex<FluidDexData> {
               [pool.token1, token1Supply],
             ]);
 
-          const liquidityUSD = token0LiquidityUSD + token1LiquidityUSD;
-
           // Determine connector token (the other token in the pair)
-          const connectorToken =
+          const [connectorToken, liquidityUSD] =
             pool.token0.toLowerCase() === normalizedTokenAddress
-              ? {
-                  address: pool.token1,
-                  decimals: pool.token1Decimals,
-                  liquidityUSD: token1LiquidityUSD,
-                }
-              : {
-                  address: pool.token0,
-                  decimals: pool.token0Decimals,
-                  liquidityUSD: token0LiquidityUSD,
-                };
+              ? [
+                  {
+                    address: pool.token1,
+                    decimals: pool.token1Decimals,
+                    liquidityUSD: token1LiquidityUSD,
+                  },
+                  token0LiquidityUSD,
+                ]
+              : [
+                  {
+                    address: pool.token0,
+                    decimals: pool.token0Decimals,
+                    liquidityUSD: token0LiquidityUSD,
+                  },
+                  token1LiquidityUSD,
+                ];
 
           poolLiquidity.push({
             exchange: this.dexKey,
