@@ -378,9 +378,11 @@ export class FluidDex extends SimpleExchange implements IDex<FluidDexData> {
           }
 
           const token0Supply =
-            currentPoolReserves.dexLimits.withdrawableToken0.available;
+            currentPoolReserves.dexLimits.withdrawableToken0.available +
+            currentPoolReserves.dexLimits.borrowableToken0.available;
           const token1Supply =
-            currentPoolReserves.dexLimits.withdrawableToken1.available;
+            currentPoolReserves.dexLimits.withdrawableToken1.available +
+            currentPoolReserves.dexLimits.borrowableToken1.available;
 
           if (token0Supply === 0n || token1Supply === 0n) {
             // Skip pools with no liquidity
