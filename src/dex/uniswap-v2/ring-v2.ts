@@ -367,10 +367,10 @@ export class RingV2 extends UniswapV2 {
 
     if (side === SwapSide.SELL) {
       functionName = RingV2Functions.swapExactTokensForTokens;
-      args = [srcAmount, destAmount, data.path, data.router, deadline];
+      args = [srcAmount, destAmount, data.path, this.augustusAddress, deadline];
     } else {
       functionName = RingV2Functions.swapTokensForExactTokens;
-      args = [destAmount, srcAmount, data.path, data.router, deadline];
+      args = [destAmount, srcAmount, data.path, this.augustusAddress, deadline];
     }
 
     const exchangeData = this.exchangeRouterInterface.encodeFunctionData(
