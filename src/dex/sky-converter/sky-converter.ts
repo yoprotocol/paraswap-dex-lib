@@ -101,7 +101,9 @@ export class SkyConverter
   }
 
   oldAmountToNewAmount(amount: bigint, fee: bigint) {
-    if (fee >= BI_POWS[18]) return 0n;
+    if (fee <= 0n) {
+      return amount * this.config.newTokenRateMultiplier;
+    }
 
     return (
       (amount * this.config.newTokenRateMultiplier * (BI_POWS[18] - fee)) /
@@ -110,7 +112,9 @@ export class SkyConverter
   }
 
   newAmountToOldAmount(amount: bigint, fee: bigint) {
-    if (fee >= BI_POWS[18]) return 0n;
+    if (fee <= 0n) {
+      return amount / this.config.newTokenRateMultiplier;
+    }
 
     return (
       (amount * BI_POWS[18]) /
