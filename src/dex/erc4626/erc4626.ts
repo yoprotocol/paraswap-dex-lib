@@ -80,7 +80,7 @@ export class ERC4626
     );
   }
 
-  getAdapters(_side: SwapSide): { name: string; index: number }[] | null {
+  getAdapters(side: SwapSide): { name: string; index: number }[] | null {
     return null;
   }
 
@@ -254,22 +254,34 @@ export class ERC4626
     const isSell = side === SwapSide.SELL;
     const { exchange } = data;
 
-    let swapData: string;
-    if (this.isAsset(srcToken)) {
-      swapData = this.erc4626Interface.encodeFunctionData(
-        isSell ? ERC4626Functions.deposit : ERC4626Functions.mint,
-        [isSell ? srcAmount : destAmount, this.augustusAddress],
-      );
+    const isAsset = this.isAsset(srcToken);
+
+    let func: ERC4626Functions;
+    let args: any[];
+
+    if (this.depositRedeemOnly) {
+      if (isAsset) {
+        func = ERC4626Functions.deposit;
+        args = [srcAmount, this.augustusAddress];
+      } else {
+        func = ERC4626Functions.redeem;
+        args = [srcAmount, this.augustusAddress, this.augustusAddress];
+      }
     } else {
-      swapData = this.erc4626Interface.encodeFunctionData(
-        isSell ? ERC4626Functions.redeem : ERC4626Functions.withdraw,
-        [
+      if (isAsset) {
+        func = isSell ? ERC4626Functions.deposit : ERC4626Functions.mint;
+        args = [isSell ? srcAmount : destAmount, this.augustusAddress];
+      } else {
+        func = isSell ? ERC4626Functions.redeem : ERC4626Functions.withdraw;
+        args = [
           isSell ? srcAmount : destAmount,
           this.augustusAddress,
           this.augustusAddress,
-        ],
-      );
+        ];
+      }
     }
+
+    const swapData = this.erc4626Interface.encodeFunctionData(func, args);
 
     return this.buildSimpleParamWithoutWETHConversion(
       srcToken,
@@ -285,7 +297,7 @@ export class ERC4626
     );
   }
 
-  async getDexParam(
+  getDexParam(
     srcToken: Address,
     destToken: Address,
     srcAmount: NumberAsString,
@@ -295,7 +307,7 @@ export class ERC4626
     side: SwapSide,
     _: Context,
     executorAddress: Address,
-  ): Promise<DexExchangeParam> {
+  ): DexExchangeParam {
     const isSell = side === SwapSide.SELL;
     const { exchange } = data;
 
