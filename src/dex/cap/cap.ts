@@ -24,7 +24,7 @@ import { CapConfig } from './config';
 import { CapPools } from './cap-pools';
 import { BI_POWS } from '../../bigint-constants';
 import { Interface } from '@ethersproject/abi';
-import CapTokenAbi from './abis/CapToken.json';
+import CapTokenAbi from '../../abi/cap/CapToken.json';
 
 export class Cap extends SimpleExchange implements IDex<VaultConfig> {
   public eventPools: CapPools;

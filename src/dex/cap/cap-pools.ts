@@ -11,8 +11,8 @@ import {
   VaultsStates,
   VaultState,
 } from './types';
-import CapTokenAbi from './abis/CapToken.json';
-import PriceOracleAbi from './abis/PriceOracle.json';
+import CapTokenAbi from '../../abi/cap/CapToken.json';
+import PriceOracleAbi from '../../abi/cap/PriceOracle.json';
 
 export class CapPools extends StatefulEventSubscriber<VaultsStates> {
   RAY_PRECISION = 10n ** 27n;
