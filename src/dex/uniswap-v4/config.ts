@@ -2,6 +2,36 @@ import { DexConfigMap } from '../../types';
 import { Network } from '../../constants';
 import { DexParams } from './types';
 
+export const UniswapV4PoolsList: Record<number, string[]> = {
+  [Network.BASE]: [
+    '0x96d4b53a38337a5733179751781178a2613306063c511b78cd02684739288c0a', // ETH <> USDC (fee 500)
+    '0xf13203ddbf2c9816a79b656a1a952521702715d92fea465b84ae2ed6e94a7f22', // USDC <> USDT (fee 7)
+    '0x12d76c5c8ec8edffd3c143995b0aa43fe44a6d71eb9113796272909e54b8e078', // USDC <> cbBTC (fee 500)
+    '0xd3020570106c58635ff7f549659c4c310409c9a5d698cb826842bc8a39e3ce81', // USDC <> USDT (fee 20)
+    '0x7681c00520c26da8d8970c21a65461c726f274068eb08743debc1178e697044e', // USDC <> USDT (fee 5)
+    '0x179492f1f9c7b2e2518a01eda215baab8adf0b02dd3a90fe68059c0cac5686f5', // USDC <> cbBTC (fee 3000)
+    '0xcdcbb476543e5c703f7562009cb4e2a6c543dc09fe740abf8be0c01c31c82884', // GHO <> USDC (fee 100)
+    '0x90305e6043c0879a665262237e4643df9b48c1ba51aec5abe82c5d98f0da54bd', // USDC <> USDT (fee 11)
+    // '0xd6ba4bdd2ebdde6b9beab0085f42f08bf69a80e515e399cf93716505c738169b', // WETH <> QE (fee 8388608)
+    '0xe070797535b13431808f8fc81fdbe7b41362960ed0b55bc2b6117c49c51b7eb9', // ETH <> USDC (fee 3000)
+    '0xaf15cd1f9c3874bbcfddfc2b544544612c9de8c8bae28ba21c129c6b286c1e19', // ETH <> USDC (fee 90)
+    '0x438c7f6a3b32fdcf043ad3285dbc128486df894a1f3d448b1da38b2f2a1a43cb', // USDC <> KTA (fee 10000)
+    // '0xbfadeecc6ae215a0ff707ac2dcb01055c89a8ff003046e883bc5e554ee7465fd', // WETH <> BaseShake (fee 30000)
+    // '0x9cda3a1ca4814877cfc50f17cb3f428dd553a53bdb5836c6f181ff24574e4320', // WETH <> RETAKE (fee 8388608)
+    // '0xa18262d729e388b0a67aa65c0dd2a096482b3a27058be5547a3235d053dd90b4', // GHO <> USDC (fee 500)
+    '0x322d9aef3cf895da9e35b95b6c6e8f3c5e2a90b6d447a8bbb1ff2616b608a4d0', // USD₮0 <> USDC (fee 100)
+    // '0x071526b476f0c45aaebdb6805b96405b8d29c1a47897ade98fbd410db0e3d4d8', // ETH <> USDC (fee 1500)
+    // '0xaf2baac6d043d22f9ce14439228fbbf90c108a1dc809e32ad4e7e9e13fc941ac', // VIRTUAL <> USDC (fee 3000)
+    '0xa0ab20a64f46b5676fe1542cb87b454e5104007689e0eef4212aa0cbe34933a1', // USDC <> USDbC (fee 10)
+    // '0x5812d2e7e919cac3bfecec450911c8b2640234e5023864f2d31f3b6448f37687', // $COINS <> USDC (fee 3000)
+    // '0x56a0cd87d81cc71184a4b2dd42964591bf351d0cfdded03f9bc75b7b559344ce', // USDC <> AERO (fee 10000)
+    // '0x521bf7880c5e567eead09cd7fe67af2a60a21dfd79e8e49fd766e725b972aac2', // EURC <> USDC (fee 10)
+    // '0x9fa78569c84e38a97d2d738329f21cd4fb21306768ca4e6bdd1e84e451ef6cdb', // WAI <> USDC (fee 10000)
+    // '0xc58b1cb202c4650f52cbc51193783cb0c245419028bfe1bb00b786a9e0187372', // ETH <> USDC (fee 8388608)
+    // '0x64db64264317af2fa1cc5a5deff9900dcf504d426580ab16dc59279b4ade4423', // EURC <> USDC (fee 500)
+  ],
+};
+
 export const UniswapV4Config: DexConfigMap<DexParams> = {
   UniswapV4: {
     [Network.MAINNET]: {

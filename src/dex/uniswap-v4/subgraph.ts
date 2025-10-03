@@ -281,3 +281,46 @@ export async function queryOnePageForAllAvailablePoolsFromSubgraph(
 
   return res.data.pools;
 }
+
+export async function queryPoolsFromSubgraph(
+  dexHelper: IDexHelper,
+  subgraphUrl: string,
+  poolIds: string[],
+): Promise<SubgraphPool[] | null> {
+  const poolsQuery = `query ($minTVL: Int!, $hooks: Bytes!, $pools: [Bytes!]!) {
+      pools(where: {liquidity_gt: 0, totalValueLockedUSD_gte: $minTVL, id_in: $pools}) {
+        id
+        fee: feeTier
+        volumeUSD
+        tickSpacing
+        token0 {
+          address: id
+        }
+        token1 {
+          address: id
+        }
+        hooks
+        tick
+      }
+    }`;
+
+  const res = await dexHelper.httpRequest.querySubgraph<{
+    data: {
+      pools: SubgraphPool[];
+    };
+    errors?: { message: string }[];
+  }>(
+    subgraphUrl,
+    {
+      query: poolsQuery,
+      variables: {
+        hooks: NULL_ADDRESS,
+        minTVL: POOL_MIN_TVL_USD,
+        pools: poolIds,
+      },
+    },
+    { timeout: SUBGRAPH_TIMEOUT },
+  );
+
+  return res?.data?.pools ?? null;
+}

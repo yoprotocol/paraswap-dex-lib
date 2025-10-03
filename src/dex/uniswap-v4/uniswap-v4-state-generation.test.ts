@@ -8,11 +8,33 @@ import { UniswapV4Pool } from './uniswap-v4-pool';
 import { UniswapV4Config } from './config';
 import { Logger } from 'log4js';
 
+/*
+{
+  pools(first: 5, orderBy: volumeUSD, orderDirection: desc) {
+    id
+    fee: feeTier
+    tickSpacing
+    hooks
+    currency0: token0 {
+      id
+    }
+    currency1:token1 {
+      volume
+      id
+    }
+  }
+}
+*/
+
 // Pool configuration structure
 interface PoolConfig {
   id: string;
-  currency0: string;
-  currency1: string;
+  currency0: {
+    id: string;
+  };
+  currency1: {
+    id: string;
+  };
   fee: string;
   hooks: string;
   tickSpacing: string;
@@ -23,24 +45,74 @@ const testPoolsConfig: Record<number, PoolConfig[]> = {
   [Network.BASE]: [
     {
       id: '0x96d4b53a38337a5733179751781178a2613306063c511b78cd02684739288c0a',
-      currency0: '0x0000000000000000000000000000000000000000', // Native ETH
-      currency1: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC
+      currency0: { id: '0x0000000000000000000000000000000000000000' }, // Native ETH
+      currency1: { id: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' }, // USDC
       fee: '500',
       hooks: '0x0000000000000000000000000000000000000000',
       tickSpacing: '10',
     },
-    // Add more pools here as needed
   ],
   [Network.MAINNET]: [
     {
-      id: '0x8aa4e11cbdf30eedc92100f4c8a31ff748e201d44712cc8c90d189edaa8e4e47',
-      currency0: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
-      currency1: '0xdac17f958d2ee523a2206206994597c13d831ec7', // USDT
+      currency0: {
+        id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      },
+      currency1: {
+        id: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      },
       fee: '10',
       hooks: '0x0000000000000000000000000000000000000000',
+      id: '0x8aa4e11cbdf30eedc92100f4c8a31ff748e201d44712cc8c90d189edaa8e4e47',
       tickSpacing: '1',
     },
-    // Add more pools here as needed
+    {
+      currency0: {
+        id: '0x0000000000000000000000000000000000000000',
+      },
+      currency1: {
+        id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      },
+      fee: '500',
+      hooks: '0x0000000000000000000000000000000000000000',
+      id: '0x21c67e77068de97969ba93d4aab21826d33ca12bb9f565d8496e8fda8a82ca27',
+      tickSpacing: '10',
+    },
+    {
+      currency0: {
+        id: '0x0000000000000000000000000000000000000000',
+      },
+      currency1: {
+        id: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      },
+      fee: '500',
+      hooks: '0x0000000000000000000000000000000000000000',
+      id: '0x72331fcb696b0151904c03584b66dc8365bc63f8a144d89a773384e3a579ca73',
+      tickSpacing: '10',
+    },
+    {
+      currency0: {
+        id: '0x0000000000000000000000000000000000000000',
+      },
+      currency1: {
+        id: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      },
+      fee: '100',
+      hooks: '0x0000000000000000000000000000000000000000',
+      id: '0x00b9edc1583bf6ef09ff3a09f6c23ecb57fd7d0bb75625717ec81eed181e22d7',
+      tickSpacing: '1',
+    },
+    {
+      currency0: {
+        id: '0x4c9edd5852cd905f086c759e8383e09bff1e68b3',
+      },
+      currency1: {
+        id: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      },
+      fee: '63',
+      hooks: '0x0000000000000000000000000000000000000000',
+      id: '0xaae9da4a878406eb1de54efac30e239fd56d54fb8051e59f6fee529bc9609b3b',
+      tickSpacing: '1',
+    },
   ],
 };
 
@@ -52,6 +124,7 @@ describe('UniswapV4Pool State Generation', () => {
     describeFn(`${Network[network]} Network`, () => {
       const config = UniswapV4Config.UniswapV4[network];
       const pools = testPoolsConfig[network] || [];
+      // const pools = [testPoolsConfig[network][0]];
 
       if (!config) {
         it('should skip tests when config is not available', () => {
@@ -73,10 +146,10 @@ describe('UniswapV4Pool State Generation', () => {
         describe(`Pool ${index + 1}: ${poolConfig.id.substring(
           0,
           10,
-        )}... (${poolConfig.currency0.substring(
+        )}... (${poolConfig.currency0.id.substring(
           0,
           6,
-        )}.../${poolConfig.currency1.substring(0, 6)}..., fee: ${
+        )}.../${poolConfig.currency1.id.substring(0, 6)}..., fee: ${
           poolConfig.fee
         })`, () => {
           let dexHelper: DummyDexHelper;
@@ -96,8 +169,8 @@ describe('UniswapV4Pool State Generation', () => {
               logger,
               '',
               poolConfig.id,
-              poolConfig.currency0,
-              poolConfig.currency1,
+              poolConfig.currency0.id,
+              poolConfig.currency1.id,
               poolConfig.fee,
               poolConfig.hooks,
               0n, // sqrtPriceX96 - will be fetched from state
@@ -105,7 +178,14 @@ describe('UniswapV4Pool State Generation', () => {
               poolConfig.tickSpacing,
             );
 
+            // using Mutlicall to fetch initial state
             await pool.initialize(await dexHelper.provider.getBlockNumber());
+
+            const state = pool.getStaleState();
+            if (state && state.isValid) {
+              pool.tick = state.slot0.tick.toString();
+              pool.sqrtPriceX96 = state.slot0.sqrtPriceX96;
+            }
           });
 
           describe('State Generation Comparison', () => {
@@ -120,7 +200,7 @@ describe('UniswapV4Pool State Generation', () => {
               console.log(`Testing state generation at block ${blockNumber}`);
               console.log(`Pool ID: ${poolConfig.id}`);
               console.log(
-                `Currency0: ${poolConfig.currency0}, Currency1: ${poolConfig.currency1}`,
+                `Currency0: ${poolConfig.currency0.id}, Currency1: ${poolConfig.currency1.id}`,
               );
               console.log(
                 `Fee: ${poolConfig.fee}, TickSpacing: ${poolConfig.tickSpacing}`,
@@ -194,14 +274,11 @@ describe('UniswapV4Pool State Generation', () => {
                 ...Object.keys(multicallState.ticks),
               ]);
 
-              let matchingTicks = 0;
-              let differingTicks = 0;
-
               for (const tickKey of allTickKeys) {
                 const subgraphTick = subgraphState.ticks[tickKey];
                 const multicallTick = multicallState.ticks[tickKey];
 
-                if (subgraphTick && multicallTick) {
+                if (multicallTick) {
                   // Both methods have this tick
                   expect(multicallTick.liquidityGross).toBe(
                     subgraphTick.liquidityGross,
@@ -209,23 +286,8 @@ describe('UniswapV4Pool State Generation', () => {
                   expect(multicallTick.liquidityNet).toBe(
                     subgraphTick.liquidityNet,
                   );
-                  matchingTicks++;
-                } else if (subgraphTick && !multicallTick) {
-                  console.log(
-                    `Tick ${tickKey} exists in subgraph but not in multicall: liquidityGross=${subgraphTick.liquidityGross}, liquidityNet=${subgraphTick.liquidityNet}`,
-                  );
-                  differingTicks++;
-                } else if (!subgraphTick && multicallTick) {
-                  console.log(
-                    `Tick ${tickKey} exists in multicall but not in subgraph: liquidityGross=${multicallTick.liquidityGross}, liquidityNet=${multicallTick.liquidityNet}`,
-                  );
-                  differingTicks++;
                 }
               }
-
-              console.log(
-                `Tick comparison: ${matchingTicks} matching, ${differingTicks} differing`,
-              );
 
               // Compare tick bitmap data
               console.log(
@@ -241,39 +303,19 @@ describe('UniswapV4Pool State Generation', () => {
                 ...Object.keys(multicallState.tickBitmap),
               ]);
 
-              let matchingBitmaps = 0;
-              let differingBitmaps = 0;
-
               for (const bitmapKey of allBitmapKeys) {
-                const subgraphBitmap = subgraphState.tickBitmap[bitmapKey];
-                const multicallBitmap = multicallState.tickBitmap[bitmapKey];
+                const subgraphBitmap =
+                  subgraphState.tickBitmap[bitmapKey] ?? 0n;
+                const multicallBitmap =
+                  multicallState.tickBitmap[bitmapKey] ?? 0n;
 
-                if (
-                  subgraphBitmap !== undefined &&
-                  multicallBitmap !== undefined
-                ) {
-                  expect(multicallBitmap).toBe(subgraphBitmap);
-                  matchingBitmaps++;
-                } else {
-                  differingBitmaps++;
-                  if (
-                    subgraphBitmap !== undefined &&
-                    multicallBitmap === undefined
-                  ) {
-                    console.log(
-                      `Bitmap ${bitmapKey} exists in subgraph (${subgraphBitmap}) but not in multicall`,
-                    );
-                  } else {
-                    console.log(
-                      `Bitmap ${bitmapKey} exists in multicall (${multicallBitmap}) but not in subgraph`,
-                    );
-                  }
+                if (multicallBitmap !== 0n) {
+                  expect(subgraphBitmap).toEqual(multicallBitmap);
+                  console.log(
+                    `Bitmap ${bitmapKey} differs: Subgraph=${subgraphBitmap}, Multicall=${multicallBitmap}`,
+                  );
                 }
               }
-
-              console.log(
-                `Bitmap comparison: ${matchingBitmaps} matching, ${differingBitmaps} differing`,
-              );
 
               // Log summary
               console.log(

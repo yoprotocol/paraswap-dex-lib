@@ -65,9 +65,11 @@ export class UniswapV4Pool extends StatefulEventSubscriber<PoolState> {
     public readonly token1: string,
     public readonly fee: string,
     public readonly hooks: string,
-    public readonly sqrtPriceX96: bigint,
-    public readonly tick: string,
-    public readonly tickSpacing: string,
+    // TODO: can be removed after state generation would become Multicall only
+    public sqrtPriceX96: bigint,
+    // TODO: can be removed after state generation would become Multicall only
+    public tick: string,
+    public tickSpacing: string,
   ) {
     super(parentName, poolId, dexHelper, logger, true, mapKey);
 

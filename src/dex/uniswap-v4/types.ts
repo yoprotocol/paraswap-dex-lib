@@ -95,8 +95,10 @@ export type SubgraphPool = {
   token1: {
     address: string;
   };
+  // TODO: can be removed after state generation would become Multicall only
   tick: string;
   tickSpacing: string;
+  // TODO: can be removed after state generation would become Multicall only
   ticks: SubgraphTick[];
 };
 
