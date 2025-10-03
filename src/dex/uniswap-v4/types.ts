@@ -107,6 +107,7 @@ export type DexParams = {
   subgraphURL: string;
   stateView: string;
   skipPoolsWithUnconventionalFees?: boolean;
+  stateMulticall: string;
 };
 
 export type PoolKey = {
