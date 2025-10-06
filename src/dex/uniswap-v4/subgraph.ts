@@ -76,30 +76,23 @@ export async function queryAvailablePoolsForToken(
   subgraphUrl: string,
   tokenAddress: string,
   limit: number,
+  staticPoolsList?: string[],
 ): Promise<{
   pools0: SubgraphConnectorPool[];
   pools1: SubgraphConnectorPool[];
 }> {
+  const list = staticPoolsList
+    ? staticPoolsList.map(t => `"${t}"`).join(',')
+    : '';
   const poolsQuery = `query ($token: Bytes!, $hooks: Bytes!, $minTVL: Int!, $count: Int) {
-      pools0: pools(
-        where: { token0: $token, hooks: $hooks, liquidity_gt: 0, totalValueLockedUSD_gte: $minTVL }
-        orderBy: volumeUSD
-        orderDirection: desc
-        first: $count
-      ) {
-      id
-      volumeUSD
-      token0 {
-        address: id
-        decimals
+    pools0: pools(
+      where: {
+        token0: $token
+        hooks: $hooks
+        liquidity_gt: 0
+        totalValueLockedUSD_gte: $minTVL
+        ${list ? `id_in: [${list}]` : ''}
       }
-      token1 {
-        address: id
-        decimals
-      }
-    }
-    pools1: pools(
-      where: { token1: $token, hooks: $hooks, liquidity_gt: 0, totalValueLockedUSD_gte: $minTVL }
       orderBy: volumeUSD
       orderDirection: desc
       first: $count
@@ -115,7 +108,31 @@ export async function queryAvailablePoolsForToken(
         decimals
       }
     }
-  }`;
+    pools1: pools(
+      where: {
+        token1: $token
+        hooks: $hooks
+        liquidity_gt: 0
+        totalValueLockedUSD_gte: $minTVL
+        ${list ? `id_in: [${list}]` : ''}
+      }
+      orderBy: volumeUSD
+      orderDirection: desc
+      first: $count
+    ) {
+      id
+      volumeUSD
+      token0 {
+        address: id
+        decimals
+      }
+      token1 {
+        address: id
+        decimals
+      }
+    }
+  }
+`;
 
   const res = await dexHelper.httpRequest.querySubgraph<{
     data: {

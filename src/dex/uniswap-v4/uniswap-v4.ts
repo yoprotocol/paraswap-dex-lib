@@ -14,7 +14,7 @@ import { IDexHelper } from '../../dex-helper';
 import { getDexKeysWithNetwork, isETHAddress } from '../../utils';
 import { IDex } from '../idex';
 import { SimpleExchange } from '../simple-exchange';
-import { UniswapV4Config } from './config';
+import { UniswapV4Config, UniswapV4PoolsList } from './config';
 import { Pool, PoolPairsInfo, UniswapV4Data } from './types';
 import { BytesLike } from 'ethers';
 import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
@@ -336,6 +336,7 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       UniswapV4Config[this.dexKey][this.network].subgraphURL,
       _tokenAddress,
       limit,
+      UniswapV4PoolsList[this.network],
     );
 
     if (!(pools0 || pools1)) {
