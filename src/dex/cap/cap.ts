@@ -1,4 +1,3 @@
-import { AsyncOrSync } from 'ts-essentials';
 import {
   Token,
   Address,
@@ -15,7 +14,14 @@ import * as CALLDATA_GAS_COST from '../../calldata-gas-cost';
 import { getDexKeysWithNetwork } from '../../utils';
 import { IDex } from '../../dex/idex';
 import { IDexHelper } from '../../dex-helper/idex-helper';
-import { AllVaultConfigs, VaultConfig } from './types';
+import {
+  AllVaultConfigs,
+  VaultConfig,
+  VaultsStates,
+  VaultState,
+  TradeType,
+  CapData,
+} from './types';
 import {
   getLocalDeadlineAsFriendlyPlaceholder,
   SimpleExchange,
@@ -25,8 +31,11 @@ import { CapPools } from './cap-pools';
 import { BI_POWS } from '../../bigint-constants';
 import { Interface } from '@ethersproject/abi';
 import CapTokenAbi from '../../abi/cap/CapToken.json';
+import { extractReturnAmountPosition } from '../../executor/utils';
 
-export class Cap extends SimpleExchange implements IDex<VaultConfig> {
+const RAY_PRECISION = 10n ** 27n;
+
+export class Cap extends SimpleExchange implements IDex<CapData> {
   public eventPools: CapPools;
   readonly hasConstantPriceLargeAmounts = false;
   readonly needWrapNative = true;
@@ -61,7 +70,7 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
   // for pricing requests. It is optional for a DEX to
   // implement this function
   async initializePricing(blockNumber: number) {
-    await this.eventPools.updateOraclePrices(blockNumber);
+    await this.eventPools.initialize(blockNumber);
   }
 
   // Legacy: was only used for V5
@@ -83,9 +92,13 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
   ): Promise<string[]> {
     const detect = this._detectMintBurn(srcToken, destToken, _side);
     if (detect) {
-      return [this._poolKey(detect)];
+      return [this.getPoolIdentifier(detect.vault.address)];
     }
     return [];
+  }
+
+  private getPoolIdentifier(vaultAddress: Address): string {
+    return `${this.dexKey}_${vaultAddress}`.toLowerCase();
   }
 
   // Returns pool prices for amounts.
@@ -99,69 +112,69 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
     side: SwapSide,
     blockNumber: number,
     limitPools?: string[],
-  ): Promise<null | ExchangePrices<VaultConfig>> {
+  ): Promise<null | ExchangePrices<CapData>> {
     const detect = this._detectMintBurn(srcToken, destToken, side);
     if (!detect) {
       return null;
     }
 
-    const poolKey = this._poolKey(detect);
+    const poolKey = this.getPoolIdentifier(detect.vault.address);
     const excludePoolKey = limitPools && !limitPools.includes(poolKey);
+
+    if (excludePoolKey) {
+      return null;
+    }
 
     const { type, vault, asset } = detect;
 
-    if (type === 'mint' && !excludePoolKey) {
-      const vaultConfig = this.configs[vault.address.toLowerCase()];
-      return [
-        {
-          unit: BI_POWS[18],
-          prices: amounts.map(amount => {
-            const { amount: amountOut, fee } = this.eventPools.getAmountOut(
-              vaultConfig,
-              { mint: true, asset: asset.address, amount },
-              blockNumber,
-            );
+    const state = await this.eventPools.getOrGenerateState(blockNumber);
+    const vaultConfig = this.configs[vault.address.toLowerCase()];
 
-            return amountOut;
-          }),
-          gasCost: 250_000,
-          data: this.configs[vault.address.toLowerCase()],
-          poolAddresses: [vault.address.toLowerCase()],
-          poolIdentifiers: [poolKey],
-          exchange: this.dexKey,
+    const isMint = type === TradeType.Mint;
+    const isSell = side === SwapSide.SELL;
+
+    const prices = amounts.map(amount => {
+      if (isSell) {
+        return this.getAmountOut(state, vaultConfig, {
+          mint: isMint,
+          asset: asset.address,
+          amount,
+        });
+      } else {
+        return this.getAmountIn(state, vaultConfig, {
+          mint: isMint,
+          asset: asset.address,
+          amount,
+        });
+      }
+    });
+
+    return [
+      {
+        unit: BI_POWS[18],
+        prices,
+        gasCost: isMint ? 250_000 : 240_000,
+        data: {
+          vaultAddress: vault.address,
+          assetAddress: asset.address,
+          isMint: type === TradeType.Mint,
         },
-      ];
-    }
-
-    if (type === 'burn' && !excludePoolKey) {
-      const vaultConfig = this.configs[vault.address.toLowerCase()];
-      return [
-        {
-          unit: BI_POWS[18],
-          prices: amounts.map(amount => {
-            const { amount: amountOut, fee } = this.eventPools.getAmountOut(
-              vaultConfig,
-              { mint: false, asset: asset.address, amount },
-              blockNumber,
-            );
-
-            return amountOut;
-          }),
-          gasCost: 240_000,
-          data: this.configs[vault.address.toLowerCase()],
-          poolAddresses: [vault.address.toLowerCase()],
-          poolIdentifiers: [poolKey],
-          exchange: this.dexKey,
-        },
-      ];
-    }
-
-    return null;
+        poolAddresses: [vault.address.toLowerCase()],
+        poolIdentifiers: [poolKey],
+        exchange: this.dexKey,
+      },
+    ];
   }
 
   // Returns estimated gas cost of calldata for this DEX in multiSwap
-  getCalldataGasCost(poolPrices: PoolPrices<VaultConfig>): number | number[] {
-    return CALLDATA_GAS_COST.DEX_NO_PAYLOAD;
+  getCalldataGasCost(poolPrices: PoolPrices<CapData>): number | number[] {
+    return (
+      CALLDATA_GAS_COST.DEX_OVERHEAD +
+      CALLDATA_GAS_COST.ADDRESS +
+      CALLDATA_GAS_COST.AMOUNT * 2 +
+      CALLDATA_GAS_COST.ADDRESS +
+      CALLDATA_GAS_COST.TIMESTAMP
+    );
   }
 
   // Encode params required by the exchange adapter
@@ -173,11 +186,11 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
     destToken: string,
     srcAmount: string,
     destAmount: string,
-    data: VaultConfig,
+    data: CapData,
     side: SwapSide,
   ): AdapterExchangeParam {
     return {
-      targetExchange: data.vault.address,
+      targetExchange: data.vaultAddress,
       payload: '0x',
       networkFee: '0',
     };
@@ -189,49 +202,29 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
     srcAmount: NumberAsString,
     destAmount: NumberAsString,
     recipient: Address,
-    data: VaultConfig,
+    data: CapData,
     side: SwapSide,
   ): DexExchangeParam {
-    const detect = this._detectMintBurn(srcToken, destToken, side);
-    if (detect && detect.type === 'mint') {
-      return {
-        needWrapNative: this.needWrapNative,
-        dexFuncHasRecipient: true,
-        exchangeData: this.capIface.encodeFunctionData('mint', [
-          detect.asset.address,
-          srcAmount,
-          destAmount,
-          recipient,
-          getLocalDeadlineAsFriendlyPlaceholder(),
-        ]),
-        targetExchange: detect.vault.address,
-      };
-    }
+    const functionName = data.isMint ? 'mint' : 'burn';
 
-    if (detect && detect.type === 'burn') {
-      return {
-        needWrapNative: this.needWrapNative,
-        dexFuncHasRecipient: true,
-        exchangeData: this.capIface.encodeFunctionData('burn', [
-          detect.asset.address,
-          srcAmount,
-          destAmount,
-          recipient,
-          getLocalDeadlineAsFriendlyPlaceholder(),
-        ]),
-        targetExchange: detect.vault.address,
-      };
-    }
-
-    throw new Error(`Vault address not found for ${srcToken} and ${destToken}`);
+    return {
+      needWrapNative: this.needWrapNative,
+      dexFuncHasRecipient: true,
+      exchangeData: this.capIface.encodeFunctionData(functionName, [
+        data.assetAddress,
+        srcAmount,
+        '1', // minAmountOut
+        recipient,
+        getLocalDeadlineAsFriendlyPlaceholder(),
+      ]),
+      targetExchange: data.vaultAddress,
+      returnAmountPos: extractReturnAmountPosition(
+        this.capIface,
+        functionName,
+        'amountOut',
+      ),
+    };
   }
-
-  // This is called once before getTopPoolsForToken is
-  // called for multiple tokens. This can be helpful to
-  // update common state required for calculating
-  // getTopPoolsForToken. It is optional for a DEX
-  // to implement this
-  async updatePoolState(): Promise<void> {}
 
   // Returns list of top pools based on liquidity. Max
   // limit number pools should be returned.
@@ -240,51 +233,44 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
     limit: number,
   ): Promise<PoolLiquidity[]> {
     const _tokenAddress = tokenAddress.toLowerCase();
+    const pools: PoolLiquidity[] = [];
 
     for (const config of Object.values(this.configs)) {
       const vault = config.vault;
       const assets = Object.values(config.assets);
 
       if (_tokenAddress === vault.address.toLowerCase()) {
-        return [
-          {
-            exchange: this.dexKey,
-            address: vault.address,
-            connectorTokens: assets.map(asset => ({
-              address: asset.address,
-              decimals: asset.decimals,
-            })),
-            liquidityUSD: UNLIMITED_USD_LIQUIDITY,
-          },
-        ];
+        pools.push({
+          exchange: this.dexKey,
+          address: vault.address,
+          connectorTokens: assets.map(asset => ({
+            address: asset.address,
+            decimals: asset.decimals,
+          })),
+          liquidityUSD: UNLIMITED_USD_LIQUIDITY,
+        });
       }
 
-      for (const asset of assets) {
-        if (_tokenAddress === asset.address.toLowerCase()) {
-          return [
+      const asset = assets.find(
+        asset => _tokenAddress === asset.address.toLowerCase(),
+      );
+
+      if (asset) {
+        pools.push({
+          exchange: this.dexKey,
+          address: asset.address,
+          connectorTokens: [
             {
-              exchange: this.dexKey,
-              address: asset.address,
-              connectorTokens: [
-                {
-                  address: vault.address,
-                  decimals: vault.decimals,
-                },
-              ],
-              liquidityUSD: UNLIMITED_USD_LIQUIDITY,
+              address: vault.address,
+              decimals: vault.decimals,
             },
-          ];
-        }
+          ],
+          liquidityUSD: UNLIMITED_USD_LIQUIDITY,
+        });
       }
     }
 
-    return [];
-  }
-
-  // This is optional function in case if your implementation has acquired any resources
-  // you need to release for graceful shutdown. For example, it may be any interval timer
-  releaseResources(): AsyncOrSync<void> {
-    return;
+    return pools.slice(0, limit);
   }
 
   private _detectMintBurn(
@@ -310,25 +296,109 @@ export class Cap extends SimpleExchange implements IDex<VaultConfig> {
       );
 
       if (_destAddress === vault.address.toLowerCase() && srcAsset) {
-        if (side === SwapSide.BUY) {
-          return { type: 'burn', vault: vault, asset: srcAsset };
-        } else {
-          return { type: 'mint', vault: vault, asset: srcAsset };
-        }
+        return { type: 'mint', vault, asset: srcAsset };
       }
       if (_srcAddress === vault.address.toLowerCase() && destAsset) {
-        if (side === SwapSide.BUY) {
-          return { type: 'mint', vault: vault, asset: destAsset };
-        } else {
-          return { type: 'burn', vault: vault, asset: destAsset };
-        }
+        return { type: 'burn', vault, asset: destAsset };
       }
     }
 
     return null;
   }
 
-  private _poolKey(params: { vault: Token } | null): string {
-    return `${this.dexKey}_${params?.vault.address.toLowerCase() ?? ''}`;
+  public getAmountOut(
+    state: VaultsStates,
+    config: VaultConfig,
+    params: { mint: boolean; asset: Address; amount: bigint },
+  ): bigint {
+    const vaultState = state[config.vault.address.toLowerCase()];
+    if (!vaultState) return params.amount;
+
+    const assetAddr = params.asset.toLowerCase();
+    const assetConf = config.assets[assetAddr];
+    if (!assetConf) return params.amount;
+
+    const assetPrice = vaultState.assetPrice[assetAddr];
+    const capPrice = vaultState.capPrice;
+    if (assetPrice === 0n || capPrice === 0n) return 0n;
+
+    const capDecimals = 10n ** BigInt(config.vault.decimals);
+    const assetDecimals = 10n ** BigInt(assetConf.decimals);
+
+    const capSupply = vaultState.totalSupply;
+    const capValue = (capSupply * capPrice) / capDecimals;
+    const allocValue =
+      (vaultState.assetSupply[assetAddr] * assetPrice) / assetDecimals;
+
+    const assetValue = params.mint
+      ? (params.amount * assetPrice) / assetDecimals
+      : (params.amount * capPrice) / capDecimals;
+
+    let newRatio: bigint;
+    if (params.mint) {
+      if (capSupply === 0n) newRatio = 0n;
+      else
+        newRatio =
+          ((allocValue + assetValue) * RAY_PRECISION) / (capValue + assetValue);
+    } else if (capSupply === params.amount) {
+      newRatio = RAY_PRECISION;
+    } else if (allocValue > assetValue && capValue > assetValue) {
+      newRatio =
+        ((allocValue - assetValue) * RAY_PRECISION) / (capValue - assetValue);
+    } else {
+      newRatio = 0n;
+    }
+
+    let amount = params.mint
+      ? (assetValue * capDecimals) / capPrice
+      : (assetValue * assetDecimals) / assetPrice;
+
+    const fees = vaultState.assetFeeConfig[assetAddr];
+    if (fees) {
+      let feeRate = 0n;
+
+      if (params.mint) {
+        feeRate = fees.minMintFee;
+        if (newRatio > fees.optimalRatio) {
+          if (newRatio > fees.mintKinkRatio) {
+            const excess = newRatio - fees.mintKinkRatio;
+            feeRate +=
+              fees.slope0 +
+              (fees.slope1 * excess) / (RAY_PRECISION - fees.mintKinkRatio);
+          } else {
+            feeRate +=
+              (fees.slope0 * (newRatio - fees.optimalRatio)) /
+              (fees.mintKinkRatio - fees.optimalRatio);
+          }
+        }
+      } else if (newRatio < fees.optimalRatio) {
+        if (newRatio < fees.burnKinkRatio) {
+          const excess = fees.burnKinkRatio - newRatio;
+          feeRate = fees.slope0 + (fees.slope1 * excess) / fees.burnKinkRatio;
+        } else {
+          feeRate =
+            (fees.slope0 * (fees.optimalRatio - newRatio)) /
+            (fees.optimalRatio - fees.burnKinkRatio);
+        }
+      }
+
+      if (feeRate > 0n) {
+        if (feeRate > RAY_PRECISION) feeRate = RAY_PRECISION;
+        amount -= (amount * feeRate) / RAY_PRECISION;
+      }
+    }
+
+    return amount;
+  }
+
+  public getAmountIn(
+    state: VaultsStates,
+    config: VaultConfig,
+    params: { mint: boolean; asset: Address; amount: bigint },
+  ): bigint {
+    return this.getAmountOut(state, config, {
+      ...params,
+      mint: !params.mint,
+    });
   }
 }

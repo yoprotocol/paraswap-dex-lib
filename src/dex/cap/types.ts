@@ -1,5 +1,11 @@
 import { Address, Token } from '../../types';
 
+export const TradeType = {
+  Mint: 'mint',
+  Burn: 'burn',
+} as const;
+export type TradeType = (typeof TradeType)[keyof typeof TradeType];
+
 export type VaultsStates = {
   [poolAddress: string]: VaultState;
 };
@@ -33,3 +39,9 @@ export type VaultConfig = {
 };
 
 export type AllVaultConfigs = Record<Address, VaultConfig>;
+
+export type CapData = {
+  vaultAddress: Address;
+  assetAddress: Address;
+  isMint: boolean;
+};
