@@ -212,6 +212,10 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
   ): Promise<SubgraphPool[]> {
     const staticPoolsList = UniswapV4PoolsList[this.network];
 
+    if (staticPoolsList) {
+      return staticPoolsList;
+    }
+
     const cachedPoolsRaw = await this.dexHelper.cache.getAndCacheLocally(
       this.parentName,
       this.network,
@@ -234,20 +238,10 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
         cachedPools.length &&
         poolsTTL > POOL_CACHE_STORE_INTERVAL - POOL_CACHE_REFRESH_INTERVAL
       ) {
-        this.logger.info(`Pools cache TTL is ${poolsTTL}, refreshing`);
-
-        if (
-          cachedPools.length &&
-          staticPoolsList &&
-          staticPoolsList.length > 0
-        ) {
-          cachedPools = cachedPools.filter(pool =>
-            staticPoolsList.includes(pool.id),
-          );
-        }
-
         return cachedPools;
       }
+
+      this.logger.info(`Pools cache TTL is ${poolsTTL}, refreshing`);
     }
 
     let pools: SubgraphPool[] = [];
@@ -310,10 +304,6 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
       JSON.stringify(pools),
     );
 
-    if (pools.length && staticPoolsList && staticPoolsList.length > 0) {
-      pools = pools.filter(pool => staticPoolsList.includes(pool.id));
-    }
-
     return pools;
   }
 
@@ -339,7 +329,7 @@ export class UniswapV4PoolManager extends StatefulEventSubscriber<PoolManagerSta
 
     if (
       UniswapV4PoolsList[this.network] &&
-      !UniswapV4PoolsList[this.network].includes(id)
+      !UniswapV4PoolsList[this.network].some(p => p.id === id)
     ) {
       this.logger.warn(`Pool ${id} is not in the static pools list, skipping.`);
       return {};

@@ -328,6 +328,7 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
   ): Promise<PoolLiquidity[]> {
     let _tokenAddress = tokenAddress.toLowerCase();
     if (isETHAddress(_tokenAddress)) _tokenAddress = NULL_ADDRESS;
+    const poolIds = UniswapV4PoolsList[this.network]?.map(p => p.id);
 
     const { pools0, pools1 } = await queryAvailablePoolsForToken(
       this.dexHelper,
@@ -336,7 +337,7 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
       UniswapV4Config[this.dexKey][this.network].subgraphURL,
       _tokenAddress,
       limit,
-      UniswapV4PoolsList[this.network],
+      poolIds,
     );
 
     if (!(pools0 || pools1)) {
