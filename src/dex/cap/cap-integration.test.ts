@@ -248,9 +248,7 @@ describe('Cap', function () {
       // We have to check without calling initializePricing, because
       // pool-tracker is not calling that function
       const newCap = new Cap(network, dexKey, dexHelper);
-      if (newCap.updatePoolState) {
-        await newCap.updatePoolState();
-      }
+
       const poolLiquidity = await newCap.getTopPoolsForToken(
         tokens[srcTokenSymbol].address,
         10,
