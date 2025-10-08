@@ -78,7 +78,7 @@
         ],
         "internalType": "struct IUniswapV4StateMulticall.TickInfoMappings[]",
         "name": "ticks",
-        "type": "tuple[]getFullStateWithRelativeBitmaps"
+        "type": "tuple[]"
       }
     ],
     "stateMutability": "view",
