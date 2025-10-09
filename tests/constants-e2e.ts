@@ -94,6 +94,10 @@ export const Tokens: {
       address: '0x4c9edd5852cd905f086c759e8383e09bff1e68b3',
       decimals: 18,
     },
+    ebUSD: {
+      address: '0x09fD37d9AA613789c517e76DF1c53aEce2b60Df4',
+      decimals: 18,
+    },
     EKUBO: {
       address: '0x04C46E830Bb56ce22735d5d8Fc9CB90309317d0f',
       decimals: 18,
@@ -634,6 +638,14 @@ export const Tokens: {
     },
     USDP: {
       address: '0x8e870d67f660d95d5be530380d0ec0bd388289e1',
+      decimals: 18,
+    },
+    cUSD: {
+      address: '0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC',
+      decimals: 18,
+    },
+    stcUSD: {
+      address: '0x88887bE419578051FF9F4eb6C858A951921D8888',
       decimals: 18,
     },
   },
