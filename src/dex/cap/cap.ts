@@ -90,6 +90,11 @@ export class Cap extends SimpleExchange implements IDex<CapData> {
     _side: SwapSide,
     _blockNumber: number,
   ): Promise<string[]> {
+    // no methods that support exact output amount out
+    if (_side === SwapSide.BUY) {
+      return [];
+    }
+
     const detect = this._detectMintBurn(srcToken, destToken, _side);
     if (detect) {
       return [this.getPoolIdentifier(detect.vault.address)];
@@ -113,6 +118,11 @@ export class Cap extends SimpleExchange implements IDex<CapData> {
     blockNumber: number,
     limitPools?: string[],
   ): Promise<null | ExchangePrices<CapData>> {
+    // no methods that support exact output amount out
+    if (side === SwapSide.BUY) {
+      return null;
+    }
+
     const detect = this._detectMintBurn(srcToken, destToken, side);
     if (!detect) {
       return null;
@@ -131,7 +141,7 @@ export class Cap extends SimpleExchange implements IDex<CapData> {
     const vaultConfig = this.configs[vault.address.toLowerCase()];
 
     const isMint = type === TradeType.Mint;
-    const isSell = side === SwapSide.SELL;
+    const isSell = side === SwapSide.SELL; // not used, but might be extended if cap adds exact amount out support
 
     const prices = amounts.map(amount => {
       if (isSell) {
