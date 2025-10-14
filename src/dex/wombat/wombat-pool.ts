@@ -633,7 +633,7 @@ export class WombatPool extends StatefulEventSubscriber<PoolState> {
     assets: Address[],
     blockNumber: number,
   ): Promise<{ cash: bigint; liability: bigint; relativePrice?: bigint }[]> {
-    const multiCallInputs = [];
+    const multiCallInputs: MultiCallInput[] = [];
     const methods = ['cash', 'liability', 'getRelativePrice'] as const;
 
     for (const asset of assets) {
@@ -641,17 +641,13 @@ export class WombatPool extends StatefulEventSubscriber<PoolState> {
         multiCallInputs.push({
           target: asset,
           callData: WombatPool.assetInterface.encodeFunctionData(method),
-          decodeFunction:
-            method === 'getRelativePrice' ? uint256ToBigInt : uint120ToBigInt,
         });
       }
     }
 
-    const data = await this.dexHelper.multiWrapper.tryAggregate(
-      false,
-      multiCallInputs,
-      blockNumber,
-    );
+    const returnData = await this.dexHelper.multiContract.methods
+      .tryAggregate(false, multiCallInputs)
+      .call({}, blockNumber);
 
     const balances: {
       cash: bigint;
@@ -660,10 +656,29 @@ export class WombatPool extends StatefulEventSubscriber<PoolState> {
     }[] = [];
 
     for (let i = 0; i < assets.length * methods.length; i += methods.length) {
-      const cash = data[i].success ? data[i].returnData : 0n;
-      const liability = data[i + 1].success ? data[i + 1].returnData : 0n;
-      const relativePrice = data[i + 2].success
-        ? data[i + 2].returnData
+      const cash = returnData[i].success
+        ? BigInt(
+            WombatPool.assetInterface.decodeFunctionResult(
+              'cash',
+              returnData[i].returnData,
+            )[0],
+          )
+        : 0n;
+      const liability = returnData[i + 1].success
+        ? BigInt(
+            WombatPool.assetInterface.decodeFunctionResult(
+              'liability',
+              returnData[i + 1].returnData,
+            )[0],
+          )
+        : 0n;
+      const relativePrice = returnData[i + 2].success
+        ? BigInt(
+            WombatPool.assetInterface.decodeFunctionResult(
+              'getRelativePrice',
+              returnData[i + 2].returnData,
+            )[0],
+          )
         : undefined;
 
       balances.push({ cash, liability, relativePrice });
