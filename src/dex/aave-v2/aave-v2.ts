@@ -310,7 +310,7 @@ export class AaveV2
               this.wethGateway,
               WETH_GATEWAY[this.network],
               AaveV2PoolAndWethFunctions.depositETH,
-              [recipient, REF_CODE],
+              [aaveLendingPool[this.network], recipient, REF_CODE],
             ];
           case Network.POLYGON:
             return [
@@ -338,7 +338,7 @@ export class AaveV2
               this.wethGateway,
               WETH_GATEWAY[this.network],
               AaveV2PoolAndWethFunctions.withdrawETH,
-              [amount, recipient],
+              [aaveLendingPool[this.network], amount, recipient],
             ];
           case Network.POLYGON:
             return [
