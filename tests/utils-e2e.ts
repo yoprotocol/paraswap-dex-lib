@@ -308,12 +308,12 @@ export async function testE2E(
     swapSide === SwapSide.SELL
       ? decodedOutput.receivedAmount
       : decodedOutput.spentAmount;
-  const amountDiff = expectedAmount.lt(simulatedAmount)
+  const amountDiff = expectedAmount.gt(simulatedAmount)
     ? expectedAmount.sub(simulatedAmount)
     : simulatedAmount.sub(expectedAmount);
   const paraswapShare = decodedOutput.paraswapShare?.toNumber() ?? 0;
 
-  expect(amountDiff.toNumber()).toBeLessThanOrEqual(10); // 10 wei max allowed difference
+  expect(amountDiff.toBigInt()).toBeLessThanOrEqual(10n); // 10 wei max allowed difference
   expect(paraswapShare).toEqual(0);
 }
 
