@@ -228,6 +228,44 @@ describe('FluidDex E2E', () => {
       );
     });
   });
+
+  describe('Plasma', () => {
+    const network = Network.PLASMA;
+
+    describe('sUSDe -> USDT', () => {
+      const tokenASymbol: string = 'USDT';
+      const tokenBSymbol: string = 'sUSDe';
+
+      const tokenAAmount: string = '1000000';
+      const tokenBAmount: string = '1000000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+
+    describe('USDe -> USDT', () => {
+      const tokenASymbol: string = 'USDT';
+      const tokenBSymbol: string = 'USDe';
+
+      const tokenAAmount: string = '1000000';
+      const tokenBAmount: string = '1000000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+      );
+    });
+  });
 });
 
 function NewColReservesOne(): CollateralReserves {
