@@ -1881,6 +1881,14 @@ export const Tokens: {
       address: '0x295ccdd51701a7ac78a23d1c999b9af0ba352d2f',
       decimals: 18,
     },
+    WETH: {
+      address: '0x9895d81bb462a195b4922ed7de0e3acd007c32cb',
+      decimals: 18,
+    },
+    wrsETH: {
+      address: '0xe561fe05c39075312aa9bc6af79ddae981461359',
+      decimals: 18,
+    },
   },
   [Network.SEPOLIA]: {
     ETH: { address: ETHER_ADDRESS, decimals: 18 },
