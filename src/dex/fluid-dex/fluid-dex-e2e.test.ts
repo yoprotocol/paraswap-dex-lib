@@ -232,8 +232,8 @@ describe('FluidDex E2E', () => {
   describe('Plasma', () => {
     const network = Network.PLASMA;
 
-    describe('sUSDe -> USDT', () => {
-      const tokenASymbol: string = 'USDT';
+    describe('USDT0 -> sUSDe', () => {
+      const tokenASymbol: string = 'USDT0';
       const tokenBSymbol: string = 'sUSDe';
 
       const tokenAAmount: string = '1000000';
@@ -249,11 +249,11 @@ describe('FluidDex E2E', () => {
       );
     });
 
-    describe('USDe -> USDT', () => {
-      const tokenASymbol: string = 'USDT';
-      const tokenBSymbol: string = 'USDe';
+    describe('WETH -> wrsETH', () => {
+      const tokenBSymbol: string = 'WETH';
+      const tokenASymbol: string = 'wrsETH';
 
-      const tokenAAmount: string = '1000000';
+      const tokenAAmount: string = '1000000000000000000';
       const tokenBAmount: string = '1000000000000000000';
 
       testForNetwork(
