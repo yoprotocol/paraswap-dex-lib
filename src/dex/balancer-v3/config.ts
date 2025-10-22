@@ -152,7 +152,7 @@ export const BalancerV3Config: DexConfigMap<DexParams> = {
       vaultAddress: '0xbA1333333333a1BA1108E8412f11850A5C319bA9',
       apiNetworkName: 'PLASMA',
       balancerRouterAddress: '0x9dA18982a33FD0c7051B19F0d7C76F2d5E7e017c',
-      balancerBatchRouterAddress: '0x3f170631ed9821Ca51A59D996aB095162438DC10',
+      balancerBatchRouterAddress: '0x85a80afee867aDf27B50BdB7b76DA70f1E853062',
       hooks: [
         {
           type: 'StableSurge', // StableSurgeV2 - Is same as V1 with changes: up to 50k amp factor (vs 5k on v1) and ability to set a swap fee manager

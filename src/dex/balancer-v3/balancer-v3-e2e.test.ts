@@ -322,6 +322,26 @@ describe('BalancerV3 E2E', () => {
         true,
       );
     });
+
+    describe('reClamm Pool', () => {
+      const tokenASymbol: string = 'WXPL';
+      const tokenBSymbol: string = 'USDT0';
+
+      const tokenAAmount: string = '1000000000000000000';
+      const tokenBAmount: string = '1000000';
+      const nativeTokenAmount = '1000000000000000000';
+
+      testForNetwork(
+        network,
+        dexKey,
+        tokenASymbol,
+        tokenBSymbol,
+        tokenAAmount,
+        tokenBAmount,
+        nativeTokenAmount,
+        true,
+      );
+    });
   });
 
   describe('Mainnet', () => {
