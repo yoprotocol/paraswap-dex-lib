@@ -133,7 +133,7 @@ export const UniswapV3Config: DexConfigMap<DexParams> = {
       initRetryFrequency: 10,
       initHash: `0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54`,
       subgraphURL:
-        'https://api.goldsky.com/api/public/project_cmgyzg8stje9z01ts3s6fhklv/subgraphs/uniswap-v3/prod/gn',
+        'https://api.goldsky.com/api/public/project_cmguzcabs5miu01zeehjxb9t1/subgraphs/uniswap-v3/1.0.0/gn',
     },
     [Network.UNICHAIN]: {
       factory: '0x1f98400000000000000000000000000000000003',
