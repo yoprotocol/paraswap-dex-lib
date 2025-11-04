@@ -1000,6 +1000,7 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
       );
 
       // Encode here the transaction arguments
+      const sig = signature?.startsWith('0x') ? signature : `0x${signature}`;
       const exchangeData = this.routerInterface.encodeFunctionData(
         'tradeRFQT',
         [
@@ -1016,7 +1017,7 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
             quoteData.quoteExpiry,
             quoteData.nonce ?? 0,
             quoteData.txid,
-            signature,
+            sig,
           ],
         ],
       );
