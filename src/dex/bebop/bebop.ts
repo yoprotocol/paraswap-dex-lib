@@ -719,6 +719,7 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
       source: this.bebopAuthName,
     };
 
+    let requestId: string | undefined;
     let quoteId: string | undefined;
 
     try {
@@ -736,6 +737,9 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
         throw new Error('Failed to get quote');
       }
 
+      this.logger.info(`Bebop quote response: ${JSON.stringify(response)}`);
+
+      requestId = response.requestId;
       quoteId = response.quoteId;
 
       if (
@@ -806,9 +810,7 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
         { deadline: BigInt(response.expiry) },
       ];
     } catch (e: any) {
-      const message = `${this.dexKey}-${this.network} ${
-        quoteId ? `quoteId: ${quoteId}` : ''
-      }: ${e}`;
+      const message = `requestId: ${requestId}, quoteId: ${quoteId}, error: ${e}`;
 
       this.logger.error(message);
       if (!e?.isSlippageError) {
