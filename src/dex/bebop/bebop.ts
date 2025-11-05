@@ -739,7 +739,7 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
 
       this.logger.info(`Bebop quote response: ${JSON.stringify(response)}`);
 
-      requestId = response.requestId;
+      requestId = response.requestId ?? response.error?.requestId;
       quoteId = response.quoteId;
 
       if (
