@@ -180,12 +180,7 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
     destToken: Token,
     side: SwapSide,
   ): Promise<RoutingInstruction[]> {
-    // Gaurd against same token and wrapping/unwrapping
-    const tokensSet = new Set([
-      srcToken.address.toLowerCase(),
-      destToken.address.toLowerCase(),
-    ]);
-    if (tokensSet.size < 2) {
+    if (srcToken.address.toLowerCase() === destToken.address.toLowerCase()) {
       return [];
     }
 
