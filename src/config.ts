@@ -191,6 +191,8 @@ const baseConfigs: { [network: number]: BaseConfig } = {
       Executor02: '0x00C600b30fb0400701010F4b080409018B9006E0',
       Executor03: '0x0e5891850bb3f03090f03010000806f080040100',
     },
+    bebopAuthName: process.env.API_KEY_BEBOP_AUTH_NAME || '',
+    bebopAuthToken: process.env.API_KEY_BEBOP_AUTH_TOKEN || '',
     hashFlowAuthToken: process.env.API_KEY_HASHFLOW_AUTH_TOKEN || '',
     hashFlowDisabledMMs:
       process.env[`HASHFLOW_DISABLED_MMS_137`]?.split(',') || [],
@@ -222,6 +224,8 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     tokenTransferProxyAddress: '0x216b4b4ba9f3e719726886d34a177484278bfcae',
     multicallV2Address: '0xd7Fc8aD069f95B6e2835f4DEff03eF84241cF0E1',
     privateHttpProvider: process.env.HTTP_PROVIDER_43114,
+    bebopAuthName: process.env.API_KEY_BEBOP_AUTH_NAME || '',
+    bebopAuthToken: process.env.API_KEY_BEBOP_AUTH_TOKEN || '',
     hashFlowAuthToken: process.env.API_KEY_HASHFLOW_AUTH_TOKEN || '',
     hashFlowDisabledMMs:
       process.env[`HASHFLOW_DISABLED_MMS_43114`]?.split(',') || [],
