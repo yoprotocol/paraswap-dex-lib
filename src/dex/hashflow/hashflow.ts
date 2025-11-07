@@ -95,7 +95,7 @@ export class Hashflow extends SimpleExchange implements IDex<HashflowData> {
     protected routerInterface = new Interface(routerAbi),
   ) {
     super(dexHelper, dexKey);
-    this.logger = dexHelper.getLogger(dexKey);
+    this.logger = dexHelper.getLogger(`${dexKey}-${network}`);
     const token = dexHelper.config.data.hashFlowAuthToken;
     assert(
       token !== undefined,

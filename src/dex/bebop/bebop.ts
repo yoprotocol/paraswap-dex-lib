@@ -88,7 +88,7 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
     protected settlementInterface = new Interface(settlementABI),
   ) {
     super(dexHelper, dexKey);
-    this.logger = dexHelper.getLogger(dexKey);
+    this.logger = dexHelper.getLogger(`${dexKey}-${network}`);
     this.tokensCacheKey = `tokens`;
     this.pricesCacheKey = `prices`;
     this.tokensAddrCacheKey = `tokens_addr`;
