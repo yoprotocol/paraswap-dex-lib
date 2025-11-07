@@ -445,7 +445,10 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
             totalDiff += output[k] - firstOutput[k];
           }
 
-          return totalDiff / BigInt(output.length);
+          return (
+            (totalDiff / BigInt(output.length)) *
+            (side === SwapSide.SELL ? 1n : -1n)
+          );
         });
 
         let maxDiffIndex = 0;
