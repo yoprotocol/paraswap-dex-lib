@@ -98,6 +98,19 @@ class DummyCache implements ICache {
     return;
   }
 
+  async msetex(...args: Array<string | number>): Promise<void> {
+    if (args.length % 3 !== 0) {
+      throw new Error('Wrong number of params');
+    }
+
+    for (let i = 0; i < args.length; i += 3) {
+      const key = args[i];
+      const value = args[i + 1];
+      // ignore ttl
+      this.storage[key] = value.toString();
+    }
+  }
+
   async getAndCacheLocally(
     dexKey: string,
     network: number,
