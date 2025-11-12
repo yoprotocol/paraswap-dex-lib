@@ -157,6 +157,32 @@ export class PricingHelper {
     );
   }
 
+  async filterOutDexKeysWithBlacklistedUser(
+    dexKeys: string[],
+    userAddress: string,
+  ): Promise<string[]> {
+    const dexesWithBlacklists: string[] = [];
+    const dexBlacklistCacheKeys: string[] = [];
+
+    for (const key of dexKeys) {
+      const dex = this.getDexByKey(key);
+
+      if (dex && dex.hasRestrictions?.()) {
+        dexesWithBlacklists.push(key);
+        dexBlacklistCacheKeys.push(dex.getBlacklistedCacheKey(userAddress));
+      }
+    }
+
+    const result = await this.dexAdapterService.dexHelper.cache.mget(
+      dexBlacklistCacheKeys,
+    );
+    const dexesWithBlacklistedUser = dexesWithBlacklists.filter(
+      (_, i) => result[i], // knowing the result is not NULL is sufficient
+    );
+
+    return dexKeys.filter(key => !dexesWithBlacklistedUser.includes(key));
+  }
+
   getDexsSupportingFeeOnTransfer(): string[] {
     const allDexKeys = this.dexAdapterService.getAllDexKeys();
     return allDexKeys
