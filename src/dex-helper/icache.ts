@@ -5,6 +5,8 @@ export interface ICache {
     cacheKey: string,
   ): Promise<string | null>;
 
+  mget(keys: string[]): Promise<Array<string | null>>;
+
   ttl(dexKey: string, network: number, cacheKey: string): Promise<number>;
 
   keys(dexKey: string, network: number, cacheKey: string): Promise<string[]>;

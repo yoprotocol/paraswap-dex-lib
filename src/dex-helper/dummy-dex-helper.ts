@@ -43,6 +43,10 @@ class DummyCache implements ICache {
     return null;
   }
 
+  async mget(keys: string[]): Promise<Array<string | null>> {
+    return Promise.all(keys.map(this.rawget));
+  }
+
   async keys(
     dexKey: string,
     network: number,
@@ -62,7 +66,6 @@ class DummyCache implements ICache {
 
   async rawget(key: string): Promise<string | null> {
     return this.storage[key] ? this.storage[key] : null;
-    return null;
   }
 
   async rawset(
