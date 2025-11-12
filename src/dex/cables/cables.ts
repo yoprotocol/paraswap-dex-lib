@@ -22,7 +22,7 @@ import {
 } from '../../types';
 import { getDexKeysWithNetwork, Utils } from '../../utils';
 import { IDex } from '../idex';
-import { SimpleExchange } from '../simple-exchange';
+import { SimpleExchangeWithRestrictions } from '../simple-exchange-with-restrictions';
 import { CablesConfig } from './config';
 import {
   CABLES_API_BLACKLIST_POLLING_INTERVAL_MS,
@@ -50,16 +50,18 @@ import { Interface } from 'ethers/lib/utils';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 import { BI_MAX_UINT256 } from '../../bigint-constants';
-import _ from 'lodash';
 import { BebopData } from '../bebop/types';
 
-export class Cables extends SimpleExchange implements IDex<any> {
+export class Cables
+  extends SimpleExchangeWithRestrictions
+  implements IDex<any>
+{
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(CablesConfig);
 
   readonly isStatePollingDex = true;
 
-  private rateFetcher: CablesRateFetcher;
+  private readonly rateFetcher: CablesRateFetcher;
 
   logger: Logger;
   private tokensMap: { [address: string]: Token } = {};
@@ -74,7 +76,7 @@ export class Cables extends SimpleExchange implements IDex<any> {
       .mainnetRFQAddress,
     protected rfqInterface = new Interface(mainnetRFQAbi),
   ) {
-    super(dexHelper, dexKey);
+    super(dexHelper, dexKey, { blacklistedTTL: CABLES_BLACKLIST_CACHES_TTL_S });
     this.logger = dexHelper.getLogger(`${dexKey}-${network}`);
 
     this.rateFetcher = new CablesRateFetcher(
@@ -110,8 +112,7 @@ export class Cables extends SimpleExchange implements IDex<any> {
           tokensCacheKey: 'tokens',
 
           blacklistIntervalMs: CABLES_API_BLACKLIST_POLLING_INTERVAL_MS,
-          blacklistCacheTTLSecs: CABLES_BLACKLIST_CACHES_TTL_S,
-          blacklistCacheKey: 'blacklist',
+          setBlacklist: this.setBlacklist.bind(this),
         },
       },
     );
@@ -778,21 +779,6 @@ export class Cables extends SimpleExchange implements IDex<any> {
       }
     }
     return null;
-  }
-
-  async isBlacklisted(txOrigin: Address): Promise<boolean> {
-    const cachedBlacklist = await this.dexHelper.cache.get(
-      this.dexKey,
-      this.network,
-      this.rateFetcher.blacklistCacheKey,
-    );
-
-    if (cachedBlacklist) {
-      const blacklist = JSON.parse(cachedBlacklist) as string[];
-      return blacklist.includes(txOrigin.toLowerCase());
-    }
-
-    return false;
   }
 
   async isRestricted(): Promise<boolean> {
