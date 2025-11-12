@@ -215,7 +215,7 @@ export interface IDexPricing<ExchangeData> {
   isBlacklisted?(userAddress?: Address): AsyncOrSync<boolean>;
 
   // blacklist a specific userAddress from exchange
-  setBlacklist?(userAddress?: Address): AsyncOrSync<boolean>;
+  addBlacklistedAddress?(userAddress?: Address): AsyncOrSync<boolean>;
 }
 
 export interface IDexPooltracker {
