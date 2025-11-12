@@ -19,6 +19,7 @@ import {
 import { SwapSide, Network } from '../constants';
 import { IDexHelper } from '../dex-helper/idex-helper';
 import { OptimalRate, OptimalSwap } from '@paraswap/core';
+import { SimpleExchangeWithRestrictions } from './simple-exchange-with-restrictions';
 
 export type Context = {
   isGlobalSrcToken: boolean;
@@ -216,6 +217,8 @@ export interface IDexPricing<ExchangeData> {
 
   // blacklist a specific userAddress from exchange
   addBlacklistedAddress?(userAddress?: Address): AsyncOrSync<boolean>;
+
+  hasRestrictions?(): this is SimpleExchangeWithRestrictions;
 }
 
 export interface IDexPooltracker {

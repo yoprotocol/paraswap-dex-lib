@@ -21,6 +21,10 @@ export class SimpleExchangeWithRestrictions extends SimpleExchange {
     this.blacklistedTTL = options.blacklistedTTL ?? DEFAULT_BLACKLISTED_TTL;
   }
 
+  public hasRestrictions(): this is SimpleExchangeWithRestrictions {
+    return true;
+  }
+
   public async isBlacklisted(address: string) {
     const cached = await this.dexHelper.cache.rawget(
       this.getBlacklistedCacheKey(address),
