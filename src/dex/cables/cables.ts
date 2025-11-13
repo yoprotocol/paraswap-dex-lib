@@ -20,7 +20,7 @@ import {
   Token,
   TransferFeeParams,
 } from '../../types';
-import { getDexKeysWithNetwork, Utils } from '../../utils';
+import { getDexKeysWithNetwork } from '../../utils';
 import { IDex } from '../idex';
 import { SimpleExchangeWithRestrictions } from '../simple-exchange-with-restrictions';
 import { CablesConfig } from './config';
@@ -31,19 +31,14 @@ import {
   CABLES_API_TOKENS_POLLING_INTERVAL_MS,
   CABLES_API_URL,
   CABLES_BLACKLIST_CACHES_TTL_S,
-  CABLES_ERRORS_CACHE_KEY,
   CABLES_FIRM_QUOTE_TIMEOUT_MS,
   CABLES_GAS_COST,
   CABLES_PAIRS_CACHES_TTL_S,
   CABLES_PRICES_CACHES_TTL_S,
-  CABLES_RESTRICT_CHECK_INTERVAL_MS,
-  CABLES_RESTRICT_COUNT_THRESHOLD,
-  CABLES_RESTRICT_TTL_S,
-  CABLES_RESTRICTED_CACHE_KEY,
   CABLES_TOKENS_CACHES_TTL_S,
 } from './constants';
 import { CablesRateFetcher } from './rate-fetcher';
-import { CablesData, CablesRFQResponse, RestrictData } from './types';
+import { CablesData, CablesRFQResponse } from './types';
 import { SlippageCheckError } from '../generic-rfq/types';
 import mainnetRFQAbi from '../../abi/cables/CablesMainnetRFQ.json';
 import { Interface } from 'ethers/lib/utils';
@@ -76,7 +71,10 @@ export class Cables
       .mainnetRFQAddress,
     protected rfqInterface = new Interface(mainnetRFQAbi),
   ) {
-    super(dexHelper, dexKey, { blacklistedTTL: CABLES_BLACKLIST_CACHES_TTL_S });
+    super(dexHelper, dexKey, {
+      blacklistedTTL: CABLES_BLACKLIST_CACHES_TTL_S,
+      enableDexRestriction: true,
+    });
     this.logger = dexHelper.getLogger(`${dexKey}-${network}`);
 
     this.rateFetcher = new CablesRateFetcher(
@@ -529,11 +527,6 @@ export class Cables
         return null;
       }
 
-      const isRestricted = await this.isRestricted();
-      if (isRestricted) {
-        return null;
-      }
-
       await this.setTokensMap();
 
       if (
@@ -779,78 +772,5 @@ export class Cables
       }
     }
     return null;
-  }
-
-  async isRestricted(): Promise<boolean> {
-    const result = await this.dexHelper.cache.get(
-      this.dexKey,
-      this.network,
-      CABLES_RESTRICTED_CACHE_KEY,
-    );
-
-    return result === 'true';
-  }
-
-  async restrict() {
-    const errorsDataRaw = await this.dexHelper.cache.get(
-      this.dexKey,
-      this.network,
-      CABLES_ERRORS_CACHE_KEY,
-    );
-
-    const errorsData: RestrictData = Utils.Parse(errorsDataRaw);
-    const ERRORS_TTL_S = Math.floor(CABLES_RESTRICT_CHECK_INTERVAL_MS / 1000);
-
-    if (
-      !errorsData ||
-      errorsData?.addedDatetimeMs + CABLES_RESTRICT_CHECK_INTERVAL_MS <
-        Date.now()
-    ) {
-      this.logger.warn(
-        `${this.dexKey}-${this.network}: First encounter of error OR error ocurred outside of threshold, setting up counter`,
-      );
-      const data: RestrictData = {
-        count: 1,
-        addedDatetimeMs: Date.now(),
-      };
-      await this.dexHelper.cache.setex(
-        this.dexKey,
-        this.network,
-        CABLES_ERRORS_CACHE_KEY,
-        ERRORS_TTL_S,
-        Utils.Serialize(data),
-      );
-      return;
-    } else {
-      if (errorsData.count + 1 >= CABLES_RESTRICT_COUNT_THRESHOLD) {
-        this.logger.warn(
-          `${this.dexKey}-${this.network}: Restricting due to error count=${
-            errorsData.count + 1
-          } within ${CABLES_RESTRICT_CHECK_INTERVAL_MS / 1000 / 60} minutes`,
-        );
-        await this.dexHelper.cache.setex(
-          this.dexKey,
-          this.network,
-          CABLES_RESTRICTED_CACHE_KEY,
-          CABLES_RESTRICT_TTL_S,
-          'true',
-        );
-      } else {
-        this.logger.warn(
-          `${this.dexKey}-${this.network}: Error count increased`,
-        );
-        const data: RestrictData = {
-          count: errorsData.count + 1,
-          addedDatetimeMs: errorsData.addedDatetimeMs,
-        };
-        await this.dexHelper.cache.setex(
-          this.dexKey,
-          this.network,
-          CABLES_RESTRICTED_CACHE_KEY,
-          ERRORS_TTL_S,
-          Utils.Serialize(data),
-        );
-      }
-    }
   }
 }

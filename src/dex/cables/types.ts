@@ -102,8 +102,3 @@ export type CablesRateFetcherConfig = {
     setBlacklist: (addresses: string[]) => Promise<void>;
   };
 };
-
-export type RestrictData = {
-  count: number;
-  addedDatetimeMs: number;
-} | null;
