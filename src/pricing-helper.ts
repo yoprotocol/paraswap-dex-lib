@@ -1,5 +1,4 @@
 import {
-  Address,
   LoggerConstructor,
   Logger,
   Token,
@@ -157,30 +156,50 @@ export class PricingHelper {
     );
   }
 
-  async filterOutDexKeysWithBlacklistedUser(
+  // filter out dexes that are restricted
+  // or have `userAddress` blacklisted
+  async filterOutDexKeysWithRestrictions(
     dexKeys: string[],
     userAddress: string,
   ): Promise<string[]> {
     const dexesWithBlacklists: string[] = [];
     const dexBlacklistCacheKeys: string[] = [];
+    const dexesWithRestrictions: string[] = [];
+    const dexRestrictionCacheKeys: string[] = [];
 
     for (const key of dexKeys) {
       const dex = this.getDexByKey(key);
 
-      if (dex && dex.hasRestrictions?.()) {
-        dexesWithBlacklists.push(key);
-        dexBlacklistCacheKeys.push(dex.getBlacklistedCacheKey(userAddress));
+      if (dex) {
+        if (dex.hasBlacklist?.()) {
+          dexesWithBlacklists.push(key);
+          dexBlacklistCacheKeys.push(dex.getBlacklistedCacheKey(userAddress));
+        }
+
+        if (dex.hasDexRestriction?.()) {
+          dexesWithRestrictions.push(key);
+          dexRestrictionCacheKeys.push(dex.getRestrictedCacheKey());
+        }
       }
     }
 
-    const result = await this.dexAdapterService.dexHelper.cache.mget(
-      dexBlacklistCacheKeys,
-    );
+    const result = await this.dexAdapterService.dexHelper.cache.mget([
+      ...dexBlacklistCacheKeys,
+      ...dexRestrictionCacheKeys,
+    ]);
     const dexesWithBlacklistedUser = dexesWithBlacklists.filter(
       (_, i) => result[i], // knowing the result is not NULL is sufficient
     );
 
-    return dexKeys.filter(key => !dexesWithBlacklistedUser.includes(key));
+    const restrictedDexes = dexesWithRestrictions.filter(
+      (_, i) => result[dexesWithBlacklists.length + i],
+    );
+
+    return dexKeys.filter(
+      key =>
+        !dexesWithBlacklistedUser.includes(key) &&
+        !restrictedDexes.includes(key),
+    );
   }
 
   getDexsSupportingFeeOnTransfer(): string[] {
