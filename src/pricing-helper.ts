@@ -12,6 +12,7 @@ import {
   SETUP_RETRY_TIMEOUT,
   FETCH_POOL_IDENTIFIER_TIMEOUT,
   FETCH_POOL_PRICES_TIMEOUT,
+  NULL_ADDRESS,
 } from './constants';
 import { DexAdapterService } from './dex';
 import { IDex, IRouteOptimizer } from './dex/idex';
@@ -160,8 +161,9 @@ export class PricingHelper {
   // or have `userAddress` blacklisted
   async filterOutDexKeysWithRestrictions(
     dexKeys: string[],
-    userAddress: string,
+    userAddress = NULL_ADDRESS,
   ): Promise<string[]> {
+    const checkBlacklist = userAddress !== NULL_ADDRESS;
     const dexesWithBlacklists: string[] = [];
     const dexBlacklistCacheKeys: string[] = [];
     const dexesWithRestrictions: string[] = [];
@@ -171,7 +173,7 @@ export class PricingHelper {
       const dex = this.getDexByKey(key);
 
       if (dex) {
-        if (dex.hasBlacklist?.()) {
+        if (checkBlacklist && dex.hasBlacklist?.()) {
           dexesWithBlacklists.push(key);
           dexBlacklistCacheKeys.push(dex.getBlacklistedCacheKey(userAddress));
         }
@@ -183,10 +185,18 @@ export class PricingHelper {
       }
     }
 
-    const result = await this.dexAdapterService.dexHelper.cache.mget([
+    const cacheKeysToGet = [
       ...dexBlacklistCacheKeys,
       ...dexRestrictionCacheKeys,
-    ]);
+    ];
+
+    if (!cacheKeysToGet.length) {
+      return dexKeys;
+    }
+
+    const result = await this.dexAdapterService.dexHelper.cache.mget(
+      cacheKeysToGet,
+    );
     const dexesWithBlacklistedUser = dexesWithBlacklists.filter(
       (_, i) => result[i], // knowing the result is not NULL is sufficient
     );
