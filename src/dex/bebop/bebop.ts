@@ -616,6 +616,8 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
         continue;
       }
 
+      const quoteDecimals = this.tokensMap[quote.toLowerCase()].decimals ?? 18;
+
       if (isBase) {
         const liquidityInQuote = this.getMaxLiquidity(pairData.bids);
         token = {
@@ -624,7 +626,7 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
         };
         const quoteTokenUsd = await this.dexHelper.getTokenUSDPrice(
           token,
-          BigInt(Math.round(liquidityInQuote)),
+          BigInt(10 ** quoteDecimals),
         );
         liquidityUSD = liquidityInQuote * quoteTokenUsd;
       } else if (isQuote) {
@@ -635,7 +637,7 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
         };
         const baseTokenUsd = await this.dexHelper.getTokenUSDPrice(
           token,
-          BigInt(Math.round(liquidityInBase)),
+          BigInt(10 ** quoteDecimals),
         );
         liquidityUSD = liquidityInBase * baseTokenUsd;
       }
@@ -654,7 +656,6 @@ export class Bebop extends SimpleExchange implements IDex<BebopData> {
               {
                 address: address,
                 decimals: this.tokensMap[address].decimals,
-                symbol: this.tokensMap[address].ticker,
               },
             ],
             liquidityUSD,
