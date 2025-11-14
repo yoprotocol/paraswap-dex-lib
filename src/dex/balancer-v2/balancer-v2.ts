@@ -1625,7 +1625,6 @@ export class BalancerV2
       .wrapETH(_tokenAddress)
       .toLowerCase();
 
-    const apiUrl = this.subgraphURL;
     const poolsWithToken = this.eventPools.allPools.filter(pool =>
       pool.mainTokens.some(mainToken =>
         isSameAddress(mainToken.address, tokenAddress),
