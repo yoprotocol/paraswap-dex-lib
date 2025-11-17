@@ -23,6 +23,9 @@ type RestrictData = {
 type DexRestrictionOptions = {
   blacklistedTTL?: number;
   enableDexRestriction?: boolean;
+  restrictCheckIntervalMs?: number;
+  restrictCountThreshold?: number;
+  restrictTtlS?: number;
 };
 
 export class SimpleExchangeWithRestrictions
@@ -31,6 +34,10 @@ export class SimpleExchangeWithRestrictions
 {
   protected readonly blacklistedTTL: number;
   protected readonly enableDexRestriction: boolean;
+
+  protected restrictCheckIntervalMs: number;
+  protected restrictCountThreshold: number;
+  protected restrictTtlS: number;
 
   protected logger: Logger;
 
@@ -45,6 +52,12 @@ export class SimpleExchangeWithRestrictions
     this.blacklistedTTL = options.blacklistedTTL ?? DEFAULT_BLACKLISTED_TTL_S;
     this.enableDexRestriction =
       options.enableDexRestriction ?? DEFAULT_ENABLE_DEX_RESTRICTION;
+
+    this.restrictCheckIntervalMs =
+      options.restrictCheckIntervalMs ?? RESTRICT_CHECK_INTERVAL_MS;
+    this.restrictCountThreshold =
+      options.restrictCountThreshold ?? RESTRICT_COUNT_THRESHOLD;
+    this.restrictTtlS = options.restrictTtlS ?? RESTRICT_TTL_S;
   }
 
   public hasDexRestriction(): this is IDexWithRestriction {
@@ -114,14 +127,14 @@ export class SimpleExchangeWithRestrictions
     );
 
     const errorsData: RestrictData = Utils.Parse(errorsDataRaw);
-    const ERRORS_TTL_S = Math.floor(RESTRICT_CHECK_INTERVAL_MS / 1000);
+    const ERRORS_TTL_S = Math.floor(this.restrictCheckIntervalMs / 1000);
 
     if (
       !errorsData ||
-      errorsData?.addedDatetimeMs + RESTRICT_CHECK_INTERVAL_MS < Date.now()
+      errorsData?.addedDatetimeMs + this.restrictCheckIntervalMs < Date.now()
     ) {
       this.logger.warn(
-        `${this.dexKey}-${this.network}: First encounter of error OR error ocurred outside of threshold, setting up counter`,
+        `${this.dexKey}-${this.network}: First encounter of error OR error occurred outside of threshold, setting up counter`,
       );
       const data: RestrictData = {
         count: 1,
@@ -136,16 +149,16 @@ export class SimpleExchangeWithRestrictions
       );
       return;
     } else {
-      if (errorsData.count + 1 >= RESTRICT_COUNT_THRESHOLD) {
+      if (errorsData.count + 1 >= this.restrictCountThreshold) {
         this.logger.warn(
           `${this.dexKey}-${this.network}: Restricting due to error count=${
             errorsData.count + 1
-          } within ${RESTRICT_CHECK_INTERVAL_MS / 1000 / 60} minutes`,
+          } within ${this.restrictCheckIntervalMs / 1000 / 60} minutes`,
         );
         await this.dexHelper.cache.rawset(
           this.getRestrictedCacheKey(),
           RESTRICTED_CACHE_VALUE,
-          RESTRICT_TTL_S,
+          this.restrictTtlS,
         );
       } else {
         this.logger.warn(
