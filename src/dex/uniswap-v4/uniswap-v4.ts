@@ -374,7 +374,10 @@ export class UniswapV4 extends SimpleExchange implements IDex<UniswapV4Data> {
     }
 
     const usdTokenAmounts = await this.dexHelper.getUsdTokenAmounts(
-      tokenAmounts,
+      tokenAmounts.map(t => [
+        t[0] === NULL_ADDRESS ? ETHER_ADDRESS : t[0],
+        t[1],
+      ]),
     );
 
     const allTokens = pools.map(pool => [pool.token0, pool.token1]).flat();
