@@ -56,6 +56,7 @@ import {
   DEXALOT_API_PAIRS_POLLING_INTERVAL_MS,
   DEXALOT_TOKENS_CACHES_TTL_S,
   DEXALOT_API_BLACKLIST_POLLING_INTERVAL_MS,
+  DEXALOT_RATE_LIMITED_TTL_S,
   DEXALOT_MIN_SLIPPAGE_FACTOR_THRESHOLD_FOR_RESTRICTION,
   DEXALOT_RESTRICTED_CACHE_KEY,
   DEXALOT_RESTRICT_TTL_S,
@@ -725,7 +726,7 @@ export class Dexalot
           );
           await this.addBlacklistedAddress(
             options.userAddress,
-            errorData.RetryAfter,
+            errorData.RetryAfter ?? DEXALOT_RATE_LIMITED_TTL_S,
           );
         } else {
           await this.addBlacklistedAddress(options.userAddress);

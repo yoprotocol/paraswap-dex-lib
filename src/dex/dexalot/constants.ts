@@ -16,6 +16,8 @@ export const DEXALOT_API_URL = 'https://api.dexalot.com';
 
 export const DEXALOT_GAS_COST = 120_000;
 
+export const DEXALOT_RATE_LIMITED_TTL_S = 60 * 60; // 1 hour
+
 export const DEXALOT_RESTRICT_TTL_S = 60 * 30; // 30 minutes
 
 export const DEXALOT_RESTRICTED_CACHE_KEY = 'restricted';
