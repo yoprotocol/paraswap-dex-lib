@@ -37,6 +37,7 @@ import {
   ERC1271Contract,
 } from '../../lib/erc1271-utils';
 import { isContractAddress } from '../../utils';
+import { AxiosError } from 'axios';
 
 const GET_FIRM_RATE_TIMEOUT_MS = 2000;
 export const reversePrice = (price: PriceAndAmountBigNumber) =>
@@ -484,10 +485,17 @@ export class RateFetcher {
         permitTakerAsset: '0x',
       };
     } catch (e) {
-      this.logger.error(
-        `Failed to build quote for pair ${srcToken.address}-${destToken.address} on side: ${side}`,
-        e,
-      );
+      let message = `Failed to build quote for pair ${srcToken.address}-${destToken.address} on side: ${side}, `;
+
+      if (e instanceof AxiosError) {
+        message += `error: ${e?.message}, status: ${
+          e?.response?.status
+        }, response data: ${JSON.stringify(e?.response?.data)}`;
+      } else if (e instanceof Error) {
+        message += `error: ${e?.message}`;
+      }
+
+      this.logger.error(message, e);
       throw e;
     }
   }
