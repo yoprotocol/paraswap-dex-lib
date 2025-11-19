@@ -131,4 +131,37 @@ describe('Native Integration (unit cache based)', () => {
     const expectedUnit = (BI_POWS[weth.decimals] * 1n) / 3200n;
     expect(poolPrices![0].unit).toBe(expectedUnit);
   });
+
+  it('getTopPoolsForToken computes max liquidity USD', async () => {
+    // Mock WETH price at $3200 USD per token
+    const wethPriceUsd = 3200;
+    dexHelper.getTokenUSDPrice = async (token, amount) => {
+      if (token.address.toLowerCase() === weth.address.toLowerCase()) {
+        // Return USD value: for 1 WETH (10^18 wei), return $3200
+        const normalizedAmount = Number(amount / BigInt(10 ** token.decimals));
+        return normalizedAmount * wethPriceUsd;
+      }
+      // Default behavior for other tokens
+      return Number(amount / BigInt(10 ** token.decimals));
+    };
+
+    const pools = await native.getTopPoolsForToken(weth.address, 10);
+
+    // Should find one pool (WETH/USDC from mock orderbook)
+    expect(pools.length).toBe(1);
+
+    // Verify liquidity calculation:
+    // levels: [[1, 3200], [5, 3195], [10, 3190]]
+    // Total base amount: 1 + 5 + 10 = 16 WETH
+    // Liquidity USD: 16 WETH * $3200 = $51,200
+    const expectedLiquidityUsd = 16 * wethPriceUsd; // 16 WETH * $3200 = $51,200
+    expect(pools[0].liquidityUSD).toBe(expectedLiquidityUsd);
+
+    // Verify pool structure
+    expect(pools[0].exchange).toBe(dexKey);
+    expect(pools[0].connectorTokens.length).toBe(1);
+    expect(pools[0].connectorTokens[0].address.toLowerCase()).toBe(
+      usdc.address.toLowerCase(),
+    );
+  });
 });

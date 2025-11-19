@@ -313,9 +313,9 @@ export async function testE2E(
     : simulatedAmount.sub(expectedAmount);
   const paraswapShare = decodedOutput.paraswapShare?.toNumber() ?? 0;
 
-  const isNativeRoute = Array.isArray(dexKeys)
-    ? dexKeys.includes('Native')
-    : dexKeys === 'Native';
+  // Check if Native is actually in the route, not just the input parameter
+  const routeDexes = extractAllDexsFromRoute(priceRoute.bestRoute);
+  const isNativeRoute = routeDexes.includes('Native');
 
   if (isNativeRoute) {
     const diffBps =

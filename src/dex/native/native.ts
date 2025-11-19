@@ -136,7 +136,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     this.cacheToken(_srcToken);
     this.cacheToken(_destToken);
 
-    if (_srcToken.address === _destToken.address) {
+    if (_srcToken.address.toLowerCase() === _destToken.address.toLowerCase()) {
       return [];
     }
 
@@ -162,7 +162,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     this.cacheToken(_srcToken);
     this.cacheToken(_destToken);
 
-    if (_srcToken.address === _destToken.address) {
+    if (_srcToken.address.toLowerCase() === _destToken.address.toLowerCase()) {
       return null;
     }
 
@@ -201,10 +201,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     if (cached) {
       return cached;
     }
-    return {
+    return this.dexHelper.config.wrapETH({
       address,
       decimals: 18,
-    };
+    });
   }
 
   private cacheToken(token: Token) {
@@ -242,7 +242,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       ? options.executionContractAddress!.toLowerCase()
       : options.recipient.toLowerCase();
 
-    const response = await this.fetchFirmQuote({
+    const firmQuoteParams: Record<string, string> = {
       src_chain: this.chainName,
       dst_chain: this.chainName,
       token_in: _srcToken.address.toLowerCase(),
@@ -251,7 +251,13 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       from_address: executionAddress,
       version: NATIVE_FIRM_QUOTE_VERSION,
       expiry_time: NATIVE_FIRM_QUOTE_EXPIRY_S.toString(),
-    });
+    };
+
+    if (options.userAddress) {
+      firmQuoteParams.beneficiary_address = options.userAddress.toLowerCase();
+    }
+
+    const response = await this.fetchFirmQuote(firmQuoteParams);
 
     if (!response?.success || !response.txRequest) {
       throw new Error(
@@ -391,7 +397,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
         const liquidityUSD = this.computeMaxLiquidity(
           entry.levels,
           baseTokenPriceUsd,
-          baseToken.decimals,
         );
 
         return {
@@ -604,13 +609,11 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   private computeMaxLiquidity(
     levels: NativeOrderbookLevel[],
     baseTokenPriceUsd: number,
-    baseTokenDecimals: number,
   ): number {
     if (!levels || levels.length === 0) {
       return 0;
     }
 
-    const divider = getBigNumberPow(baseTokenDecimals);
     let totalBaseAmount = new BigNumber(0);
 
     for (const level of levels) {
@@ -620,8 +623,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       }
     }
 
-    const normalizedTotal = totalBaseAmount.dividedBy(divider);
-    return normalizedTotal.multipliedBy(baseTokenPriceUsd).toNumber();
+    return totalBaseAmount.multipliedBy(baseTokenPriceUsd).toNumber();
   }
 
   private serializePoolIdentifier(entry: NativeOrderbookEntry): string {
@@ -629,13 +631,9 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   }
 
   private async getCachedOrderbook(): Promise<NativeOrderbookEntry[] | null> {
-    let cached = await this.dexHelper.cache.rawget(this.orderbookCacheKey);
+    const cached = await this.dexHelper.cache.rawget(this.orderbookCacheKey);
     if (!cached) {
-      await this.rateFetcher.fetchOnce();
-      cached = await this.dexHelper.cache.rawget(this.orderbookCacheKey);
-      if (!cached) {
-        return null;
-      }
+      return null;
     }
 
     try {

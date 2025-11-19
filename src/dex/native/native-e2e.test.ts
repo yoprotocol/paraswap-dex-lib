@@ -17,7 +17,9 @@ import { LocalParaswapSDK } from '../../implementations/local-paraswap-sdk';
 // extend Jest’s default timeout for this file.
 jest.setTimeout(30_000);
 
+// Wait for orderbook to be fetched
 const sleepMs = 2000;
+
 const contractMethod = ContractMethod.swapExactAmountIn;
 const side = SwapSide.SELL;
 const dexKey = 'Native';
