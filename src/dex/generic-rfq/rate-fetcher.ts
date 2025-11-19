@@ -484,7 +484,10 @@ export class RateFetcher {
         permitTakerAsset: '0x',
       };
     } catch (e) {
-      this.logger.error(e);
+      this.logger.error(
+        `Failed to build quote for pair ${_srcToken.address}-${_destToken.address}`,
+        e,
+      );
       throw e;
     }
   }
