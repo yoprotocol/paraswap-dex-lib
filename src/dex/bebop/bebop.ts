@@ -26,7 +26,7 @@ import {
   RoutingInstruction,
   TokenDataMap,
 } from './types';
-import { SlippageCheckError } from '../generic-rfq/types';
+import { BlacklistError, SlippageCheckError } from '../generic-rfq/types';
 import settlementABI from '../../abi/bebop/BebopSettlement.abi.json';
 import { SimpleExchangeWithRestrictions } from '../simple-exchange-with-restrictions';
 import { BebopConfig } from './config';
@@ -84,7 +84,10 @@ export class Bebop
       .settlementAddress,
     protected settlementInterface = new Interface(settlementABI),
   ) {
-    super(dexHelper, dexKey, { enableDexRestriction: true });
+    super(dexHelper, dexKey, {
+      enableDexRestriction: true,
+      restrictCountThreshold: 10,
+    });
     this.logger = dexHelper.getLogger(`${dexKey}-${network}`);
     this.tokensCacheKey = `tokens`;
     this.pricesCacheKey = `prices`;
@@ -768,6 +771,16 @@ export class Bebop
       requestId = response.requestId ?? response.error?.requestId;
       quoteId = response.quoteId;
 
+      if (response.error?.errorCode === 112) {
+        // "DenyListed" error name
+        this.addBlacklistedAddress(options.userAddress);
+        throw new BlacklistError(
+          this.dexKey,
+          this.network,
+          options.userAddress,
+        );
+      }
+
       if (
         !response.tx ||
         !response.buyTokens ||
@@ -839,7 +852,7 @@ export class Bebop
       const message = `requestId: ${requestId}, quoteId: ${quoteId}, error: ${e}`;
 
       this.logger.error(message);
-      if (!e?.isSlippageError) {
+      if (!e?.isSlippageError && !e?.isBlacklistError) {
         this.restrict();
       }
       throw new Error(message);

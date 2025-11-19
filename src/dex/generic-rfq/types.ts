@@ -103,6 +103,18 @@ export type RFQFirmRateResponse = {
   order: AugustusOrderWithStringAndSignature;
 };
 
+export class BlacklistError extends Error {
+  isBlacklistError = true;
+  cause = 'BlacklistError';
+  code = 'BLACKLIST';
+
+  constructor(dexKey: string, network: Network, user: Address) {
+    const message = `User address ${user} is blacklisted on ${dexKey}-${network}`;
+    super(message);
+    this.name = 'BlacklistError';
+  }
+}
+
 export class SlippageCheckError extends Error {
   isSlippageError = true;
   cause = 'SlippageCheckError';
