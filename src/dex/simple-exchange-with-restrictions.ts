@@ -73,7 +73,7 @@ export class SimpleExchangeWithRestrictions
       this.getBlacklistedCacheKey(address),
     );
 
-    return Boolean(cached);
+    return cached !== null;
   }
 
   protected setBlacklist(addresses: string[]) {
@@ -117,7 +117,7 @@ export class SimpleExchangeWithRestrictions
       this.getRestrictedCacheKey(),
     );
 
-    return Boolean(cached);
+    return cached !== null;
   }
 
   protected async restrict() {
