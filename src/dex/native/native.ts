@@ -27,6 +27,7 @@ import {
   NativeData,
   NativeFirmQuoteResponse,
   NativeOrderbookEntry,
+  NativeOrderbookLevel,
   NativeRateFetcherConfig,
   NativeTxRequest,
 } from './types';
@@ -377,20 +378,39 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     }
 
     const lowerToken = tokenAddress.toLowerCase();
-    return orderbook
+    const baseToken = this.getTokenFromAddress(tokenAddress);
+
+    const baseTokenPriceUsd = await this.dexHelper.getTokenUSDPrice(
+      baseToken,
+      BigInt(getBigNumberPow(baseToken.decimals).toFixed(0)),
+    );
+
+    const pools = orderbook
       .filter(entry => entry.base_address === lowerToken)
-      .slice(0, limit)
-      .map(entry => ({
-        exchange: this.dexKey,
-        address: this.routerAddress,
-        connectorTokens: [
-          {
-            address: entry.quote_address,
-            decimals: 0,
-          },
-        ],
-        liquidityUSD: 0,
-      }));
+      .map(entry => {
+        const liquidityUSD = this.computeMaxLiquidity(
+          entry.levels,
+          baseTokenPriceUsd,
+          baseToken.decimals,
+        );
+
+        return {
+          exchange: this.dexKey,
+          address: this.routerAddress,
+          connectorTokens: [
+            {
+              address: entry.quote_address,
+              decimals: 0,
+            },
+          ],
+          liquidityUSD,
+        };
+      })
+      .filter(pool => pool.liquidityUSD > 0)
+      .sort((a, b) => b.liquidityUSD - a.liquidityUSD)
+      .slice(0, limit);
+
+    return pools;
   }
 
   private async getEntriesForPair(
@@ -579,6 +599,29 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     );
 
     return normalizedMinBase.multipliedBy(firstLevelPrice);
+  }
+
+  private computeMaxLiquidity(
+    levels: NativeOrderbookLevel[],
+    baseTokenPriceUsd: number,
+    baseTokenDecimals: number,
+  ): number {
+    if (!levels || levels.length === 0) {
+      return 0;
+    }
+
+    const divider = getBigNumberPow(baseTokenDecimals);
+    let totalBaseAmount = new BigNumber(0);
+
+    for (const level of levels) {
+      const baseAmount = new BigNumber(level[0]);
+      if (baseAmount.gt(0)) {
+        totalBaseAmount = totalBaseAmount.plus(baseAmount);
+      }
+    }
+
+    const normalizedTotal = totalBaseAmount.dividedBy(divider);
+    return normalizedTotal.multipliedBy(baseTokenPriceUsd).toNumber();
   }
 
   private serializePoolIdentifier(entry: NativeOrderbookEntry): string {
