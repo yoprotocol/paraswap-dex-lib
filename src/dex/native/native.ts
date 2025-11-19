@@ -428,7 +428,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     const dividerSrc = getBigNumberPow(srcToken.decimals);
     const dividerDest = getBigNumberPow(destToken.decimals);
 
-    const priceResults: bigint[] = [];
+    const priceResults: bigint[] = new Array(amounts.length).fill(0n);
     let unitQuote: BigNumber | null = null;
 
     if (side === SwapSide.SELL) {
@@ -436,9 +436,8 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
         ? new BigNumber(entry.minimum_in_base).dividedBy(dividerSrc)
         : BN_0;
 
-      for (const amount of amounts) {
+      for (const [index, amount] of amounts.entries()) {
         if (amount === 0n) {
-          priceResults.push(0n);
           continue;
         }
 
@@ -449,10 +448,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
 
         const quote = this.computeSellQuote(entry, amountBn);
         if (!quote) {
-          return null;
+          break;
         }
 
-        priceResults.push(this.toBigInt(quote, destToken.decimals));
+        priceResults[index] = this.toBigInt(quote, destToken.decimals);
       }
 
       unitQuote = this.computeSellQuote(entry, BN_1) || BN_0;
@@ -462,9 +461,8 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
         srcToken.decimals,
       );
 
-      for (const amount of amounts) {
+      for (const [index, amount] of amounts.entries()) {
         if (amount === 0n) {
-          priceResults.push(0n);
           continue;
         }
 
@@ -478,10 +476,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
 
         const requiredBase = this.computeBuyQuote(entry, amountBn);
         if (!requiredBase) {
-          return null;
+          break;
         }
 
-        priceResults.push(this.toBigInt(requiredBase, srcToken.decimals));
+        priceResults[index] = this.toBigInt(requiredBase, srcToken.decimals);
       }
 
       unitQuote = this.computeBuyQuote(entry, BN_1) || BN_0;
