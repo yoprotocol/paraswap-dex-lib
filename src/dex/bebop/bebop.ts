@@ -581,9 +581,10 @@ export class Bebop
   // Returns list of top pools based on liquidity. Max
   // limit number pools should be returned.
   async getTopPoolsForToken(
-    tokenAddress: Address,
+    _tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
+    const tokenAddress = _tokenAddress.toLowerCase();
     const prices = await this.getCachedPrices();
 
     if (!prices) {
@@ -596,51 +597,52 @@ export class Bebop
     for (const [pair, pairData] of Object.entries(prices)) {
       let liquidityUSD = 0;
       let token;
-      const [base, quote] = pair.split('/');
+      const [base, quote] = pair.split('/').map(t => t.toLowerCase());
 
-      const isBase = base.toLowerCase() == tokenAddress.toLowerCase();
-      const isQuote = quote.toLowerCase() == tokenAddress.toLowerCase();
+      const isBase = base == tokenAddress;
+      const isQuote = quote == tokenAddress;
 
       // There is pricing for token is not enabled at the moment
-      if (
-        !(
-          quote.toLowerCase() in this.tokensMap &&
-          base.toLowerCase() in this.tokensMap
-        )
-      ) {
+      if (!(quote in this.tokensMap && base in this.tokensMap)) {
         continue;
       }
+
+      const quoteToken = {
+        address: quote,
+        decimals: this.tokensMap[quote].decimals,
+      };
+
+      const quoteTokenUsd = await this.dexHelper.getTokenUSDPrice(
+        quoteToken,
+        BigInt(10 ** quoteToken.decimals),
+      );
 
       if (isBase) {
         const liquidityInQuote = this.getMaxLiquidity(pairData.bids);
         token = {
           address: quote,
-          decimals: this.tokensMap[quote.toLowerCase()].decimals,
+          decimals: this.tokensMap[quote].decimals,
         };
-        const quoteTokenUsd = await this.dexHelper.getTokenUSDPrice(
-          token,
-          BigInt(Math.round(liquidityInQuote)),
-        );
         liquidityUSD = liquidityInQuote * quoteTokenUsd;
       } else if (isQuote) {
         const liquidityInBase = this.getMaxLiquidity(pairData.asks);
         token = {
           address: base,
-          decimals: this.tokensMap[base.toLowerCase()].decimals,
+          decimals: this.tokensMap[base].decimals,
         };
-        const baseTokenUsd = await this.dexHelper.getTokenUSDPrice(
-          token,
-          BigInt(Math.round(liquidityInBase)),
-        );
-        liquidityUSD = liquidityInBase * baseTokenUsd;
+        liquidityUSD = liquidityInBase * quoteTokenUsd;
       }
 
       if (liquidityUSD) {
         assert(token, 'Token not found');
-        const address = token.address.toLowerCase();
+        const address = token.address;
 
         if (connectorPools[address]) {
-          connectorPools[address].liquidityUSD += liquidityUSD;
+          // liquidity can be used only for one pair
+          connectorPools[address].liquidityUSD = Math.max(
+            liquidityUSD,
+            connectorPools[address].liquidityUSD,
+          );
         } else {
           connectorPools[address] = {
             exchange: this.dexKey,
@@ -649,7 +651,6 @@ export class Bebop
               {
                 address: address,
                 decimals: this.tokensMap[address].decimals,
-                symbol: this.tokensMap[address].ticker,
               },
             ],
             liquidityUSD,
