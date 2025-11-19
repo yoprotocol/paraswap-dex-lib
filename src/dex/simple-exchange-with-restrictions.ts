@@ -77,6 +77,7 @@ export class SimpleExchangeWithRestrictions
   }
 
   protected setBlacklist(addresses: string[]) {
+    this.logger.info(`Blacklisting addresses: ${addresses.length}`);
     return this.dexHelper.cache.msetex(
       ...addresses
         .map(address => [
