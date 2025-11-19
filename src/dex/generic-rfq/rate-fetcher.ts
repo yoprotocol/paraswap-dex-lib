@@ -485,7 +485,7 @@ export class RateFetcher {
       };
     } catch (e) {
       this.logger.error(
-        `Failed to build quote for pair ${_srcToken.address}-${_destToken.address}`,
+        `Failed to build quote for pair ${srcToken.address}-${destToken.address} on side: ${side}`,
         e,
       );
       throw e;
