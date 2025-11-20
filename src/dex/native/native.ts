@@ -16,7 +16,6 @@ import {
   PoolLiquidity,
   PoolPrices,
   PreprocessTransactionOptions,
-  SimpleExchangeParam,
   Token,
 } from '../../types';
 import { getDexKeysWithNetwork, isETHAddress } from '../../utils';
@@ -39,7 +38,9 @@ import {
   NATIVE_ORDERBOOK_CACHE_TTL_S,
   NATIVE_ORDERBOOK_POLLING_INTERVAL_MS,
 } from './constants';
-import { SpecialDex } from '../../executor/types';
+import { BytesLike, formatUnits, parseUnits } from 'ethers/lib/utils';
+import { uint8ToNumber } from '../../lib/decoders';
+import { MultiResult } from '../../lib/multi-wrapper';
 
 export class Native extends SimpleExchange implements IDex<NativeData> {
   readonly isStatePollingDex = true;
@@ -47,7 +48,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   readonly needWrapNative = true;
   readonly isFeeOnTransferSupported = false;
   readonly needsSequentialPreprocessing = true;
-  private tokenCache: Map<string, Token> = new Map();
 
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(NativeConfig);
@@ -58,6 +58,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   private nativeApiKey: string;
   private chainName: string;
   private routerAddress: Address;
+  private addressToTokenMap: Record<Address, Token> = {};
 
   constructor(
     readonly network: Network,
@@ -133,9 +134,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     const _srcToken = this.dexHelper.config.wrapETH(srcToken);
     const _destToken = this.dexHelper.config.wrapETH(destToken);
 
-    this.cacheToken(_srcToken);
-    this.cacheToken(_destToken);
-
     if (_srcToken.address.toLowerCase() === _destToken.address.toLowerCase()) {
       return [];
     }
@@ -148,6 +146,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     return entries.map(entry => this.serializePoolIdentifier(entry));
   }
 
+  private serializePoolIdentifier(entry: NativeOrderbookEntry): string {
+    return `${this.dexKey}_${entry.base_address}_${entry.quote_address}_${entry.side}`.toLowerCase();
+  }
+
   async getPricesVolume(
     srcToken: Token,
     destToken: Token,
@@ -156,11 +158,13 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     _blockNumber: number,
     limitPools?: string[],
   ): Promise<ExchangePrices<NativeData> | null> {
+    // Native DEX only supports SELL side for now
+    if (side === SwapSide.BUY) {
+      return null;
+    }
+
     const _srcToken = this.dexHelper.config.wrapETH(srcToken);
     const _destToken = this.dexHelper.config.wrapETH(destToken);
-
-    this.cacheToken(_srcToken);
-    this.cacheToken(_destToken);
 
     if (_srcToken.address.toLowerCase() === _destToken.address.toLowerCase()) {
       return null;
@@ -197,18 +201,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   }
 
   getTokenFromAddress(address: Address): Token {
-    const cached = this.tokenCache.get(address.toLowerCase());
-    if (cached) {
-      return cached;
-    }
     return this.dexHelper.config.wrapETH({
       address,
       decimals: 18,
     });
-  }
-
-  private cacheToken(token: Token) {
-    this.tokenCache.set(token.address.toLowerCase(), token);
   }
 
   getCalldataGasCost(_: PoolPrices<NativeData>): number | number[] {
@@ -222,7 +218,8 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     side: SwapSide,
     options: PreprocessTransactionOptions,
   ): Promise<[OptimalSwapExchange<NativeData>, ExchangeTxInfo]> {
-    if (side !== SwapSide.SELL) {
+    // Native DEX only supports SELL side for now
+    if (side === SwapSide.BUY) {
       throw new Error(`${this.dexKey}-${this.network}: BUY not supported`);
     }
 
@@ -230,17 +227,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     const _destToken = this.dexHelper.config.wrapETH(destToken);
 
     const amountIn = BigInt(optimalSwapExchange.srcAmount);
-    const formattedAmount = this.formatAmountForApi(
-      amountIn,
-      _srcToken.decimals,
-    );
-
-    const shouldUseExecutorRecipient =
-      !!options.executionContractAddress && isETHAddress(destToken.address);
-
-    const executionAddress = shouldUseExecutorRecipient
-      ? options.executionContractAddress!.toLowerCase()
-      : options.recipient.toLowerCase();
+    const formattedAmount = formatUnits(amountIn, _srcToken.decimals);
 
     const firmQuoteParams: Record<string, string> = {
       src_chain: this.chainName,
@@ -248,7 +235,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       token_in: _srcToken.address.toLowerCase(),
       token_out: _destToken.address.toLowerCase(),
       amount: formattedAmount,
-      from_address: executionAddress,
+      from_address: options.executionContractAddress,
       version: NATIVE_FIRM_QUOTE_VERSION,
       expiry_time: NATIVE_FIRM_QUOTE_EXPIRY_S.toString(),
     };
@@ -304,47 +291,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     data: NativeData,
     _side: SwapSide,
   ): AdapterExchangeParam {
-    const txRequest = data.quote?.txRequest;
-    assert(
-      txRequest,
-      `${this.dexKey}-${this.network}: Missing txRequest for adapter param`,
-    );
-
-    const { target, calldata, value } = this.normalizeTxRequest(txRequest);
-
-    return {
-      targetExchange: target,
-      payload: calldata,
-      networkFee: value,
-    };
-  }
-
-  async getSimpleParam(
-    srcToken: Address,
-    destToken: Address,
-    srcAmount: NumberAsString,
-    destAmount: NumberAsString,
-    data: NativeData,
-    _side: SwapSide,
-  ): Promise<SimpleExchangeParam> {
-    const txRequest = data.quote?.txRequest;
-    assert(
-      txRequest,
-      `${this.dexKey}-${this.network}: Missing txRequest for simple param`,
-    );
-
-    const { calldata, target, value } = this.normalizeTxRequest(txRequest);
-
-    return this.buildSimpleParamWithoutWETHConversion(
-      srcToken,
-      srcAmount,
-      destToken,
-      destAmount,
-      calldata,
-      target,
-      undefined,
-      value,
-    );
+    throw new Error('V5 is not supported for Native DEX');
   }
 
   getDexParam(
@@ -374,48 +321,150 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     };
   }
 
+  async updatePoolState() {
+    // load orderbook data once from cache and save locally for future use in getTopPoolsForToken
+    const orderbookRaw = await this.dexHelper.cache.getAndCacheLocally(
+      this.dexKey,
+      this.network,
+      this.orderbookCacheKey,
+      NATIVE_ORDERBOOK_CACHE_TTL_S,
+    );
+
+    if (!orderbookRaw) {
+      return;
+    }
+
+    const orderbook = this.parseCachedOrderbook(orderbookRaw);
+    if (!orderbook) return;
+
+    const tokenAddresses = new Set<Address>();
+    for (const entry of orderbook) {
+      tokenAddresses.add(entry.base_address.toLowerCase());
+      tokenAddresses.add(entry.quote_address.toLowerCase());
+    }
+
+    const addressToTokenMap: Record<Address, Token> = {};
+    const tokens = Array.from(tokenAddresses);
+
+    const calls: {
+      target: Address;
+      callData: string;
+      decodeFunction: (str: BytesLike | MultiResult<BytesLike>) => number;
+    }[] = [];
+    const callToTokenIndex: number[] = [];
+
+    tokens.forEach((token, i) => {
+      if (isETHAddress(token)) {
+        addressToTokenMap[token] = {
+          address: token,
+          decimals: 18,
+        };
+      } else {
+        calls.push({
+          target: token,
+          callData: this.erc20Contract.methods.decimals().encodeABI(),
+          decodeFunction: uint8ToNumber,
+        });
+        callToTokenIndex.push(i);
+      }
+    });
+
+    const decimalsArray = await this.dexHelper.multiWrapper.aggregate(calls);
+
+    decimalsArray.forEach((decimals, i) => {
+      const address = tokens[callToTokenIndex[i]];
+
+      addressToTokenMap[address] = {
+        address,
+        decimals,
+      };
+    });
+
+    this.addressToTokenMap = addressToTokenMap;
+  }
+
   async getTopPoolsForToken(
     tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
-    const orderbook = await this.getCachedOrderbook();
-    if (!orderbook) {
-      return [];
-    }
-
-    const lowerToken = tokenAddress.toLowerCase();
-    const baseToken = this.getTokenFromAddress(tokenAddress);
-
-    const baseTokenPriceUsd = await this.dexHelper.getTokenUSDPrice(
-      baseToken,
-      BigInt(getBigNumberPow(baseToken.decimals).toFixed(0)),
+    const orderbookRaw = await this.dexHelper.cache.getAndCacheLocally(
+      this.dexKey,
+      this.network,
+      this.orderbookCacheKey,
+      NATIVE_ORDERBOOK_CACHE_TTL_S,
     );
 
-    const pools = orderbook
-      .filter(entry => entry.base_address === lowerToken)
-      .map(entry => {
-        const liquidityUSD = this.computeMaxLiquidity(
-          entry.levels,
-          baseTokenPriceUsd,
-        );
+    if (!orderbookRaw) return [];
 
-        return {
-          exchange: this.dexKey,
-          address: this.routerAddress,
-          connectorTokens: [
-            {
-              address: entry.quote_address,
-              decimals: 0,
-            },
-          ],
-          liquidityUSD,
-        };
-      })
-      .filter(pool => pool.liquidityUSD > 0)
+    const orderbook = this.parseCachedOrderbook(orderbookRaw);
+    if (!orderbook) return [];
+
+    const tokenLower = tokenAddress.toLowerCase();
+
+    const poolPromises = orderbook.map(async entry => {
+      const base = entry.base_address.toLowerCase();
+      const quote = entry.quote_address.toLowerCase();
+
+      const isBase = base === tokenLower;
+      const isQuote = quote === tokenLower;
+      if (!isBase && !isQuote) return null;
+
+      const [liq0, liq1] = this.computeMaxLiquidity(entry.levels);
+
+      const usdAmounts = await this.dexHelper.getUsdTokenAmounts([
+        [base, liq0 * 10n ** BigInt(this.addressToTokenMap[base].decimals)],
+        [quote, liq1 * 10n ** BigInt(this.addressToTokenMap[quote].decimals)],
+      ]);
+
+      const pool: PoolLiquidity = {
+        exchange: this.dexKey,
+        address: this.routerAddress,
+        connectorTokens: [],
+        liquidityUSD: 0,
+      };
+
+      if (isBase) {
+        const quoteToken = this.addressToTokenMap[quote];
+        pool.connectorTokens.push({
+          address: entry.quote_address,
+          decimals: quoteToken.decimals,
+          liquidityUSD: usdAmounts[1],
+        });
+        pool.liquidityUSD = usdAmounts[0];
+      } else {
+        const baseToken = this.addressToTokenMap[base];
+        pool.connectorTokens.push({
+          address: entry.base_address,
+          decimals: baseToken.decimals,
+          liquidityUSD: usdAmounts[0],
+        });
+        pool.liquidityUSD = usdAmounts[1];
+      }
+
+      return pool;
+    });
+
+    const allPools = (await Promise.all(poolPromises)).filter(
+      (p): p is PoolLiquidity => p !== null,
+    );
+
+    return allPools
       .sort((a, b) => b.liquidityUSD - a.liquidityUSD)
       .slice(0, limit);
+  }
 
-    return pools;
+  private computeMaxLiquidity(
+    levels: NativeOrderbookLevel[],
+  ): [bigint, bigint] {
+    return levels.reduce(
+      (acc, [v0, v1]) => {
+        acc[0] += BigInt(v0);
+        acc[1] += BigInt(v1);
+
+        return acc;
+      },
+      [0n, 0n],
+    );
   }
 
   private async getEntriesForPair(
@@ -451,64 +500,38 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     }
 
     const dividerSrc = getBigNumberPow(srcToken.decimals);
-    const dividerDest = getBigNumberPow(destToken.decimals);
 
     const priceResults: bigint[] = new Array(amounts.length).fill(0n);
     let unitQuote: BigNumber | null = null;
 
-    if (side === SwapSide.SELL) {
-      const minAmount = entry.minimum_in_base
-        ? new BigNumber(entry.minimum_in_base).dividedBy(dividerSrc)
-        : BN_0;
+    const minAmount = entry.minimum_in_base
+      ? new BigNumber(entry.minimum_in_base).dividedBy(dividerSrc)
+      : BN_0;
 
-      for (const [index, amount] of amounts.entries()) {
-        if (amount === 0n) {
-          continue;
-        }
-
-        const amountBn = new BigNumber(amount.toString()).dividedBy(dividerSrc);
-        if (minAmount.gt(0) && amountBn.lt(minAmount)) {
-          return null;
-        }
-
-        const quote = this.computeSellQuote(entry, amountBn);
-        if (!quote) {
-          break;
-        }
-
-        priceResults[index] = this.toBigInt(quote, destToken.decimals);
+    for (const [index, amount] of amounts.entries()) {
+      if (amount === 0n) {
+        continue;
       }
 
-      unitQuote = this.computeSellQuote(entry, BN_1) || BN_0;
-    } else {
-      const minQuoteAmount = this.computeMinQuoteAmount(
-        entry,
-        srcToken.decimals,
-      );
-
-      for (const [index, amount] of amounts.entries()) {
-        if (amount === 0n) {
-          continue;
-        }
-
-        const amountBn = new BigNumber(amount.toString()).dividedBy(
-          dividerDest,
-        );
-
-        if (minQuoteAmount.gt(0) && amountBn.lt(minQuoteAmount)) {
-          return null;
-        }
-
-        const requiredBase = this.computeBuyQuote(entry, amountBn);
-        if (!requiredBase) {
-          break;
-        }
-
-        priceResults[index] = this.toBigInt(requiredBase, srcToken.decimals);
+      const amountBn = new BigNumber(amount.toString()).dividedBy(dividerSrc);
+      if (minAmount.gt(0) && amountBn.lt(minAmount)) {
+        return null;
       }
 
-      unitQuote = this.computeBuyQuote(entry, BN_1) || BN_0;
+      const quote = this.computeSellQuote(entry, amountBn);
+      if (!quote) {
+        break;
+      }
+
+      const quoteBigInt = BigInt(quote.toFixed());
+
+      priceResults[index] =
+        quoteBigInt <= 0n
+          ? 0n
+          : parseUnits(quote.toFixed(), destToken.decimals).toBigInt();
     }
+
+    unitQuote = this.computeSellQuote(entry, BN_1) || BN_0;
 
     return {
       exchange: this.dexKey,
@@ -517,10 +540,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       poolAddresses: [this.routerAddress],
       gasCost: NATIVE_GAS_COST,
       prices: priceResults,
-      unit: this.toBigInt(
-        unitQuote,
-        side === SwapSide.SELL ? destToken.decimals : srcToken.decimals,
-      ),
+      unit: parseUnits(unitQuote.toFixed(), destToken.decimals).toBigInt(),
     };
   }
 
@@ -554,90 +574,19 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     return null;
   }
 
-  private computeBuyQuote(
-    entry: NativeOrderbookEntry,
-    requiredQuoteAmount: BigNumber,
-  ): BigNumber | null {
-    if (requiredQuoteAmount.lte(0)) {
-      return BN_0;
-    }
-
-    let remaining = requiredQuoteAmount;
-    let requiredBase = new BigNumber(0);
-
-    for (const level of entry.levels) {
-      const baseAmount = new BigNumber(level[0]);
-      const price = new BigNumber(level[1]);
-      if (baseAmount.lte(0) || price.lte(0)) {
-        continue;
-      }
-
-      const levelQuote = baseAmount.multipliedBy(price);
-      const quoteToUse = BigNumber.minimum(levelQuote, remaining);
-      const baseNeeded = quoteToUse.dividedBy(price);
-      requiredBase = requiredBase.plus(baseNeeded);
-      remaining = remaining.minus(quoteToUse);
-
-      if (remaining.lte(0)) {
-        return requiredBase;
-      }
-    }
-
-    return null;
-  }
-
-  private computeMinQuoteAmount(
-    entry: NativeOrderbookEntry,
-    baseTokenDecimals: number,
-  ): BigNumber {
-    if (!entry.minimum_in_base || entry.minimum_in_base <= 0) {
-      return BN_0;
-    }
-
-    const firstLevelPrice = entry.levels[0]?.[1];
-    if (!firstLevelPrice || firstLevelPrice <= 0) {
-      return BN_0;
-    }
-
-    const normalizedMinBase = new BigNumber(entry.minimum_in_base).dividedBy(
-      getBigNumberPow(baseTokenDecimals),
-    );
-
-    return normalizedMinBase.multipliedBy(firstLevelPrice);
-  }
-
-  private computeMaxLiquidity(
-    levels: NativeOrderbookLevel[],
-    baseTokenPriceUsd: number,
-  ): number {
-    if (!levels || levels.length === 0) {
-      return 0;
-    }
-
-    let totalBaseAmount = new BigNumber(0);
-
-    for (const level of levels) {
-      const baseAmount = new BigNumber(level[0]);
-      if (baseAmount.gt(0)) {
-        totalBaseAmount = totalBaseAmount.plus(baseAmount);
-      }
-    }
-
-    return totalBaseAmount.multipliedBy(baseTokenPriceUsd).toNumber();
-  }
-
-  private serializePoolIdentifier(entry: NativeOrderbookEntry): string {
-    return `${this.dexKey}_${entry.base_address}_${entry.quote_address}_${entry.side}`.toLowerCase();
-  }
-
   private async getCachedOrderbook(): Promise<NativeOrderbookEntry[] | null> {
     const cached = await this.dexHelper.cache.rawget(this.orderbookCacheKey);
+
     if (!cached) {
       return null;
     }
 
+    return this.parseCachedOrderbook(cached);
+  }
+
+  private parseCachedOrderbook(data: string): NativeOrderbookEntry[] | null {
     try {
-      const parsed = JSON.parse(cached) as NativeOrderbookEntry[];
+      const parsed = JSON.parse(data) as NativeOrderbookEntry[];
       return parsed.map(entry => ({
         ...entry,
         base_address: entry.base_address.toLowerCase(),
@@ -651,28 +600,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       );
       return null;
     }
-  }
-
-  private toBigInt(amount: BigNumber, decimals: number): bigint {
-    if (amount.lte(0)) {
-      return 0n;
-    }
-    return BigInt(
-      amount
-        .multipliedBy(getBigNumberPow(decimals))
-        .decimalPlaces(0, BigNumber.ROUND_DOWN)
-        .toFixed(0),
-    );
-  }
-
-  private formatAmountForApi(amount: bigint, decimals: number): string {
-    const divider = getBigNumberPow(decimals);
-    const formatted = new BigNumber(amount.toString())
-      .dividedBy(divider)
-      .decimalPlaces(decimals, BigNumber.ROUND_DOWN)
-      .toFixed();
-
-    return formatted.replace(/\.0+$/, '');
   }
 
   private async fetchFirmQuote(

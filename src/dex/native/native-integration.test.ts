@@ -133,6 +133,8 @@ describe('Native Integration (unit cache based)', () => {
   });
 
   it('getTopPoolsForToken computes max liquidity USD', async () => {
+    await native.updatePoolState();
+
     // Mock WETH price at $3200 USD per token
     const wethPriceUsd = 3200;
     dexHelper.getTokenUSDPrice = async (token, amount) => {
