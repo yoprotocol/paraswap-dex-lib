@@ -13,7 +13,9 @@ export abstract class LimitOrderExchange<
   >;
 
   constructor(dexHelper: IDexHelper, name: string) {
-    super(dexHelper, name);
+    super(dexHelper, name, {
+      blacklistedTTL: 'none',
+    });
   }
 
   abstract get limitOrderProviderName(): LIMIT_ORDER_PROVIDERS;

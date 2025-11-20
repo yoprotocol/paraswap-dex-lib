@@ -77,6 +77,20 @@ class DummyCache implements ICache {
     return 'OK';
   }
 
+  async set(key: string, value: string) {
+    this.storage[key] = value;
+  }
+
+  async mset(...args: Array<string>) {
+    if (args.length % 2 !== 0) {
+      throw new Error('Wrong number of params');
+    }
+
+    for (let i = 0; i < args.length; i += 2) {
+      this.storage[args[i]] = args[i + 1];
+    }
+  }
+
   async rawdel(key: string): Promise<void> {
     delete this.storage[key];
     return;

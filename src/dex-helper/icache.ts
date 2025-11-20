@@ -29,6 +29,10 @@ export interface ICache {
 
   msetex(...args: Array<string | number>): Promise<void>;
 
+  set(key: string, value: string): Promise<void>;
+
+  mset(...args: Array<string>): Promise<void>;
+
   getAndCacheLocally(
     dexKey: string,
     network: number,
