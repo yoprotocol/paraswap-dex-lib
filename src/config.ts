@@ -82,6 +82,7 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     rfqConfigs: {
       DummyParaSwapPool: {
         maker: process.env.TEST_ADDRESS!,
+        minTradeUsd: null,
         tokensConfig: {
           reqParams: {
             url: `http://localhost:${PORT_TEST_SERVER}/tokens`,
