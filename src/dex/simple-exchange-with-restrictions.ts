@@ -20,8 +20,10 @@ type RestrictData = {
   addedDatetimeMs: number;
 } | null;
 
+type CACHE_TTL = number | 'none';
+
 type DexRestrictionOptions = {
-  blacklistedTTL?: number;
+  blacklistedTTL?: CACHE_TTL;
   enableDexRestriction?: boolean;
   restrictCheckIntervalMs?: number;
   restrictCountThreshold?: number;
@@ -32,7 +34,7 @@ export class SimpleExchangeWithRestrictions
   extends SimpleExchange
   implements IDexWithRestriction, IDexWithBlacklist
 {
-  protected readonly blacklistedTTL: number;
+  protected readonly blacklistedTTL: CACHE_TTL;
   protected readonly enableDexRestriction: boolean;
 
   protected restrictCheckIntervalMs: number;
@@ -76,14 +78,26 @@ export class SimpleExchangeWithRestrictions
     return cached !== null;
   }
 
-  protected setBlacklist(addresses: string[]) {
+  protected setBlacklist(addresses: string[], ttl = this.blacklistedTTL) {
     this.logger.info(`Blacklisting addresses: ${addresses.length}`);
+
+    if (ttl === 'none') {
+      return this.dexHelper.cache.mset(
+        ...addresses
+          .map(address => [
+            this.getBlacklistedCacheKey(address),
+            BLACKLISTED_CACHE_VALUE,
+          ])
+          .flat(),
+      );
+    }
+
     return this.dexHelper.cache.msetex(
       ...addresses
         .map(address => [
           this.getBlacklistedCacheKey(address),
           BLACKLISTED_CACHE_VALUE,
-          this.blacklistedTTL,
+          ttl,
         ])
         .flat(),
     );
@@ -93,12 +107,16 @@ export class SimpleExchangeWithRestrictions
     address: string,
     ttl = this.blacklistedTTL,
   ) {
+    const key = this.getBlacklistedCacheKey(address);
+
+    if (ttl === 'none') {
+      return this.dexHelper.cache
+        .set(key, BLACKLISTED_CACHE_VALUE)
+        .then(() => true);
+    }
+
     return this.dexHelper.cache
-      .rawset(
-        this.getBlacklistedCacheKey(address),
-        BLACKLISTED_CACHE_VALUE,
-        ttl,
-      )
+      .rawset(key, BLACKLISTED_CACHE_VALUE, ttl)
       .then(() => true);
   }
 
