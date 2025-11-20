@@ -466,4 +466,8 @@ export class GenericRFQ extends ParaSwapLimitOrders {
       this.rateFetcher.stop();
     }
   }
+
+  minUsdTradeValue() {
+    return this.config.minTradeUsd;
+  }
 }

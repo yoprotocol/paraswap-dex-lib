@@ -77,6 +77,7 @@ export type RFQConfig = {
   blacklistConfig?: FetcherParams;
   maker: Address;
   pathToRemove?: string;
+  minTradeUsd: number | null;
 };
 
 export type TokenWithAmount = Token & {

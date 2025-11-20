@@ -162,6 +162,7 @@ export class PricingHelper {
   async filterOutDexKeysWithRestrictions(
     dexKeys: string[],
     userAddress = NULL_ADDRESS,
+    usdTradeValue: number | null = null,
   ): Promise<string[]> {
     const checkBlacklist = userAddress !== NULL_ADDRESS;
     const dexesWithBlacklists: string[] = [];
@@ -169,10 +170,23 @@ export class PricingHelper {
     const dexesWithRestrictions: string[] = [];
     const dexRestrictionCacheKeys: string[] = [];
 
+    const dexesWithNotSufficientUsdTrade: string[] = [];
+
     for (const key of dexKeys) {
       const dex = this.getDexByKey(key);
 
       if (dex) {
+        if (dex?.minUsdTradeValue) {
+          const minTradeUsd = dex?.minUsdTradeValue();
+          if (
+            minTradeUsd !== null &&
+            (usdTradeValue === null || usdTradeValue < minTradeUsd)
+          ) {
+            dexesWithNotSufficientUsdTrade.push(key);
+            continue;
+          }
+        }
+
         if (checkBlacklist && dex.hasBlacklist?.()) {
           dexesWithBlacklists.push(key);
           dexBlacklistCacheKeys.push(dex.getBlacklistedCacheKey(userAddress));
@@ -191,7 +205,9 @@ export class PricingHelper {
     ];
 
     if (!cacheKeysToGet.length) {
-      return dexKeys;
+      return dexKeys.filter(
+        key => !dexesWithNotSufficientUsdTrade.includes(key),
+      );
     }
 
     const result = await this.dexAdapterService.dexHelper.cache.mget(
@@ -208,7 +224,8 @@ export class PricingHelper {
     return dexKeys.filter(
       key =>
         !dexesWithBlacklistedUser.includes(key) &&
-        !restrictedDexes.includes(key),
+        !restrictedDexes.includes(key) &&
+        !dexesWithNotSufficientUsdTrade.includes(key),
     );
   }
 

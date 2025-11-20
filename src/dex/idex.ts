@@ -225,6 +225,11 @@ export interface IDexPricing<ExchangeData> {
 
   hasDexRestriction?(): this is IDexWithRestriction;
   hasBlacklist?(): this is IDexWithBlacklist;
+
+  // can be used to define what min usd value can be traded (e.g. on RFQ)
+  // null means usd check should be skipped
+  // `0` or any number means only tokens with usd price can be traded
+  minUsdTradeValue?(): number | null;
 }
 
 export interface IDexPooltracker {
