@@ -205,7 +205,9 @@ export class PricingHelper {
     ];
 
     if (!cacheKeysToGet.length) {
-      return dexKeys;
+      return dexKeys.filter(
+        key => !dexesWithNotSufficientUsdTrade.includes(key),
+      );
     }
 
     const result = await this.dexAdapterService.dexHelper.cache.mget(
