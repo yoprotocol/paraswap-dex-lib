@@ -175,6 +175,9 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       return null;
     }
 
+    this.addressToTokenMap[_srcToken.address.toLowerCase()] = _srcToken;
+    this.addressToTokenMap[_destToken.address.toLowerCase()] = _destToken;
+
     let entries = await this.getEntriesForPair(
       _srcToken.address,
       _destToken.address,
@@ -201,6 +204,12 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   }
 
   getTokenFromAddress(address: Address): Token {
+    const cached = this.addressToTokenMap[address.toLowerCase()];
+
+    if (cached) {
+      return cached;
+    }
+
     return this.dexHelper.config.wrapETH({
       address,
       decimals: 18,
@@ -229,13 +238,17 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     const amountIn = BigInt(optimalSwapExchange.srcAmount);
     const formattedAmount = formatUnits(amountIn, _srcToken.decimals);
 
+    const executionAddress = isETHAddress(destToken.address)
+      ? options.executionContractAddress.toLowerCase()
+      : options.recipient.toLowerCase();
+
     const firmQuoteParams: Record<string, string> = {
       src_chain: this.chainName,
       dst_chain: this.chainName,
       token_in: _srcToken.address.toLowerCase(),
       token_out: _destToken.address.toLowerCase(),
       amount: formattedAmount,
-      from_address: options.executionContractAddress,
+      from_address: executionAddress,
       version: NATIVE_FIRM_QUOTE_VERSION,
       expiry_time: NATIVE_FIRM_QUOTE_EXPIRY_S.toString(),
     };
@@ -523,12 +536,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
         break;
       }
 
-      const quoteBigInt = BigInt(quote.toFixed());
-
-      priceResults[index] =
-        quoteBigInt <= 0n
-          ? 0n
-          : parseUnits(quote.toFixed(), destToken.decimals).toBigInt();
+      priceResults[index] = this.toBigInt(quote, destToken.decimals);
     }
 
     unitQuote = this.computeSellQuote(entry, BN_1) || BN_0;
@@ -540,7 +548,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       poolAddresses: [this.routerAddress],
       gasCost: NATIVE_GAS_COST,
       prices: priceResults,
-      unit: parseUnits(unitQuote.toFixed(), destToken.decimals).toBigInt(),
+      unit: this.toBigInt(unitQuote, destToken.decimals),
     };
   }
 
@@ -600,6 +608,28 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       );
       return null;
     }
+  }
+
+  private formatAmountForApi(amount: bigint, decimals: number): string {
+    const divider = getBigNumberPow(decimals);
+    const formatted = new BigNumber(amount.toString())
+      .dividedBy(divider)
+      .decimalPlaces(decimals, BigNumber.ROUND_DOWN)
+      .toFixed();
+
+    return formatted.replace(/\.0+$/, '');
+  }
+
+  private toBigInt(amount: BigNumber, decimals: number): bigint {
+    if (amount.lte(0)) {
+      return 0n;
+    }
+    return BigInt(
+      amount
+        .multipliedBy(getBigNumberPow(decimals))
+        .decimalPlaces(0, BigNumber.ROUND_DOWN)
+        .toFixed(0),
+    );
   }
 
   private async fetchFirmQuote(
