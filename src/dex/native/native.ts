@@ -400,13 +400,23 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
 
       const isBase = base === tokenLower;
       const isQuote = quote === tokenLower;
-      if (!isBase && !isQuote) return null;
 
-      const [liq0, liq1] = this.computeMaxLiquidity(entry.levels);
+      if (!isBase && !isQuote) {
+        return null;
+      }
+
+      const baseToken = this.addressToTokenMap[base];
+      const quoteToken = this.addressToTokenMap[quote];
+
+      const [liq0, liq1] = this.computeMaxLiquidity(
+        entry.levels,
+        baseToken.decimals,
+        quoteToken.decimals,
+      );
 
       const usdAmounts = await this.dexHelper.getUsdTokenAmounts([
-        [base, liq0 * 10n ** BigInt(this.addressToTokenMap[base].decimals)],
-        [quote, liq1 * 10n ** BigInt(this.addressToTokenMap[quote].decimals)],
+        [base, liq0 * 10n ** BigInt(baseToken.decimals)],
+        [quote, liq1 * 10n ** BigInt(quoteToken.decimals)],
       ]);
 
       const pool: PoolLiquidity = {
@@ -417,7 +427,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       };
 
       if (isBase) {
-        const quoteToken = this.addressToTokenMap[quote];
         pool.connectorTokens.push({
           address: entry.quote_address,
           decimals: quoteToken.decimals,
@@ -425,7 +434,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
         });
         pool.liquidityUSD = usdAmounts[0];
       } else {
-        const baseToken = this.addressToTokenMap[base];
         pool.connectorTokens.push({
           address: entry.base_address,
           decimals: baseToken.decimals,
@@ -448,11 +456,20 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
 
   private computeMaxLiquidity(
     levels: NativeOrderbookLevel[],
-  ): [bigint, bigint] {
+    decimals0: number,
+    decimals1: number,
+  ) {
     return levels.reduce(
       (acc, [v0, v1]) => {
-        acc[0] += BigInt(v0);
-        acc[1] += BigInt(v1);
+        const amt0 = BigInt(
+          Math.round(Number(v0) * Number(10n ** BigInt(decimals0))),
+        );
+        const amt1 = BigInt(
+          Math.round(Number(v1) * Number(10n ** BigInt(decimals1))),
+        );
+
+        acc[0] += amt0;
+        acc[1] += amt1;
 
         return acc;
       },
