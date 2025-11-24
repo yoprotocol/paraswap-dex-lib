@@ -339,18 +339,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
 
   async updatePoolState() {
     // load orderbook data once from cache and save locally for future use in getTopPoolsForToken
-    const orderbookRaw = await this.dexHelper.cache.getAndCacheLocally(
-      this.dexKey,
-      this.network,
-      this.orderbookCacheKey,
+    const orderbook = await this.getCachedOrderbook(
       NATIVE_ORDERBOOK_CACHE_TTL_S,
     );
 
-    if (!orderbookRaw) {
-      return;
-    }
-
-    const orderbook = this.parseCachedOrderbook(orderbookRaw);
     if (!orderbook) return;
 
     const tokenAddresses = new Set<Address>();
@@ -403,16 +395,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     tokenAddress: Address,
     limit: number,
   ): Promise<PoolLiquidity[]> {
-    const orderbookRaw = await this.dexHelper.cache.getAndCacheLocally(
-      this.dexKey,
-      this.network,
-      this.orderbookCacheKey,
+    const orderbook = await this.getCachedOrderbook(
       NATIVE_ORDERBOOK_CACHE_TTL_S,
     );
 
-    if (!orderbookRaw) return [];
-
-    const orderbook = this.parseCachedOrderbook(orderbookRaw);
     if (!orderbook) return [];
 
     const tokenLower = tokenAddress.toLowerCase();
@@ -585,36 +571,21 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     return null;
   }
 
-  private async getCachedOrderbook(): Promise<NativeOrderbookEntry[] | null> {
-    const cached = await this.dexHelper.cache.get(
+  private async getCachedOrderbook(
+    ttl?: number,
+  ): Promise<NativeOrderbookEntry[] | null> {
+    const cached = await this.dexHelper.cache.getAndCacheLocally(
       this.dexKey,
       this.network,
       this.orderbookCacheKey,
+      ttl ?? NATIVE_ORDERBOOK_POLLING_INTERVAL_MS / 1000,
     );
 
     if (!cached) {
       return null;
     }
 
-    return this.parseCachedOrderbook(cached);
-  }
-
-  private parseCachedOrderbook(data: string): NativeOrderbookEntry[] | null {
-    try {
-      const parsed = JSON.parse(data) as NativeOrderbookEntry[];
-      return parsed.map(entry => ({
-        ...entry,
-        base_address: entry.base_address.toLowerCase(),
-        quote_address: entry.quote_address.toLowerCase(),
-        side: entry.side === 'ask' ? 'ask' : 'bid',
-      }));
-    } catch (error) {
-      this.logger.error(
-        `${this.dexKey}-${this.network}: Failed to parse cached orderbook`,
-        error,
-      );
-      return null;
-    }
+    return JSON.parse(cached);
   }
 
   private formatAmountForApi(amount: bigint, decimals: number): string {

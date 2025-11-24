@@ -44,12 +44,19 @@ export class RateFetcher {
   }
 
   private handleOrderbookResponse(resp: NativeOrderbookResponse) {
+    const parsedData = resp.map(entry => ({
+      ...entry,
+      base_address: entry.base_address.toLowerCase(),
+      quote_address: entry.quote_address.toLowerCase(),
+      side: entry.side === 'ask' ? 'ask' : 'bid',
+    }));
+
     this.dexHelper.cache.setex(
       this.dexKey,
       this.dexHelper.config.data.network,
       this.orderbookCacheKey,
       this.orderbookCacheTTL,
-      JSON.stringify(resp),
+      JSON.stringify(parsedData),
     );
   }
 }
