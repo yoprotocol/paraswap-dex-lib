@@ -415,8 +415,8 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       );
 
       const usdAmounts = await this.dexHelper.getUsdTokenAmounts([
-        [base, liq0 * 10n ** BigInt(baseToken.decimals)],
-        [quote, liq1 * 10n ** BigInt(quoteToken.decimals)],
+        [base, liq0],
+        [quote, liq1],
       ]);
 
       const pool: PoolLiquidity = {
@@ -458,21 +458,12 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     levels: NativeOrderbookLevel[],
     decimals0: number,
     decimals1: number,
-  ) {
+  ): [bigint, bigint] {
     return levels.reduce(
-      (acc, [v0, v1]) => {
-        const amt0 = BigInt(
-          Math.round(Number(v0) * Number(10n ** BigInt(decimals0))),
-        );
-        const amt1 = BigInt(
-          Math.round(Number(v1) * Number(10n ** BigInt(decimals1))),
-        );
-
-        acc[0] += amt0;
-        acc[1] += amt1;
-
-        return acc;
-      },
+      ([sum0, sum1], [v0, v1]) => [
+        sum0 + BigInt(Math.round(v0 * 10 ** decimals0)),
+        sum1 + BigInt(Math.round(v1 * 10 ** decimals1)),
+      ],
       [0n, 0n],
     );
   }
