@@ -178,9 +178,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       return null;
     }
 
-    this.addressToTokenMap[_srcToken.address.toLowerCase()] = _srcToken;
-    this.addressToTokenMap[_destToken.address.toLowerCase()] = _destToken;
-
     let entries = await this.getEntriesForPair(
       _srcToken.address,
       _destToken.address,
@@ -207,12 +204,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   }
 
   getTokenFromAddress(address: Address): Token {
-    const cached = this.addressToTokenMap[address.toLowerCase()];
-
-    if (cached) {
-      return cached;
-    }
-
     return this.dexHelper.config.wrapETH({
       address,
       decimals: 18,
