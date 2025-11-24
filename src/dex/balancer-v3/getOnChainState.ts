@@ -561,6 +561,7 @@ export async function getOnChainState(
   const poolStateMap = Object.fromEntries(
     Object.entries(immutablePoolStateMap)
       .map(([address, pool]) => {
+        const startIndex = i;
         try {
           const commonMutableData = poolOnChain['COMMON'].decode(
             interfaces['VAULT'],
@@ -602,6 +603,12 @@ export async function getOnChainState(
               (error as Error).message
             }`,
           );
+
+          // Ensure index is set to skip all data for this pool
+          i =
+            startIndex +
+            poolOnChain['COMMON'].count +
+            poolOnChain[pool.poolType].count;
 
           return null;
         }
