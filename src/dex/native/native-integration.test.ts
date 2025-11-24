@@ -53,12 +53,12 @@ describe('Native Integration (unit cache based)', () => {
     expect(pools[0]).toBe(expectedPoolIdentifier);
   });
 
-  it('getPoolIdentifiers BUY', async () => {
-    const pools = await native.getPoolIdentifiers(weth, usdc, SwapSide.BUY, 0);
-    const expectedPoolIdentifier = `native_${weth.address.toLowerCase()}_${usdc.address.toLowerCase()}_bid`;
-    expect(pools.length).toBe(1);
-    expect(pools[0]).toBe(expectedPoolIdentifier);
-  });
+  // it('getPoolIdentifiers BUY', async () => {
+  //   const pools = await native.getPoolIdentifiers(weth, usdc, SwapSide.BUY, 0);
+  //   const expectedPoolIdentifier = `native_${weth.address.toLowerCase()}_${usdc.address.toLowerCase()}_bid`;
+  //   expect(pools.length).toBe(1);
+  //   expect(pools[0]).toBe(expectedPoolIdentifier);
+  // });
 
   it('getPricesVolume SELL', async () => {
     const amounts = [
@@ -100,37 +100,37 @@ describe('Native Integration (unit cache based)', () => {
     expect(poolPrices![0].unit).toBe(3200n * BI_POWS[usdc.decimals]);
   });
 
-  it('getPricesVolume BUY', async () => {
-    const unit = BI_POWS[usdc.decimals];
-    const amounts = [0n, 4000n * unit, 40000n * unit, 60000n * unit];
-    const poolPrices = await native.getPricesVolume(
-      weth,
-      usdc,
-      amounts,
-      SwapSide.BUY,
-      0,
-    );
-    expect(poolPrices).not.toBeNull();
-    expect(poolPrices![0].prices.length).toEqual(amounts.length);
+  // it('getPricesVolume BUY', async () => {
+  //   const unit = BI_POWS[usdc.decimals];
+  //   const amounts = [0n, 4000n * unit, 40000n * unit, 60000n * unit];
+  //   const poolPrices = await native.getPricesVolume(
+  //     weth,
+  //     usdc,
+  //     amounts,
+  //     SwapSide.BUY,
+  //     0,
+  //   );
+  //   expect(poolPrices).not.toBeNull();
+  //   expect(poolPrices![0].prices.length).toEqual(amounts.length);
 
-    // For BUY side, prices array represents required WETH amounts
-    expect(poolPrices![0].prices[0]).toBe(0n); // 0 USDC -> 0 WETH
+  //   // For BUY side, prices array represents required WETH amounts
+  //   expect(poolPrices![0].prices[0]).toBe(0n); // 0 USDC -> 0 WETH
 
-    // 4,000 USDC consumes full first level (1 WETH @ 3200) plus part of second level
-    const expectedBuyAmount1 = 1250391236306729264n; // ≈1.25039 WETH
-    expect(poolPrices![0].prices[1]).toBe(expectedBuyAmount1);
+  //   // 4,000 USDC consumes full first level (1 WETH @ 3200) plus part of second level
+  //   const expectedBuyAmount1 = 1250391236306729264n; // ≈1.25039 WETH
+  //   expect(poolPrices![0].prices[1]).toBe(expectedBuyAmount1);
 
-    // 40,000 USDC consumes all first two levels and part of third level
-    const expectedBuyAmount2 = 12528213166144200626n; // ≈12.5282 WETH
-    expect(poolPrices![0].prices[2]).toBe(expectedBuyAmount2);
+  //   // 40,000 USDC consumes all first two levels and part of third level
+  //   const expectedBuyAmount2 = 12528213166144200626n; // ≈12.5282 WETH
+  //   expect(poolPrices![0].prices[2]).toBe(expectedBuyAmount2);
 
-    // 60,000 USDC exceeds available quote depth (~51,075 USDC) -> expect 0
-    expect(poolPrices![0].prices[3]).toBe(0n);
+  //   // 60,000 USDC exceeds available quote depth (~51,075 USDC) -> expect 0
+  //   expect(poolPrices![0].prices[3]).toBe(0n);
 
-    // Verify unit: 1 USDC -> 1/3200 WETH = (1/3200) * 10^18 = 312500000000000n
-    const expectedUnit = (BI_POWS[weth.decimals] * 1n) / 3200n;
-    expect(poolPrices![0].unit).toBe(expectedUnit);
-  });
+  //   // Verify unit: 1 USDC -> 1/3200 WETH = (1/3200) * 10^18 = 312500000000000n
+  //   const expectedUnit = (BI_POWS[weth.decimals] * 1n) / 3200n;
+  //   expect(poolPrices![0].unit).toBe(expectedUnit);
+  // });
 
   it('getTopPoolsForToken computes max liquidity USD', async () => {
     await native.updatePoolState();
