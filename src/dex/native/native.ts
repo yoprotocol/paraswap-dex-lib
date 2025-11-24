@@ -41,8 +41,13 @@ import {
 import { BytesLike, formatUnits, parseUnits } from 'ethers/lib/utils';
 import { uint8ToNumber } from '../../lib/decoders';
 import { MultiResult } from '../../lib/multi-wrapper';
+import { SimpleExchangeWithRestrictions } from '../simple-exchange-with-restrictions';
+import { SlippageCheckError } from '../generic-rfq/types';
 
-export class Native extends SimpleExchange implements IDex<NativeData> {
+export class Native
+  extends SimpleExchangeWithRestrictions
+  implements IDex<NativeData>
+{
   readonly isStatePollingDex = true;
   readonly hasConstantPriceLargeAmounts = false;
   readonly needWrapNative = true;
@@ -52,7 +57,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   public static dexKeysWithNetwork: { key: string; networks: Network[] }[] =
     getDexKeysWithNetwork(NativeConfig);
 
-  private logger: Logger;
+  protected logger: Logger;
   private rateFetcher: RateFetcher;
   private orderbookCacheKey: string;
   private nativeApiKey: string;
@@ -65,7 +70,10 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     readonly dexKey: string,
     readonly dexHelper: IDexHelper,
   ) {
-    super(dexHelper, dexKey);
+    super(dexHelper, dexKey, {
+      enableDexRestriction: true,
+      restrictCountThreshold: 10,
+    });
 
     const dexConfig = NativeConfig[this.dexKey]?.[network];
     assert(
@@ -251,43 +259,77 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
       firmQuoteParams.beneficiary_address = options.userAddress.toLowerCase();
     }
 
-    const response = await this.fetchFirmQuote(firmQuoteParams);
+    try {
+      const response = await this.fetchFirmQuote(firmQuoteParams);
 
-    if (!response?.success || !response.txRequest) {
-      throw new Error(
-        `${this.dexKey}-${this.network}: Firm quote failed ${
-          response?.errorMessage || ''
-        }`,
-      );
-    }
+      if (!response?.success || !response.txRequest) {
+        throw new Error(
+          `${this.dexKey}-${this.network}: Firm quote failed ${
+            response?.errorMessage || ''
+          }`,
+        );
+      }
 
-    if (
-      response.txRequest.value &&
-      response.txRequest.value !== '0' &&
-      response.txRequest.value !== '0x0'
-    ) {
-      throw new Error(
-        `${this.dexKey}-${this.network}: Non-zero tx value is not supported`,
-      );
-    }
+      if (
+        response.txRequest.value &&
+        response.txRequest.value !== '0' &&
+        response.txRequest.value !== '0x0'
+      ) {
+        throw new Error(
+          `${this.dexKey}-${this.network}: Non-zero tx value is not supported`,
+        );
+      }
 
-    const deadline =
-      response.orders?.[0]?.deadlineTimestamp !== undefined
-        ? BigInt(response.orders[0].deadlineTimestamp)
-        : undefined;
+      const deadline =
+        response.orders?.[0]?.deadlineTimestamp !== undefined
+          ? BigInt(response.orders[0].deadlineTimestamp)
+          : undefined;
 
-    return [
-      {
-        ...optimalSwapExchange,
-        destAmount: response.amountOut,
-        data: {
-          quote: response,
+      const destAmount = BigInt(optimalSwapExchange.destAmount);
+
+      const slippageFactor = options.slippageFactor;
+
+      const requiredAmountWithSlippage = new BigNumber(destAmount.toString())
+        .multipliedBy(slippageFactor)
+        .toFixed(0);
+
+      if (BigInt(response.amountOut) < BigInt(requiredAmountWithSlippage)) {
+        throw new SlippageCheckError(
+          this.dexKey,
+          this.network,
+          side,
+          requiredAmountWithSlippage,
+          response.amountOut.toString(),
+          slippageFactor,
+        );
+      }
+
+      return [
+        {
+          ...optimalSwapExchange,
+          destAmount: response.amountOut,
+          data: {
+            quote: response,
+          },
         },
-      },
-      {
-        deadline,
-      },
-    ];
+        {
+          deadline,
+        },
+      ];
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to preprocess transaction for quote ${JSON.stringify(
+          firmQuoteParams,
+        )} with error: ${(error as Error).message}, `,
+        error,
+      );
+
+      if (!error?.isSlippageError) {
+        this.restrict();
+      }
+
+      throw new Error(error);
+    }
   }
 
   getAdapterParam(
