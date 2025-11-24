@@ -9,6 +9,7 @@ export class RateFetcher {
   private orderbookCacheTTL: number;
 
   constructor(
+    private dexKey: string,
     private dexHelper: IDexHelper,
     private logger: Logger,
     config: NativeRateFetcherConfig,
@@ -43,10 +44,12 @@ export class RateFetcher {
   }
 
   private handleOrderbookResponse(resp: NativeOrderbookResponse) {
-    this.dexHelper.cache.rawset(
+    this.dexHelper.cache.setex(
+      this.dexKey,
+      this.dexHelper.config.data.network,
       this.orderbookCacheKey,
-      JSON.stringify(resp),
       this.orderbookCacheTTL,
+      JSON.stringify(resp),
     );
   }
 }

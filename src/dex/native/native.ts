@@ -85,7 +85,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     );
     this.nativeApiKey = apiKey;
 
-    this.orderbookCacheKey = `${CACHE_PREFIX}_${network}_${dexKey}_orderbook`;
+    this.orderbookCacheKey = `orderbook`;
 
     const rateFetcherConfig: NativeRateFetcherConfig = {
       rateConfig: {
@@ -105,6 +105,7 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     };
 
     this.rateFetcher = new RateFetcher(
+      this.dexKey,
       this.dexHelper,
       this.logger,
       rateFetcherConfig,
@@ -118,7 +119,9 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   }
 
   releaseResources(): void {
-    this.rateFetcher.stop();
+    if (!this.dexHelper.config.isSlave) {
+      this.rateFetcher.stop();
+    }
   }
 
   getAdapters(): { name: string; index: number }[] | null {
@@ -583,7 +586,11 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
   }
 
   private async getCachedOrderbook(): Promise<NativeOrderbookEntry[] | null> {
-    const cached = await this.dexHelper.cache.rawget(this.orderbookCacheKey);
+    const cached = await this.dexHelper.cache.get(
+      this.dexKey,
+      this.network,
+      this.orderbookCacheKey,
+    );
 
     if (!cached) {
       return null;
