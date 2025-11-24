@@ -587,16 +587,6 @@ export class Native extends SimpleExchange implements IDex<NativeData> {
     return JSON.parse(cached);
   }
 
-  private formatAmountForApi(amount: bigint, decimals: number): string {
-    const divider = getBigNumberPow(decimals);
-    const formatted = new BigNumber(amount.toString())
-      .dividedBy(divider)
-      .decimalPlaces(decimals, BigNumber.ROUND_DOWN)
-      .toFixed();
-
-    return formatted.replace(/\.0+$/, '');
-  }
-
   private toBigInt(amount: BigNumber, decimals: number): bigint {
     if (amount.lte(0)) {
       return 0n;
