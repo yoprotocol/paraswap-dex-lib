@@ -348,6 +348,8 @@ export class DummyDexHelper implements IDexHelper {
   provider: Provider;
   multiContract: Contract;
   multiWrapper: MultiWrapper;
+  multiNonZeroSenderContract: Contract;
+  multiNonZeroSenderWrapper: MultiWrapper;
   augustusApprovals: AugustusApprovals;
   promiseScheduler: PromiseScheduler;
   blockManager: IBlockManager;
@@ -374,6 +376,11 @@ export class DummyDexHelper implements IDexHelper {
       multiABIV2 as any,
       this.config.data.multicallV2Address,
     );
+    this.multiNonZeroSenderContract = new this.web3Provider.eth.Contract(
+      multiABIV2 as any,
+      this.config.data.multicallV2Address,
+      { from: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+    );
     this.blockManager = new DummyBlockManager();
     this.getLogger = name => {
       const logger = log4js.getLogger(name);
@@ -396,6 +403,11 @@ export class DummyDexHelper implements IDexHelper {
     this.multiWrapper = new MultiWrapper(
       this.multiContract,
       this.getLogger(`MultiWrapper-${network}`),
+    );
+
+    this.multiNonZeroSenderWrapper = new MultiWrapper(
+      this.multiNonZeroSenderContract,
+      this.getLogger(`MultiNonZeroSenderWrapper-${network}`),
     );
 
     this.promiseScheduler = new PromiseScheduler(
