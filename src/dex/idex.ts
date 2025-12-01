@@ -141,6 +141,18 @@ export interface IDexTxBuilder<ExchangeData, DirectParam = null>
   getTokenFromAddress?(address: Address): Token;
 }
 
+export interface IDexWithBlacklist {
+  hasBlacklist(): this is IDexWithBlacklist;
+  isBlacklisted(address: string): Promise<boolean>;
+  getBlacklistedCacheKey(address: string): string;
+}
+
+export interface IDexWithRestriction {
+  hasDexRestriction(): this is IDexWithRestriction;
+  isRestricted(): Promise<boolean>;
+  getRestrictedCacheKey(): string;
+}
+
 export interface IDexPricing<ExchangeData> {
   readonly dexKey: string;
   // This is true if the the DEX is simply
@@ -210,12 +222,14 @@ export interface IDexPricing<ExchangeData> {
   // Build an event based pool with all the info to create inside
   // a cache key name poolKey
   addMasterPool?(poolKey: string, blockNumber: number): AsyncOrSync<boolean>;
-  // return true if the userAddress is is blacklisted from the exchange
-  // useful for RFQ system
-  isBlacklisted?(userAddress?: Address): AsyncOrSync<boolean>;
 
-  // blacklist a specific userAddress from exchange
-  setBlacklist?(userAddress?: Address): AsyncOrSync<boolean>;
+  hasDexRestriction?(): this is IDexWithRestriction;
+  hasBlacklist?(): this is IDexWithBlacklist;
+
+  // can be used to define what min usd value can be traded (e.g. on RFQ)
+  // null means usd check should be skipped
+  // `0` or any number means only tokens with usd price can be traded
+  minUsdTradeValue?(): number | null;
 }
 
 export interface IDexPooltracker {
